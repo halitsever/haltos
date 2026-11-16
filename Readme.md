@@ -4,7 +4,7 @@
 <img src="https://halitsever-api.vercel.app/api/repo-title?title=haltos">
 
 <p align="center">
-A monochrome, terminal-flavoured identity layer that turns Ubuntu + KDE Plasma into HaltOS.<br>
+A monochrome, terminal-flavoured identity layer that turns Ubuntu + KDE Plasma into HaltOS, a Claude Code workstation.<br>
 <br/>
 <br/>
 <img src="https://img.shields.io/github/sponsors/halitsever"/>
@@ -44,7 +44,15 @@ A monochrome, terminal-flavoured identity layer that turns Ubuntu + KDE Plasma i
 <img src="https://halitsever-api.vercel.app/api/installation"/>
 </p>
 
-Tested on Ubuntu 26.04 with Plasma 6.6. The installer stops early with a clear message when Plasma 6 tools are missing.
+On a fresh Ubuntu 25.04+ server, as root. This installs [claude-code-vps](https://github.com/halitsever/claude-code-vps) first (Plasma over RDP, hardened SSH, Docker, Claude Code, claudegrid), then HaltOS on top:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh | sudo bash
+```
+
+Options after `bash -s --` go to `claude-vps setup`, e.g. `| sudo bash -s -- --user dev --yes`. Connect over RDP afterwards and HaltOS finishes the panel and wallpaper on the first login. The bootstrap stops before installing anything on releases without Plasma 6 (Ubuntu 24.04 ships Plasma 5).
+
+On a machine that already runs Plasma 6:
 
 ```sh
 git clone https://github.com/halitsever/haltos ~/haltos
@@ -53,6 +61,16 @@ sudo ~/haltos/install.sh system   # OS identity, MOTD, login and boot themes, de
 ```
 
 Log out and back in once so running apps pick up the Kvantum style. The first `install.sh user` saves your KDE config to `~/.haltos-backup/kde-config-original.tar.gz`.
+
+### With claude-code-vps
+
+`claude-vps sync` applies your captured KDE config, which would otherwise wash the theme out. HaltOS installs a hook in `~/.config/claude-vps/post-apply.d/` that runs `haltos refresh` after every sync that changed files. Refresh rewrites the settings without a new backup and without restarting Plasma.
+
+To update a bootstrapped server:
+
+```sh
+sudo claude-vps update && sudo haltos update
+```
 
 To remove HaltOS:
 
