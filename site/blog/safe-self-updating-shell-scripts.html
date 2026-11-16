@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Self-updating shell scripts without the footguns | HaltOS</title>
+<meta name="description" content="A shell script that updates itself with git can execute half of the old file and half of the new. Here is how HaltOS updates safely, follows release tags and tells you when a new version exists.">
+<link rel="canonical" href="https://halitsever.github.io/haltos/blog/safe-self-updating-shell-scripts.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="Self-updating shell scripts without the footguns">
+<meta property="og:description" content="A shell script that updates itself with git can execute half of the old file and half of the new. Here is how HaltOS updates safely, follows release tags and tells you when a new version exists.">
+<meta property="og:url" content="https://halitsever.github.io/haltos/blog/safe-self-updating-shell-scripts.html">
+<meta property="og:image" content="https://halitsever.github.io/haltos/blog/covers/safe-self-updating-shell-scripts.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://halitsever.github.io/haltos/blog/covers/safe-self-updating-shell-scripts.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Self-updating shell scripts without the footguns",
+  "description": "A shell script that updates itself with git can execute half of the old file and half of the new. Here is how HaltOS updates safely, follows release tags and tells you when a new version exists.",
+  "image": "https://halitsever.github.io/haltos/blog/covers/safe-self-updating-shell-scripts.png",
+  "datePublished": "2026-11-16",
+  "author": {
+    "@type": "Person",
+    "name": "Halit Sever",
+    "url": "https://github.com/halitsever"
+  },
+  "mainEntityOfPage": "https://halitsever.github.io/haltos/blog/safe-self-updating-shell-scripts.html"
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../#units">What's inside</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta">16 November 2026, Halit Sever</p>
+    <h1>Self-updating shell scripts without the footguns</h1>
+    <figure class="post-cover"><img src="covers/safe-self-updating-shell-scripts.png" width="1200" height="630" alt=""></figure>
+<p class="post-lede">HaltOS is mostly a shell script, and <code>sudo haltos update</code> replaces that script while it runs. That is more dangerous than it sounds. These are the patterns that make it safe.</p>
+<h2>Bash reads your script while it runs</h2>
+<p>Bash does not load a script into memory before running it. It reads as it goes. If <code>git pull</code> rewrites the file halfway through, bash carries on reading at the same byte offset, now in the middle of the new file, and runs whatever it finds there.</p>
+<p>The fix is to never return to the old file after the update. Hand over to the new copy with <code>exec</code>, which replaces the running process:</p>
+<pre class="post-code"><code>git -C "$HERE" checkout -q "v$target"
+# The checkout rewrote this script, so the rest runs in the new copy.
+exec "$HERE/install.sh" finish-update "$old"</code></pre>
+<h2>Follow releases, not the main branch</h2>
+<p>Pulling <code>main</code> gives every server whatever was merged five minutes ago. Releases are safer: servers check out the newest version tag, and only people who ask for it follow <code>main</code>.</p>
+<pre class="post-code"><code>target=$(git tag -l 'v*' | sed 's/^v//' | sort -V | tail -1)</code></pre>
+<p><code>sort -V</code> matters: plain sorting puts 1.10.0 before 1.9.0.</p>
+<h2>Check for updates cheaply</h2>
+<p><code>git ls-remote</code> lists the remote's tags without downloading anything. A daily systemd timer runs it and writes the newest version to a file, and the SSH login banner compares it with the installed version:</p>
+<pre class="post-code"><code>git ls-remote --tags --refs origin 'v*' | sed 's|.*refs/tags/v||' | sort -V | tail -1</code></pre>
+<p>Logging in never waits on the network, and you still find out about a new release within a day.</p>
+<h2>Refuse to clobber local work</h2>
+<p>Before switching versions, the update checks that the checkout has no local changes and stops with a clear message if it does. An update that silently throws away someone's edits is worse than no update.</p>
+<h2>Releasing is one command</h2>
+<p>On the other side, <code>tools/release.sh 1.1.0</code> checks that the <code>VERSION</code> file and the changelog agree, tags and pushes, and a GitHub Actions workflow publishes the release. The whole flow is in the <a href="https://github.com/halitsever/haltos">HaltOS repository</a>.</p>
+    <p class="post-links"><a href="./">All posts</a> <a href="parallel-claude-code-agents-git-worktrees.html">Next: Run several Claude Code agents in parallel with git worktrees</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

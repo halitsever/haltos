@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rebrand Ubuntu without breaking apt: os-release and dpkg-divert | HaltOS</title>
+<meta name="description" content="Changing what Ubuntu calls itself is easy to get wrong. Keep ID=ubuntu, change the display fields, and protect your files with dpkg-divert so package updates do not overwrite them.">
+<link rel="canonical" href="https://halitsever.github.io/haltos/blog/rebrand-ubuntu-os-release-dpkg-divert.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="Rebrand Ubuntu without breaking apt: os-release and dpkg-divert">
+<meta property="og:description" content="Changing what Ubuntu calls itself is easy to get wrong. Keep ID=ubuntu, change the display fields, and protect your files with dpkg-divert so package updates do not overwrite them.">
+<meta property="og:url" content="https://halitsever.github.io/haltos/blog/rebrand-ubuntu-os-release-dpkg-divert.html">
+<meta property="og:image" content="https://halitsever.github.io/haltos/blog/covers/rebrand-ubuntu-os-release-dpkg-divert.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://halitsever.github.io/haltos/blog/covers/rebrand-ubuntu-os-release-dpkg-divert.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Rebrand Ubuntu without breaking apt: os-release and dpkg-divert",
+  "description": "Changing what Ubuntu calls itself is easy to get wrong. Keep ID=ubuntu, change the display fields, and protect your files with dpkg-divert so package updates do not overwrite them.",
+  "image": "https://halitsever.github.io/haltos/blog/covers/rebrand-ubuntu-os-release-dpkg-divert.png",
+  "datePublished": "2026-11-16",
+  "author": {
+    "@type": "Person",
+    "name": "Halit Sever",
+    "url": "https://github.com/halitsever"
+  },
+  "mainEntityOfPage": "https://halitsever.github.io/haltos/blog/rebrand-ubuntu-os-release-dpkg-divert.html"
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../#units">What's inside</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta">16 November 2026, Halit Sever</p>
+    <h1>Rebrand Ubuntu without breaking apt: os-release and dpkg-divert</h1>
+    <figure class="post-cover"><img src="covers/rebrand-ubuntu-os-release-dpkg-divert.png" width="1200" height="630" alt=""></figure>
+<p class="post-lede">HaltOS introduces itself as HaltOS 1.0 (SIGKILL) in <code>lsb_release</code>, fastfetch and the KDE About page, while apt, PPAs and vendor install scripts still see Ubuntu. Getting there takes a little care.</p>
+<h2>The fields that matter</h2>
+<p><code>/etc/os-release</code> is where programs ask which system they run on. Some fields are for people, some for scripts:</p>
+<pre class="post-code"><code>PRETTY_NAME="HaltOS 1.0 (SIGKILL)"
+NAME="HaltOS"
+VERSION="1.0 (SIGKILL)"
+VARIANT_ID=haltos
+ID=ubuntu
+ID_LIKE=debian
+VERSION_CODENAME=resolute</code></pre>
+<p><code>NAME</code>, <code>PRETTY_NAME</code> and <code>VARIANT</code> are what people see. <code>ID</code>, <code>VERSION_ID</code> and <code>VERSION_CODENAME</code> are what installers read to decide which packages to fetch. Change those and every script that checks for Ubuntu breaks. Keep them, and you can rename the system freely.</p>
+<h2>Do not just overwrite the file</h2>
+<p><code>/usr/lib/os-release</code>, <code>/etc/lsb-release</code> and <code>/etc/issue</code> belong to the <code>base-files</code> package, and the next update would silently put Ubuntu's versions back. <code>dpkg-divert</code> tells dpkg to install its copy somewhere else instead:</p>
+<pre class="post-code"><code>cp -a /usr/lib/os-release /usr/lib/os-release.ubuntu
+dpkg-divert --local --no-rename --divert /usr/lib/os-release.ubuntu --add /usr/lib/os-release</code></pre>
+<p>Copy first and divert with <code>--no-rename</code>: the essential file is never missing, not even for a moment, and package updates now land in the <code>.ubuntu</code> copy, which you can read the real version numbers from.</p>
+<h2>Everything else follows</h2>
+<p>Ubuntu's <code>lsb_release</code> reads <code>os-release</code>, so it follows automatically. The KDE About page takes a logo and website from <code>/etc/xdg/kcm-about-distrc</code>. fastfetch was the odd one out: it saw <code>ID=ubuntu</code> plus KDE and decided the system was Kubuntu, so HaltOS prints the OS line from <code>os-release</code> directly.</p>
+<h2>Undo</h2>
+<p>Reversing it is the same steps backwards: copy the diverted file back, remove the diversion, delete the copy. <code>sudo haltos undo-system</code> does exactly that.</p>
+    <p class="post-links"><a href="./">All posts</a> <a href="kvantum-theme-from-design-tokens.html">Next: Generate a Kvantum theme from design tokens</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

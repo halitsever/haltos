@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generate a Kvantum theme from design tokens | HaltOS</title>
+<meta name="description" content="Drawing a Kvantum theme by hand means hundreds of SVG elements. Generating it from a handful of design tokens keeps every widget consistent and lets you recolour the whole theme in one place.">
+<link rel="canonical" href="https://halitsever.github.io/haltos/blog/kvantum-theme-from-design-tokens.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="Generate a Kvantum theme from design tokens">
+<meta property="og:description" content="Drawing a Kvantum theme by hand means hundreds of SVG elements. Generating it from a handful of design tokens keeps every widget consistent and lets you recolour the whole theme in one place.">
+<meta property="og:url" content="https://halitsever.github.io/haltos/blog/kvantum-theme-from-design-tokens.html">
+<meta property="og:image" content="https://halitsever.github.io/haltos/blog/covers/kvantum-theme-from-design-tokens.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://halitsever.github.io/haltos/blog/covers/kvantum-theme-from-design-tokens.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Generate a Kvantum theme from design tokens",
+  "description": "Drawing a Kvantum theme by hand means hundreds of SVG elements. Generating it from a handful of design tokens keeps every widget consistent and lets you recolour the whole theme in one place.",
+  "image": "https://halitsever.github.io/haltos/blog/covers/kvantum-theme-from-design-tokens.png",
+  "datePublished": "2026-11-16",
+  "author": {
+    "@type": "Person",
+    "name": "Halit Sever",
+    "url": "https://github.com/halitsever"
+  },
+  "mainEntityOfPage": "https://halitsever.github.io/haltos/blog/kvantum-theme-from-design-tokens.html"
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../#units">What's inside</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta">16 November 2026, Halit Sever</p>
+    <h1>Generate a Kvantum theme from design tokens</h1>
+    <figure class="post-cover"><img src="covers/kvantum-theme-from-design-tokens.png" width="1200" height="630" alt=""></figure>
+<p class="post-lede">Kvantum styles every Qt and KDE widget from an SVG file and a config file. A complete theme needs over a thousand SVG elements. HaltOS generates all of them from about a dozen colours taken from shadcn's zinc palette.</p>
+<h2>How Kvantum draws a widget</h2>
+<p>For each widget type, the <code>.kvconfig</code> names an element, say <code>button</code>. Kvantum then looks up nine pieces per state in the SVG: <code>button-normal-topleft</code>, <code>button-normal-top</code>, and so on around the edges, plus <code>button-normal</code> for the middle. It stretches the edges and keeps the corners, so one small drawing fits a button of any size. States are <code>normal</code>, <code>focused</code> (hover), <code>pressed</code>, <code>toggled</code> and <code>disabled</code>.</p>
+<h2>Tokens instead of drawings</h2>
+<p>Instead of drawing those pieces, a script computes them. Each element gets a fill and a border colour per state, picked from tokens:</p>
+<pre class="post-code"><code>button:  normal  (bg, border)   focused (accent, border)
+         pressed (strong, strong) toggled (primary, primary)
+lineedit: normal (none, border) focused (none, ring)</code></pre>
+<p>The script turns each pair into rounded corner paths and edge rectangles at the right coordinates. Change one token and every widget follows.</p>
+<h2>Gotchas worth knowing</h2>
+<ul>
+<li>The keyboard focus frame uses stateless ids: <code>focus-top</code>, not <code>focus-normal-top</code>. Get it wrong and Kvantum falls back to a dashed rectangle.</li>
+<li>Dials are stateless too: <code>dial</code>, <code>dial-handle</code> and <code>dial-notches</code>.</li>
+<li>Missing elements fall back to Kvantum's built-in default theme, which is light. One forgotten element, such as <code>button-default-indicator</code>, shows up as a stray triangle.</li>
+<li>Avoid <code>rgba()</code> in fills. Use <code>fill-opacity</code>, which Qt's SVG renderer always understands.</li>
+</ul>
+<h2>The same trick for Plasma</h2>
+<p>Plasma themes can be partial. HaltOS ships only a panel background, opaque and translucent, and everything else falls back to Breeze. The generator draws that panel from the same tokens, so the top bar matches the widgets.</p>
+<p>The generators are small Python scripts in the <a href="https://github.com/halitsever/haltos">HaltOS repository</a>, and CI checks that the committed theme matches what they produce.</p>
+    <p class="post-links"><a href="./">All posts</a> <a href="dotfiles-sync-without-leaks.html">Next: Keep your dotfiles in git without leaking private files</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

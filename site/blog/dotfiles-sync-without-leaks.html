@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keep your dotfiles in git without leaking private files | HaltOS</title>
+<meta name="description" content="Syncing desktop config through a public git repository is convenient and risky. Scrub home paths, drop history, skip binary files and keep a per-machine local-only list.">
+<link rel="canonical" href="https://halitsever.github.io/haltos/blog/dotfiles-sync-without-leaks.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="Keep your dotfiles in git without leaking private files">
+<meta property="og:description" content="Syncing desktop config through a public git repository is convenient and risky. Scrub home paths, drop history, skip binary files and keep a per-machine local-only list.">
+<meta property="og:url" content="https://halitsever.github.io/haltos/blog/dotfiles-sync-without-leaks.html">
+<meta property="og:image" content="https://halitsever.github.io/haltos/blog/covers/dotfiles-sync-without-leaks.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://halitsever.github.io/haltos/blog/covers/dotfiles-sync-without-leaks.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Keep your dotfiles in git without leaking private files",
+  "description": "Syncing desktop config through a public git repository is convenient and risky. Scrub home paths, drop history, skip binary files and keep a per-machine local-only list.",
+  "image": "https://halitsever.github.io/haltos/blog/covers/dotfiles-sync-without-leaks.png",
+  "datePublished": "2026-11-16",
+  "author": {
+    "@type": "Person",
+    "name": "Halit Sever",
+    "url": "https://github.com/halitsever"
+  },
+  "mainEntityOfPage": "https://halitsever.github.io/haltos/blog/dotfiles-sync-without-leaks.html"
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../#units">What's inside</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta">16 November 2026, Halit Sever</p>
+    <h1>Keep your dotfiles in git without leaking private files</h1>
+    <figure class="post-cover"><img src="covers/dotfiles-sync-without-leaks.png" width="1200" height="630" alt=""></figure>
+<p class="post-lede">Publishing your KDE and Claude Code config to a git repository lets every new server look and behave like your own on the first login. It also makes it very easy to publish something you did not mean to. These are the guard rails claude-code-vps uses.</p>
+<h2>Capture, publish, sync</h2>
+<p>On your main machine, <code>claude-vps capture</code> copies the files listed in a manifest into the repository and <code>publish</code> commits and pushes them. Servers run <code>claude-vps sync</code>, by hand or every 30 minutes with a systemd timer, which pulls and applies them. Every file it replaces is backed up first.</p>
+<h2>Only what you list</h2>
+<p>Nothing is captured unless it is in the manifest. Credentials are simply never listed: Claude Code's credentials, SSH keys, KWallet and browser profiles stay out by design rather than by filter.</p>
+<h2>Scrub what you do capture</h2>
+<p>Config files are full of your home directory and your recent files. Capture replaces the home path with <code>@HOME@</code>, which apply turns back into the right path for each user, and drops whole sections whose names mention recent files or history.</p>
+<h2>Never capture binary files</h2>
+<p>A folder such as <code>~/.local/share/wallpapers</code> can hold a private photo, and a binary file cannot be scrubbed. So capture skips every binary file, even inside a listed folder, and says so:</p>
+<pre class="post-code"><code>! skipped binary file .local/share/wallpapers/beach.jpg</code></pre>
+<h2>Keep some files per machine</h2>
+<p>Some files should never sync, because they hold machine-specific notes or because another tool owns them. List them in <code>~/.config/claude-vps/local-only</code>: apply leaves them alone, and capture keeps whatever the repository already had instead of taking this machine's copy.</p>
+<pre class="post-code"><code># ~/.config/claude-vps/local-only
+.claude/settings.json
+# >>> haltos
+.config/kdeglobals
+.config/plasma-org.kde.plasma.desktop-appletsrc
+# <<< haltos</code></pre>
+<p>HaltOS uses exactly this: it claims its theme files in a marked block, so a sync never undoes the theme and a publish never pushes it into your public dotfiles.</p>
+<h2>Let other tools react</h2>
+<p>Executables in <code>~/.config/claude-vps/post-apply.d/</code> run after a sync that changed files. That is how a layer like HaltOS puts its panel back after a sync without either project knowing much about the other.</p>
+    <p class="post-links"><a href="./">All posts</a> <a href="monochrome-desktop-for-ai-coding.html">Next: Why a monochrome desktop works for AI coding</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

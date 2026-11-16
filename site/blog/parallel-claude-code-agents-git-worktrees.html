@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run several Claude Code agents in parallel with git worktrees | HaltOS</title>
+<meta name="description" content="Two Claude Code agents in one checkout will edit the same files. Give each agent its own git worktree and branch, and run them side by side with claudegrid.">
+<link rel="canonical" href="https://halitsever.github.io/haltos/blog/parallel-claude-code-agents-git-worktrees.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="Run several Claude Code agents in parallel with git worktrees">
+<meta property="og:description" content="Two Claude Code agents in one checkout will edit the same files. Give each agent its own git worktree and branch, and run them side by side with claudegrid.">
+<meta property="og:url" content="https://halitsever.github.io/haltos/blog/parallel-claude-code-agents-git-worktrees.html">
+<meta property="og:image" content="https://halitsever.github.io/haltos/blog/covers/parallel-claude-code-agents-git-worktrees.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://halitsever.github.io/haltos/blog/covers/parallel-claude-code-agents-git-worktrees.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Run several Claude Code agents in parallel with git worktrees",
+  "description": "Two Claude Code agents in one checkout will edit the same files. Give each agent its own git worktree and branch, and run them side by side with claudegrid.",
+  "image": "https://halitsever.github.io/haltos/blog/covers/parallel-claude-code-agents-git-worktrees.png",
+  "datePublished": "2026-11-16",
+  "author": {
+    "@type": "Person",
+    "name": "Halit Sever",
+    "url": "https://github.com/halitsever"
+  },
+  "mainEntityOfPage": "https://halitsever.github.io/haltos/blog/parallel-claude-code-agents-git-worktrees.html"
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../#units">What's inside</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta">16 November 2026, Halit Sever</p>
+    <h1>Run several Claude Code agents in parallel with git worktrees</h1>
+    <figure class="post-cover"><img src="covers/parallel-claude-code-agents-git-worktrees.png" width="1200" height="630" alt=""></figure>
+<p class="post-lede">One Claude Code agent per task is the easy part. The moment you run a second one in the same checkout, both agents edit the same files and step on each other. Git worktrees fix that, and claudegrid sets them up for you.</p>
+<h2>The problem with one checkout</h2>
+<p>A repository has one working directory. If one agent refactors the API while another fixes a test, they share that directory: the second agent sees half-finished edits from the first, runs tests against code that is mid-change, and may overwrite a file the other just wrote. The result is a mess you have to untangle by hand.</p>
+<h2>What a worktree is</h2>
+<p>A git worktree is an extra working directory attached to the same repository. Each worktree has its own branch and its own files, but they share history and objects, so creating one is fast and cheap:</p>
+<pre class="post-code"><code>git worktree add ../myapp-fix-tests -b fix-tests
+git worktree add ../myapp-api -b api-refactor</code></pre>
+<p>Now each agent works in its own directory on its own branch. Nothing they do can collide until you merge.</p>
+<h2>Let claudegrid do it</h2>
+<p><a href="https://github.com/halitsever/claudegrid">claudegrid</a> opens a grid of Claude Code sessions in one window. With <code>--worktrees</code>, every pane gets its own worktree and branch:</p>
+<pre class="post-code"><code>claudegrid --layout 2x2 --worktrees \
+  -p "Fix the failing tests in tests/api" \
+  -p "Add pagination to the users endpoint" \
+  -p "Write docs for the new config options" \
+  -p "Find dead code in src/legacy"</code></pre>
+<p>Each <code>-p</code> sends a prompt to the next pane, so all four agents start working at once. <code>--model</code> picks the model for every pane, and <code>--backend</code> chooses where the grid opens: Konsole, tmux, kitty, WezTerm or iTerm2. With tmux, <code>--detach</code> starts the session in the background so it survives your SSH connection.</p>
+<h2>Reviewing and merging</h2>
+<p>When an agent finishes, its work is a normal branch. Review it like any pull request:</p>
+<pre class="post-code"><code>git diff main...fix-tests
+git merge fix-tests
+git worktree remove ../myapp-fix-tests</code></pre>
+<p>Keep each task small and self-contained. Agents do best with one clear goal per pane, and small branches are easier to review and merge in any order.</p>
+<h2>Where this runs best</h2>
+<p>Four agents working for an hour is exactly the kind of job you do not want to stop when your laptop sleeps. On a server, the grid keeps running after you disconnect. <a href="../">HaltOS</a> sets up such a server with claudegrid preinstalled and a desktop you reach over RDP.</p>
+    <p class="post-links"><a href="./">All posts</a> <a href="secure-vps-remote-development.html">Next: Secure a VPS for remote development: SSH keys, ufw and RDP</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

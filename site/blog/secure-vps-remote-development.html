@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Secure a VPS for remote development: SSH keys, ufw and RDP | HaltOS</title>
+<meta name="description" content="A remote dev box is reachable from the whole internet. Key-only SSH, a default-deny firewall, unattended upgrades and an RDP port you can keep closed make it a much smaller target.">
+<link rel="canonical" href="https://halitsever.github.io/haltos/blog/secure-vps-remote-development.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="Secure a VPS for remote development: SSH keys, ufw and RDP">
+<meta property="og:description" content="A remote dev box is reachable from the whole internet. Key-only SSH, a default-deny firewall, unattended upgrades and an RDP port you can keep closed make it a much smaller target.">
+<meta property="og:url" content="https://halitsever.github.io/haltos/blog/secure-vps-remote-development.html">
+<meta property="og:image" content="https://halitsever.github.io/haltos/blog/covers/secure-vps-remote-development.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://halitsever.github.io/haltos/blog/covers/secure-vps-remote-development.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Secure a VPS for remote development: SSH keys, ufw and RDP",
+  "description": "A remote dev box is reachable from the whole internet. Key-only SSH, a default-deny firewall, unattended upgrades and an RDP port you can keep closed make it a much smaller target.",
+  "image": "https://halitsever.github.io/haltos/blog/covers/secure-vps-remote-development.png",
+  "datePublished": "2026-11-16",
+  "author": {
+    "@type": "Person",
+    "name": "Halit Sever",
+    "url": "https://github.com/halitsever"
+  },
+  "mainEntityOfPage": "https://halitsever.github.io/haltos/blog/secure-vps-remote-development.html"
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../#units">What's inside</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta">16 November 2026, Halit Sever</p>
+    <h1>Secure a VPS for remote development: SSH keys, ufw and RDP</h1>
+    <figure class="post-cover"><img src="covers/secure-vps-remote-development.png" width="1200" height="630" alt=""></figure>
+<p class="post-lede">A development VPS holds your code, your tokens and often your cloud credentials, and it is reachable from the whole internet. A few defaults make it a far smaller target. This is what claude-code-vps sets up, and why.</p>
+<h2>Keys only for SSH</h2>
+<p>Password logins are what automated scanners try all day. Turning them off removes the whole class of attack. claude-code-vps writes a small drop-in instead of editing the main config:</p>
+<pre class="post-code"><code># /etc/ssh/sshd_config.d/10-claude-vps.conf
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password</code></pre>
+<p>It validates the config with <code>sshd -t</code> before reloading, so a typo cannot lock you out, and it copies the root account's authorized keys to your new sudo user so you can log in as that user straight away.</p>
+<h2>A firewall that denies by default</h2>
+<p>ufw starts by allowing nothing in and everything out. Only what you need gets opened:</p>
+<pre class="post-code"><code>ufw allow OpenSSH
+ufw allow 53389/tcp comment 'xrdp'
+ufw --force enable</code></pre>
+<p>Remote desktop runs on a custom port rather than 3389. That does not make it secure on its own, but it keeps the logs free of the endless 3389 scans.</p>
+<h2>Keep RDP closed if you can</h2>
+<p>The safest RDP port is a closed one. With <code>--rdp-private</code>, the RDP port stays shut and you reach the desktop through an SSH tunnel instead:</p>
+<pre class="post-code"><code>ssh -L 3389:localhost:53389 dev@your-server</code></pre>
+<p>Then point your RDP client at <code>localhost:3389</code>. Everything travels inside SSH, protected by your key.</p>
+<h2>Updates without thinking about them</h2>
+<p>Security fixes only help once they are installed. <code>unattended-upgrades</code> applies them automatically. On HaltOS, the SSH login banner also shows how many updates are pending and how many of them are security updates, so you notice when a reboot is due.</p>
+<h2>Secrets stay out of git</h2>
+<p>If you sync your config from a git repository, make sure credentials never end up in it. claude-code-vps only captures files listed in a manifest, never takes the Claude credentials, SSH keys or wallet files, and skips binary files entirely. More on that in <a href="dotfiles-sync-without-leaks.html">keeping dotfiles in git without leaks</a>.</p>
+    <p class="post-links"><a href="./">All posts</a> <a href="kde-plasma-over-rdp-xrdp.html">Next: KDE Plasma over RDP on a VPS with xrdp</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>
