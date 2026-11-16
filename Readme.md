@@ -15,7 +15,7 @@ A Claude Code workstation OS for your VPS: a monochrome, terminal-flavoured laye
 </p>
 
 <p align="center">
-<img src="docs/screenshots/desktop.png" width="760"/>
+<img src="docs/screenshots/claudegrid.png" alt="claudegrid running four Claude Code agents side by side on HaltOS" width="760"/>
 </p>
 
 <p align="center">
@@ -23,6 +23,7 @@ A Claude Code workstation OS for your VPS: a monochrome, terminal-flavoured laye
 </p>
 
 - **OS identity**: `/etc/os-release`, `lsb_release`, `/etc/issue` and the KDE About page report `HaltOS 1.0 (SIGKILL)`. `ID=ubuntu` is kept, so apt, PPAs and vendor scripts keep working. Ubuntu's files are preserved with `dpkg-divert`.
+- **Claude Code**: [claudegrid](https://github.com/halitsever/claudegrid) opens a grid of Claude Code agents in one window, with a prompt, model and git worktree per pane.
 - **Plasma**: `HaltMono` colour scheme (shadcn zinc palette), JetBrains Mono everywhere, ASCII splash with a fake boot log, floating panel with a dot start icon, flat Breeze titlebars.
 - **Widgets**: `HaltMono` Kvantum theme with shadcn-style outline buttons, inputs, menus, tabs, checkboxes and thin auto-hiding scrollbars.
 - **GTK**: Breeze GTK follows the colour scheme, and libadwaita apps get the same zinc tokens with a white primary.
@@ -35,10 +36,8 @@ A Claude Code workstation OS for your VPS: a monochrome, terminal-flavoured laye
 | <img src="docs/screenshots/widgets.png" width="420"/> | <img src="docs/screenshots/terminal.png" width="420"/> |
 | **Login (SDDM)** | **Splash** |
 | <img src="docs/screenshots/login.png" width="420"/> | <img src="docs/screenshots/splash.png" width="420"/> |
-
-<p align="center">
-<img src="docs/screenshots/libadwaita.png" width="200"/>
-</p>
+| **Desktop** | **GTK apps** |
+| <img src="docs/screenshots/desktop.png" width="420"/> | <img src="docs/screenshots/libadwaita.png" width="200"/> |
 
 <p align="center" >
 <img src="https://halitsever-api.vercel.app/api/installation"/>
