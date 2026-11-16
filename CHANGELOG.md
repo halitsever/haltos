@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0
+
+- Central updates: `sudo haltos update` installs the newest release instead of whatever is on main, updates claude-code-vps too, re-applies the system and user settings and prints what changed. `--edge` follows main and `--stable` switches back.
+- `haltos version` shows the installed version, the channel and whether a newer release exists.
+- A daily timer checks for new releases and the SSH login banner says when one is available.
+- New servers start on the newest release tag.
+- `tools/release.sh` and a release workflow publish a version with one command.
+- The panel clock keeps a fixed small size instead of growing with the bar.
+- The website gained a blog with nine posts and a guide on running Claude Code on a VPS.
+
 ## 1.0.0 (SIGKILL)
 
 The first release: a Claude Code workstation OS for your VPS.
