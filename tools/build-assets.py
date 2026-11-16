@@ -206,6 +206,57 @@ def wallpaper(w, h, seed=0x48, plain=False):
     return scanlines(base, k).convert("RGB")
 
 
+def site_wordmark(html_path):
+    """Inlines the wordmark into the site as SVG cells, so it never depends on a web font having box glyphs."""
+    rows = banner("HALTOS")
+    cw, ch = 10, 20
+    cols = max(map(len, rows))
+    w, h = (cols + 3) * cw, len(rows) * ch
+    parts = [f'<svg class="wm" viewBox="0 0 {w} {h}" role="img" aria-label="HaltOS">']
+    for r, line in enumerate(rows):
+        for c, char in enumerate(line):
+            rects = cell_rects(char, c * cw, r * ch, cw, ch)
+            if not rects:
+                continue
+            body = "".join(
+                f'<rect x="{x0:.2f}" y="{y0:.2f}" width="{x1 - x0:.2f}" height="{y1 - y0:.2f}"/>' for x0, y0, x1, y1 in rects
+            )
+            parts.append(
+                f'<g class="c" data-col="{c}">{body}</g>'
+                f'<text class="x" x="{c * cw + cw / 2:g}" y="{r * ch + 14.5:g}">0</text>'
+            )
+    # Block cursor on the last row, one cell after the wordmark, like the desktop mark.
+    parts.append(f'<rect class="cur" x="{(cols + 1) * cw}" y="{h - ch * 1.5:g}" width="{cw * 1.6:g}" height="{ch / 2:g}"/>')
+    parts.append("</svg>")
+    svg = "".join(parts)
+    html = open(html_path).read()
+    start, end = "<!-- wordmark:start -->", "<!-- wordmark:end -->"
+    a, b = html.index(start) + len(start), html.index(end)
+    with open(html_path, "w") as f:
+        f.write(html[:a] + svg + html[b:])
+
+
+def og_image(path):
+    """Social preview card for the website, 1200x630 as Open Graph and Twitter expect."""
+    w, h = 1200, 630
+    img = wallpaper(w, h, plain=True).convert("RGBA")
+    rows = banner("HALTOS")
+    cw = 17
+    bw, bh = max(map(len, rows)) * cw, 6 * cw * 2
+    ox, oy = (w - bw) // 2, 150
+    fg = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw_grid(fg, rows, cw, cw * 2, ox, oy, FG + (255,))
+    d = ImageDraw.Draw(fg)
+    title = ImageFont.truetype(os.path.join(FONT_DIR, "JetBrainsMono-Regular.ttf"), 34)
+    small = ImageFont.truetype(os.path.join(FONT_DIR, "JetBrainsMono-Regular.ttf"), 22)
+    line = "A Claude Code workstation on your VPS"
+    d.text(((w - d.textlength(line, font=title)) / 2, oy + bh + 54), line, font=title, fill=(212, 212, 216, 255))
+    url = "halitsever.github.io/haltos"
+    d.text(((w - d.textlength(url, font=small)) / 2, oy + bh + 112), url, font=small, fill=DIM + (255,))
+    img = Image.alpha_composite(img, glow(fg, 8, strength=1))
+    img.convert("RGB").save(path, optimize=True)
+
+
 def splash_wordmark(path):
     rows = banner("HALTOS")
     cw = 14
@@ -271,6 +322,10 @@ def main():
     Image.new("RGBA", (round(wh / 6 * 1.4), round(wh / 12)), FG + (255,)).save(os.path.join(ply, "cursor.png"))
     Image.new("RGBA", (1, 1), (39, 39, 42, 255)).save(os.path.join(ply, "track.png"))
     Image.new("RGBA", (1, 1), FG + (255,)).save(os.path.join(ply, "bar.png"))
+
+    os.makedirs(os.path.join(ROOT, "site"), exist_ok=True)
+    og_image(os.path.join(ROOT, "site", "og.png"))
+    site_wordmark(os.path.join(ROOT, "site", "index.html"))
     write(
         os.path.join(BRAND, "wallpapers", "HaltOS", "metadata.json"),
         '{\n  "KPlugin": {\n    "Id": "HaltOS",\n    "Name": "HaltOS",\n'

@@ -31,8 +31,8 @@ jobs:
         run: |
           python tools/build-assets.py
           python tools/build-kvantum.py
-      - name: kvantum theme is committed as generated
-        run: git diff --exit-code -- kvantum/
+      - name: kvantum theme and site wordmark are committed as generated
+        run: git diff --exit-code -- kvantum/ site/index.html
       - name: config files parse
         run: |
           python - <<'PY'
