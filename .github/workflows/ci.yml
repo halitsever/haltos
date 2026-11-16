@@ -31,8 +31,9 @@ jobs:
         run: |
           python tools/build-assets.py
           python tools/build-kvantum.py
+          python tools/build-plasma-theme.py
       - name: kvantum theme and site wordmark are committed as generated
-        run: git diff --exit-code -- kvantum/ site/index.html
+        run: git diff --exit-code -- kvantum/ plasma/desktoptheme/ site/index.html
       - name: config files parse
         run: |
           python - <<'PY'

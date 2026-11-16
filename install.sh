@@ -17,8 +17,9 @@ MOTD_OFF="00-header 10-help-text 50-motd-news 50-landscape-sysinfo 90-updates-av
 HALTOS_OWNED=".config/kdeglobals .config/kdedefaults/ .config/kwinrc .config/ksplashrc .config/konsolerc
     .config/plasma-org.kde.plasma.desktop-appletsrc .config/gtk-3.0/settings.ini .config/gtk-4.0/settings.ini
     .config/gtkrc .config/gtkrc-2.0 .local/share/color-schemes/HaltMono.colors .local/share/konsole/HaltOS.profile
-    .local/share/konsole/HaltMono.colorscheme .local/share/plasma/look-and-feel/org.haltos.mono/"
-USER_CONFIGS="kdeglobals kwinrc breezerc plasmarc ksplashrc konsolerc plasma-org.kde.plasma.desktop-appletsrc
+    .local/share/konsole/HaltMono.colorscheme .local/share/plasma/look-and-feel/org.haltos.mono/
+    .config/plasmarc .config/plasmashellrc .local/share/plasma/desktoptheme/haltos/"
+USER_CONFIGS="kdeglobals kwinrc breezerc plasmarc plasmashellrc ksplashrc konsolerc plasma-org.kde.plasma.desktop-appletsrc
     Kvantum/kvantum.kvconfig gtk-3.0/gtk.css gtk-4.0/gtk.css fastfetch/config.jsonc"
 
 log() { printf '\033[38;2;250;250;250m[haltos]\033[0m %s\n' "$*"; }
@@ -35,11 +36,12 @@ need() {
 
 copy_assets() {
     local share=$1
-    install -d "$share/color-schemes" "$share/konsole" "$share/wallpapers" "$share/plasma/look-and-feel" \
+    install -d "$share/color-schemes" "$share/konsole" "$share/wallpapers" "$share/plasma/look-and-feel" "$share/plasma/desktoptheme" \
         "$share/icons" "$share/haltos/fastfetch"
     install -m644 "$HERE/plasma/color-schemes/HaltMono.colors" "$share/color-schemes/"
     install -m644 "$HERE/konsole/HaltOS.profile" "$HERE/konsole/HaltMono.colorscheme" "$share/konsole/"
-    rm -rf "$share/wallpapers/HaltOS" "$share/plasma/look-and-feel/$LNF"
+    rm -rf "$share/wallpapers/HaltOS" "$share/plasma/look-and-feel/$LNF" "$share/plasma/desktoptheme/haltos"
+    cp -r "$HERE/plasma/desktoptheme/haltos" "$share/plasma/desktoptheme/"
     cp -r "$HERE/branding/wallpapers/HaltOS" "$share/wallpapers/"
     cp -r "$HERE/plasma/look-and-feel/$LNF" "$share/plasma/look-and-feel/"
     cp -r "$HERE/branding/icons/hicolor" "$share/icons/"
@@ -78,6 +80,12 @@ apply_user_config() {
     if [ -d /usr/share/icons/breeze-dark ]; then
         kwriteconfig6 --file kdeglobals --group Icons --key Theme breeze-dark
     fi
+    kwriteconfig6 --file plasmarc --group Theme --key name haltos
+    # Translucent rather than adaptive, so the panel stays see-through with maximized windows too.
+    local panel
+    grep -oE '^\[PlasmaViews\]\[Panel [0-9]+\]$' "$conf/plasmashellrc" 2>/dev/null | grep -oE '[0-9]+' | while read -r panel; do
+        kwriteconfig6 --file plasmashellrc --group PlasmaViews --group "Panel $panel" --key panelOpacity 2
+    done || true
     kwriteconfig6 --file ksplashrc --group KSplash --key Engine KSplashQML
     kwriteconfig6 --file ksplashrc --group KSplash --key Theme "$LNF"
     kwriteconfig6 --file konsolerc --group "Desktop Entry" --key DefaultProfile HaltOS.profile
@@ -225,7 +233,7 @@ undo_user() {
         esac
     done
     rm -rf "$share/color-schemes/HaltMono.colors" "$share/konsole/HaltOS.profile" "$share/konsole/HaltMono.colorscheme" \
-        "$share/wallpapers/HaltOS" "$share/plasma/look-and-feel/$LNF" "$share/haltos" "$conf/Kvantum/HaltMono" \
+        "$share/wallpapers/HaltOS" "$share/plasma/look-and-feel/$LNF" "$share/plasma/desktoptheme/haltos" "$share/haltos" "$conf/Kvantum/HaltMono" \
         "$conf/gtk-3.0/haltos-adw.css" "$conf/gtk-4.0/haltos-adw.css"
     rm -f "$conf/claude-vps/post-apply.d/50-haltos" "$conf/autostart/haltos-firstrun.desktop"
     drop_local_only
@@ -310,6 +318,7 @@ install_system() {
     kwriteconfig6 --file /etc/xdg/kdeglobals --group KDE --key widgetStyle kvantum
     kwriteconfig6 --file /etc/xdg/kdeglobals --group General --key ColorScheme HaltMono
     kwriteconfig6 --file /etc/xdg/ksplashrc --group KSplash --key Theme "$LNF"
+    kwriteconfig6 --file /etc/xdg/plasmarc --group Theme --key name haltos
     kwriteconfig6 --file /etc/xdg/konsolerc --group "Desktop Entry" --key DefaultProfile HaltOS.profile
     "$HERE/plasma/scripts/windeco.sh" /etc/xdg/
     rm -rf /usr/share/Kvantum/HaltMono
@@ -368,9 +377,9 @@ undo_system() {
         if [ -f "/etc/update-motd.d/$f" ]; then chmod +x "/etc/update-motd.d/$f"; fi
     done
     sed -i '/^# HaltOS$/,+1d' /etc/skel/.bashrc
-    for f in kdeglobals ksplashrc konsolerc Kvantum/kvantum.kvconfig; do
+    for f in kdeglobals ksplashrc konsolerc plasmarc Kvantum/kvantum.kvconfig; do
         if [ -f "/etc/xdg/$f" ]; then
-            sed -i '/HaltMono\|org.haltos.mono\|HaltOS.profile\|widgetStyle=kvantum/d' "/etc/xdg/$f"
+            sed -i '/HaltMono\|org.haltos.mono\|HaltOS.profile\|widgetStyle=kvantum\|^name=haltos$/d' "/etc/xdg/$f"
         fi
     done
     rm -f /etc/xdg/breezerc

@@ -1,0 +1,16 @@
+{
+  "KPackageStructure": "Plasma/Theme",
+  "KPlugin": {
+    "Id": "haltos",
+    "Name": "HaltOS",
+    "Description": "HaltOS zinc panel on top of Breeze",
+    "Authors": [
+      {
+        "Name": "HaltOS"
+      }
+    ],
+    "License": "GPL-2.0+",
+    "Version": "1.0"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0"
+}
