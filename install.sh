@@ -375,6 +375,7 @@ STATE=/var/lib/haltos
 
 channel() {
     local c=stable
+    # shellcheck disable=SC1090  # written at runtime on the server, not part of the repo
     [ -r "$CONF" ] && c=$(. "$CONF" && echo "${CHANNEL:-stable}")
     echo "$c"
 }
