@@ -13,6 +13,11 @@ HALTOS_VER="1.0"
 HALTOS_CODENAME="SIGKILL"
 LNF=org.haltos.mono
 MOTD_OFF="00-header 10-help-text 50-motd-news 50-landscape-sysinfo 90-updates-available 91-contract-ua-esm-status"
+# Theme files HaltOS owns on claude-code-vps machines: sync must not undo them, capture must not publish them.
+HALTOS_OWNED=".config/kdeglobals .config/kdedefaults/ .config/kwinrc .config/ksplashrc .config/konsolerc
+    .config/plasma-org.kde.plasma.desktop-appletsrc .config/gtk-3.0/settings.ini .config/gtk-4.0/settings.ini
+    .config/gtkrc .config/gtkrc-2.0 .local/share/color-schemes/HaltMono.colors .local/share/konsole/HaltOS.profile
+    .local/share/konsole/HaltMono.colorscheme .local/share/plasma/look-and-feel/org.haltos.mono/"
 USER_CONFIGS="kdeglobals kwinrc breezerc plasmarc ksplashrc konsolerc plasma-org.kde.plasma.desktop-appletsrc
     Kvantum/kvantum.kvconfig gtk-3.0/gtk.css gtk-4.0/gtk.css fastfetch/config.jsonc"
 
@@ -108,6 +113,24 @@ install_sync_hook() {
 exec "%s/install.sh" refresh
 ' "$HERE" >"$conf/claude-vps/post-apply.d/50-haltos"
     chmod +x "$conf/claude-vps/post-apply.d/50-haltos"
+    claim_local_only
+}
+
+# Rewrites only the HaltOS block of claude-vps's local-only list, leaving the user's own entries alone.
+claim_local_only() {
+    local list="$conf/claude-vps/local-only" p
+    drop_local_only
+    {
+        echo "# >>> haltos"
+        for p in $HALTOS_OWNED; do echo "$p"; done
+        echo "# <<< haltos"
+    } >>"$list"
+}
+
+drop_local_only() {
+    local list="$conf/claude-vps/local-only"
+    [ -f "$list" ] && sed -i '/^# >>> haltos$/,/^# <<< haltos$/d' "$list"
+    return 0
 }
 
 install_user() {
@@ -157,6 +180,7 @@ refresh_user() {
     local share conf
     user_dirs
     apply_user_config "$share" "$conf"
+    install_sync_hook
     QT_QPA_PLATFORM=offscreen plasma-apply-colorscheme HaltMono >/dev/null 2>&1 || true
     # A synced panel file drops the wallpaper and start icon. A live shell takes them now, else next login does.
     if qdbus6 org.kde.plasmashell /PlasmaShell >/dev/null 2>&1; then
@@ -204,6 +228,7 @@ undo_user() {
         "$share/wallpapers/HaltOS" "$share/plasma/look-and-feel/$LNF" "$share/haltos" "$conf/Kvantum/HaltMono" \
         "$conf/gtk-3.0/haltos-adw.css" "$conf/gtk-4.0/haltos-adw.css"
     rm -f "$conf/claude-vps/post-apply.d/50-haltos" "$conf/autostart/haltos-firstrun.desktop"
+    drop_local_only
     find "$share/icons/hicolor" -name 'haltos-*' -delete 2>/dev/null || true
     sed -i '/^# HaltOS$/,+1d' "$HOME/.bashrc"
     rm -f "$HOME/.cache/icon-cache.kcache"

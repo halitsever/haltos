@@ -64,7 +64,9 @@ Log out and back in once so running apps pick up the Kvantum style. The first `i
 
 ### With claude-code-vps
 
-`claude-vps sync` applies your captured KDE config, which would otherwise wash the theme out. HaltOS installs a hook in `~/.config/claude-vps/post-apply.d/` that runs `haltos refresh` after every sync that changed files. Refresh rewrites the settings without a new backup and without restarting Plasma.
+[claude-code-vps](https://github.com/halitsever/claude-code-vps) is a required part of HaltOS: it sets up and manages the Claude Code server, HaltOS owns the look. The two stay separate repos, and claude-code-vps works on its own without HaltOS.
+
+HaltOS lists the theme files it owns in claude-vps's `~/.config/claude-vps/local-only`, so `claude-vps sync` never overwrites them and `claude-vps publish` never pushes them into your public dotfiles. Your own entries in that file are kept. A hook in `~/.config/claude-vps/post-apply.d/` also runs `haltos refresh` after a sync that changed files, which rewrites the settings without a new backup or a Plasma restart.
 
 To update a bootstrapped server:
 
