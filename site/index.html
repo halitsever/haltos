@@ -267,23 +267,23 @@
       <h2 id="faq-title">Questions</h2>
     </div>
     <details>
-      <summary>Is HaltOS a Linux distribution?</summary>
+      <summary><span>Is HaltOS a Linux distribution?</span></summary>
       <p>No. It is a layer on top of Ubuntu. Packages and updates still come from Ubuntu, and <code>/etc/os-release</code> keeps <code>ID=ubuntu</code> so apt, PPAs and vendor install scripts keep working. HaltOS changes how the system looks and introduces itself.</p>
     </details>
     <details>
-      <summary>Which Ubuntu releases does it support?</summary>
+      <summary><span>Which Ubuntu releases does it support?</span></summary>
       <p>Ubuntu 25.04 or newer, because HaltOS needs KDE Plasma 6. Ubuntu 24.04 ships Plasma 5, and the installer stops before changing anything there.</p>
     </details>
     <details>
-      <summary>Do I need claude-code-vps?</summary>
+      <summary><span>Do I need claude-code-vps?</span></summary>
       <p>The one-command install includes it. claude-code-vps sets up the server and keeps your config in sync from a git repository, HaltOS owns the look. claude-code-vps also works on its own, and HaltOS keeps its theme files out of your synced dotfiles.</p>
     </details>
     <details>
-      <summary>Will a <code>claude-vps sync</code> undo the theme?</summary>
+      <summary><span>Will a <code>claude-vps sync</code> undo the theme?</span></summary>
       <p>No. HaltOS lists the files it owns in claude-vps's local-only list, so a sync leaves them alone and a publish never pushes them into your public dotfiles.</p>
     </details>
     <details>
-      <summary>How do I remove it?</summary>
+      <summary><span>How do I remove it?</span></summary>
       <p><code>~/haltos/install.sh undo-user</code> restores the KDE config saved before the first install. <code>sudo ~/haltos/install.sh undo-system</code> restores Ubuntu's identity files, login banner and defaults.</p>
     </details>
   </section>
