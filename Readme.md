@@ -1,7 +1,7 @@
 <p align="center" class="logo-section">
-<img src="branding/haltos-logo-tile.svg" height="80" width="80"/>
+<img src="branding/haltos-logo-tile.svg" alt="HaltOS logo" height="80" width="80"/>
 <br/>
-<img src="https://halitsever-api.vercel.app/api/repo-title?title=haltos">
+<img src="https://halitsever-api.vercel.app/api/repo-title?title=HaltOS">
 
 <p align="center">
 A monochrome, terminal-flavoured identity layer that turns Ubuntu + KDE Plasma into HaltOS, a Claude Code workstation.<br>
