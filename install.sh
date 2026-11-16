@@ -158,9 +158,9 @@ refresh_user() {
 }
 
 firstrun_user() {
-    local share conf i
+    local share conf
     user_dirs
-    for i in $(seq 30); do
+    for _ in $(seq 30); do
         qdbus6 org.kde.plasmashell /PlasmaShell >/dev/null 2>&1 && break
         sleep 1
     done
