@@ -286,12 +286,27 @@ undivert() {
     rm -f "$saved"
 }
 
+# Microsoft's own repository, so apt upgrade keeps VS Code on the latest release.
+install_vscode() {
+    command -v code >/dev/null && return 0
+    log "installing VS Code"
+    [ -f /usr/share/keyrings/microsoft.gpg ] ||
+        curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor --yes -o /usr/share/keyrings/microsoft.gpg
+    printf 'Types: deb\nURIs: https://packages.microsoft.com/repos/code\nSuites: stable\nComponents: main\nArchitectures: amd64,arm64,armhf\nSigned-By: /usr/share/keyrings/microsoft.gpg\n' \
+        >/etc/apt/sources.list.d/vscode.sources
+    # The package would otherwise add a second copy of the same repository.
+    echo "code code/add-microsoft-repo boolean false" | debconf-set-selections
+    apt-get update -qq
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq code >/dev/null
+}
+
 install_system() {
     [ "$EUID" -eq 0 ] || die "system mode needs root: sudo $0 system"
-    need dpkg-divert apt-get kwriteconfig6
+    need dpkg-divert apt-get kwriteconfig6 curl gpg
 
     log "installing fastfetch and kvantum"
     apt-get install -y -qq fastfetch qt6-style-kvantum >/dev/null
+    install_vscode
 
     copy_assets /usr/share
     gtk-update-icon-cache -qf /usr/share/icons/hicolor 2>/dev/null || true

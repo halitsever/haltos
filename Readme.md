@@ -24,6 +24,7 @@ A Claude Code workstation OS for your VPS: a monochrome, terminal-flavoured laye
 
 - **OS identity**: `/etc/os-release`, `lsb_release`, `/etc/issue` and the KDE About page report `HaltOS 1.0 (SIGKILL)`. `ID=ubuntu` is kept, so apt, PPAs and vendor scripts keep working. Ubuntu's files are preserved with `dpkg-divert`.
 - **Claude Code**: [claudegrid](https://github.com/halitsever/claudegrid) opens a grid of Claude Code agents in one window, with a prompt, model and git worktree per pane.
+- **Editor**: the latest VS Code from Microsoft's apt repository, so `apt upgrade` keeps it current.
 - **Plasma**: `HaltMono` colour scheme (shadcn zinc palette), JetBrains Mono everywhere, ASCII splash with a fake boot log, a translucent floating top bar with a dot start icon, flat Breeze titlebars.
 - **Widgets**: `HaltMono` Kvantum theme with shadcn-style outline buttons, inputs, menus, tabs, checkboxes and thin auto-hiding scrollbars.
 - **GTK**: Breeze GTK follows the colour scheme, and libadwaita apps get the same zinc tokens with a white primary.
