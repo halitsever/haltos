@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # HaltOS installer.
 #   ./install.sh user            theme the current account (no root needed)
+#   ./install.sh refresh         re-apply user settings without a backup or restart (sync hook)
 #   ./install.sh undo-user       restore the KDE config saved before the first user install
 #   sudo ./install.sh system     OS identity, MOTD, login and boot themes, defaults for new users
+#   sudo ./install.sh update     pull HaltOS, re-run system, refresh the claude-vps user
 #   sudo ./install.sh undo-system
 set -euo pipefail
 
-HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+HERE=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
 HALTOS_VER="1.0"
 HALTOS_CODENAME="SIGKILL"
 LNF=org.haltos.mono
@@ -48,20 +50,9 @@ gtk_import() {
     grep -q haltos-adw.css "$dir/gtk.css" || printf "\n@import 'haltos-adw.css';\n" >>"$dir/gtk.css"
 }
 
-install_user() {
-    [ "$EUID" -ne 0 ] || die "user mode runs as your normal account, not root"
-    need kwriteconfig6 qdbus6 plasma-apply-colorscheme plasma-apply-wallpaperimage
-    local share=${XDG_DATA_HOME:-$HOME/.local/share}
-    local conf=${XDG_CONFIG_HOME:-$HOME/.config}
-    local backup="$HOME/.haltos-backup"
-    install -d "$backup"
-    # The first backup is the pre-HaltOS state that undo-user restores, so it is never overwritten.
-    local snap="$backup/kde-config-original.tar.gz"
-    [ ! -f "$snap" ] || snap="$backup/kde-config-$(date +%Y%m%d-%H%M%S).tar.gz"
-    # shellcheck disable=SC2086
-    (cd "$conf" && tar czf "$snap" --ignore-failed-read $USER_CONFIGS 2>/dev/null) || true
-    log "config backup: $snap"
-
+# Writes every per-user HaltOS setting. Shared by install, refresh and the claude-code-vps sync hook.
+apply_user_config() {
+    local share=$1 conf=$2
     copy_assets "$share"
 
     install -d "$conf/fastfetch"
@@ -102,6 +93,39 @@ install_user() {
 
     # Plasma keys images by path, so regenerated assets at the same path would otherwise stay stale.
     rm -f "$HOME/.cache/icon-cache.kcache"
+}
+
+user_dirs() {
+    share=${XDG_DATA_HOME:-$HOME/.local/share}
+    conf=${XDG_CONFIG_HOME:-$HOME/.config}
+}
+
+# claude-code-vps runs these after a sync, so its dotfiles never wash the theme out.
+install_sync_hook() {
+    [ -d /opt/claude-vps ] || command -v claude-vps >/dev/null || return 0
+    install -d "$conf/claude-vps/post-apply.d"
+    printf '#!/bin/sh
+exec "%s/install.sh" refresh
+' "$HERE" >"$conf/claude-vps/post-apply.d/50-haltos"
+    chmod +x "$conf/claude-vps/post-apply.d/50-haltos"
+}
+
+install_user() {
+    [ "$EUID" -ne 0 ] || die "user mode runs as your normal account, not root"
+    need kwriteconfig6 qdbus6 plasma-apply-colorscheme plasma-apply-wallpaperimage
+    local share conf
+    user_dirs
+    local backup="$HOME/.haltos-backup"
+    install -d "$backup"
+    # The first backup is the pre-HaltOS state that undo-user restores, so it is never overwritten.
+    local snap="$backup/kde-config-original.tar.gz"
+    [ ! -f "$snap" ] || snap="$backup/kde-config-$(date +%Y%m%d-%H%M%S).tar.gz"
+    # shellcheck disable=SC2086
+    (cd "$conf" && tar czf "$snap" --ignore-failed-read $USER_CONFIGS 2>/dev/null) || true
+    log "config backup: $snap"
+
+    apply_user_config "$share" "$conf"
+    install_sync_hook
 
     if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
         plasma-apply-colorscheme HaltMono >/dev/null || true
@@ -115,8 +139,36 @@ install_user() {
     else
         # Without a session Qt has no display, but the colour scheme still has to land in kdeglobals.
         QT_QPA_PLATFORM=offscreen plasma-apply-colorscheme HaltMono >/dev/null 2>&1 || true
-        log "no graphical session found, settings apply at next login"
+        # Panel and wallpaper live inside plasmashell, so they wait for the first desktop login.
+        install -d "$conf/autostart"
+        printf '[Desktop Entry]\nType=Application\nName=HaltOS first run\nExec=%s/install.sh firstrun\nNoDisplay=true\nX-KDE-autostart-phase=2\n' \
+            "$HERE" >"$conf/autostart/haltos-firstrun.desktop"
+        log "no graphical session found, panel and wallpaper apply at first desktop login"
     fi
+}
+
+refresh_user() {
+    [ "$EUID" -ne 0 ] || die "refresh runs as your normal account, not root"
+    need kwriteconfig6 plasma-apply-colorscheme
+    local share conf
+    user_dirs
+    apply_user_config "$share" "$conf"
+    QT_QPA_PLATFORM=offscreen plasma-apply-colorscheme HaltMono >/dev/null 2>&1 || true
+    log "settings re-applied. log out and back in to see them."
+}
+
+firstrun_user() {
+    local share conf
+    user_dirs
+    for _ in $(seq 30); do
+        qdbus6 org.kde.plasmashell /PlasmaShell >/dev/null 2>&1 && break
+        sleep 1
+    done
+    qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript \
+        "$(cat "$HERE/plasma/scripts/panel.js")" >/dev/null || true
+    plasma-apply-wallpaperimage "$share/wallpapers/HaltOS" >/dev/null || true
+    plasma-apply-colorscheme HaltMono >/dev/null || true
+    rm -f "$conf/autostart/haltos-firstrun.desktop"
 }
 
 undo_user() {
@@ -139,6 +191,7 @@ undo_user() {
     rm -rf "$share/color-schemes/HaltMono.colors" "$share/konsole/HaltOS.profile" "$share/konsole/HaltMono.colorscheme" \
         "$share/wallpapers/HaltOS" "$share/plasma/look-and-feel/$LNF" "$share/haltos" "$conf/Kvantum/HaltMono" \
         "$conf/gtk-3.0/haltos-adw.css" "$conf/gtk-4.0/haltos-adw.css"
+    rm -f "$conf/claude-vps/post-apply.d/50-haltos" "$conf/autostart/haltos-firstrun.desktop"
     find "$share/icons/hicolor" -name 'haltos-*' -delete 2>/dev/null || true
     sed -i '/^# HaltOS$/,+1d' "$HOME/.bashrc"
     rm -f "$HOME/.cache/icon-cache.kcache"
@@ -253,6 +306,20 @@ install_system() {
     log "system branding installed. reconnect via SSH to see the new MOTD."
 }
 
+# Bootstrapped servers: newest HaltOS from git, system layer, then the workstation user's settings.
+update_all() {
+    [ "$EUID" -eq 0 ] || die "update needs root: sudo haltos update"
+    git -C "$HERE" pull -q --ff-only
+    "$HERE/install.sh" system
+    local user=""
+    [ -r /etc/claude-vps.conf ] && user=$(. /etc/claude-vps.conf && echo "${TARGET_USER:-}")
+    if [ -n "$user" ]; then
+        runuser -l "$user" -c "dbus-run-session -- '$HERE/install.sh' refresh"
+    else
+        log "no claude-vps user recorded, run 'haltos refresh' as your desktop user"
+    fi
+}
+
 undo_system() {
     [ "$EUID" -eq 0 ] || die "undo needs root: sudo $0 undo-system"
     undivert /usr/lib/os-release
@@ -280,11 +347,14 @@ undo_system() {
 
 case "${1:-}" in
 user) install_user ;;
+refresh) refresh_user ;;
+firstrun) firstrun_user ;;
 undo-user) undo_user ;;
 system) install_system ;;
+update) update_all ;;
 undo-system) undo_system ;;
 *)
-    sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
     ;;
 esac
