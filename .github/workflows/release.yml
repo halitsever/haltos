@@ -1,0 +1,39 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: check the tag matches VERSION
+        run: test "v$(cat VERSION)" = "$GITHUB_REF_NAME"
+      - name: assets
+        run: |
+          mkdir dist
+          tar -C plasma/desktoptheme -czf dist/haltos-plasma-theme.tar.gz haltos
+          tar -C kvantum -czf dist/HaltMono-kvantum.tar.gz HaltMono
+          tar -C plasma/look-and-feel -czf dist/haltos-global-theme.tar.gz org.haltos.mono
+          tar -C branding/wallpapers -czf dist/haltos-wallpaper.tar.gz HaltOS
+          tar -C sddm -czf dist/haltos-sddm.tar.gz haltos
+          cp plasma/color-schemes/HaltMono.colors dist/
+          cp site/haltos.mp4 dist/haltos-in-30-seconds.mp4
+          cp docs/haltos.gif dist/
+      - name: notes from CHANGELOG.md
+        run: |
+          v=$(cat VERSION)
+          awk -v v="$v" '$0 ~ "^## "v {on=1; next} /^## / {on=0} on' CHANGELOG.md > notes.md
+          printf '\nUpdate a server with `sudo haltos update`. New install:\n\n```sh\ncurl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh | sudo bash\n```\n' >> notes.md
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=$(cat VERSION)
+          codename=$(sed -n "s/^## $v (\(.*\))$/\1/p" CHANGELOG.md)
+          gh release create "$GITHUB_REF_NAME" --title "HaltOS $v${codename:+ ($codename)}" --notes-file notes.md dist/*

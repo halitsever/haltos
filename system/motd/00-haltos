@@ -30,4 +30,12 @@ printf "${g}  ██║  ██║ ▄▄▄ ${n}  ${d}mem    ${n}%s\n" "$mem"
 printf "${g}  ╚═╝  ╚═╝     ${n}  ${d}disk   ${n}%s\n" "$disk"
 printf "                 ${d}addr   ${n}%s\n" "$ip"
 printf "                 ${d}apt    ${n}%s\n" "$updates"
+
+# A newer HaltOS release, as last seen by haltos-update-check.timer.
+cur=$(cat /usr/share/haltos/VERSION 2>/dev/null)
+latest=$(cat /var/lib/haltos/latest 2>/dev/null)
+if [ -n "$cur" ] && [ -n "$latest" ] && [ "$cur" != "$latest" ] &&
+    [ "$(printf '%s\n%s\n' "$cur" "$latest" | sort -V | tail -1)" = "$latest" ]; then
+    printf "                 ${d}haltos ${g}%s available: sudo haltos update${n}\n" "$latest"
+fi
 printf "\n${a}  // authorized access only. every keystroke is someone's problem.${n}\n\n"

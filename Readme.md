@@ -60,11 +60,17 @@ Log out and back in once so running apps pick up the Kvantum style. The first `i
 
 HaltOS lists the theme files it owns in claude-vps's `~/.config/claude-vps/local-only`, so `claude-vps sync` never overwrites them and `claude-vps publish` never pushes them into your public dotfiles. Your own entries in that file are kept. A hook in `~/.config/claude-vps/post-apply.d/` also runs `haltos refresh` after a sync that changed files, which rewrites the settings without a new backup or a Plasma restart.
 
-To update a bootstrapped server:
+### Updates
+
+Servers follow published releases. One command updates claude-code-vps and HaltOS, re-applies the system and user settings, and prints what changed:
 
 ```sh
-sudo claude-vps update && sudo haltos update
+sudo haltos update           # newest release
+sudo haltos update --edge    # follow main instead, until --stable switches back
+haltos version               # installed version, channel and whether a newer release exists
 ```
+
+A daily timer checks GitHub for a newer release, and the SSH login banner says when one is available. Releasing a new version is described in [docs/releasing.md](docs/releasing.md).
 
 To remove HaltOS, use the `haltos` command a bootstrapped server has (on a manual clone, `~/haltos/install.sh` takes the same arguments). VS Code stays installed.
 
