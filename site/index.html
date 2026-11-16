@@ -55,6 +55,8 @@
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
+    { "@type": "Question", "name": "Why is it called HaltOS?",
+      "acceptedAnswer": { "@type": "Answer", "text": "halt is the oldest way to stop a Unix machine. HaltOS turns the word around: a desktop on a server that never sleeps, so Claude Code keeps working while you are away. Its wallpaper reads shutdown -h never. The name also hides its maker: take the i out of Halit and you get halt. The first release is codenamed SIGKILL, the one signal a process cannot ignore." } },
     { "@type": "Question", "name": "Is HaltOS a Linux distribution?",
       "acceptedAnswer": { "@type": "Answer", "text": "No. HaltOS is a layer on top of Ubuntu. Packages and updates still come from Ubuntu, and /etc/os-release keeps ID=ubuntu so apt, PPAs and vendor install scripts keep working. HaltOS changes how the system looks and introduces itself." } },
     { "@type": "Question", "name": "Which Ubuntu releases does HaltOS support?",
@@ -210,6 +212,24 @@
       <p><span class="c"># put Ubuntu back the way it was</span></p>
       <p>~/haltos/install.sh undo-user &amp;&amp; sudo ~/haltos/install.sh undo-system</p>
     </div>
+  </section>
+
+  <section id="name" class="name" aria-labelledby="name-title">
+    <div class="section-head">
+      <h2 id="name-title">Why the name</h2>
+    </div>
+    <article class="term man" aria-label="HaltOS manual page">
+      <p class="man-top"><span>HALTOS(7)</span><span>HaltOS Manual</span><span>HALTOS(7)</span></p>
+      <h3>NAME</h3>
+      <p class="man-body">haltos - an operating system named after the command that stops one</p>
+      <h3>DESCRIPTION</h3>
+      <p class="man-body"><code>halt</code> is the oldest way to stop a Unix machine. HaltOS takes the word and turns it around: a desktop that lives on a server that never sleeps, so Claude Code keeps working while you are away. Its wallpaper says it plainly: <code>shutdown -h never</code>.</p>
+      <p class="man-body">Take the i out of Halit, the name of the person who made it, and you get halt.</p>
+      <h3>CODENAME</h3>
+      <p class="man-body">SIGKILL, the one signal a process cannot catch or ignore. The first release is the one that ends the half-measures.</p>
+      <h3>SEE ALSO</h3>
+      <p class="man-body"><code>halt(8)</code>, <code>shutdown(8)</code>, <code>signal(7)</code>, <a href="https://github.com/halitsever/claude-code-vps">claude-code-vps</a></p>
+    </article>
   </section>
 
   <section id="faq" class="faq" aria-labelledby="faq-title">
