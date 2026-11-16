@@ -15,7 +15,7 @@ A Claude Code workstation OS for your VPS: a monochrome, terminal-flavoured laye
 </p>
 
 <p align="center">
-<img src="docs/screenshots/claudegrid.png" alt="claudegrid running four Claude Code agents side by side on HaltOS" width="760"/>
+<img src="docs/haltos.gif" alt="HaltOS in 30 seconds: ASCII boot, claudegrid running four Claude Code agents, the one-command install and the desktop" width="600"/>
 </p>
 
 <p align="center">
@@ -30,14 +30,6 @@ A Claude Code workstation OS for your VPS: a monochrome, terminal-flavoured laye
 - **Terminal**: Konsole profile, two-line bash prompt with git branch and exit code, fastfetch with the HALTOS banner.
 - **Login and boot**: SDDM card login screen and a Plymouth splash with a blinking cursor.
 - **SSH**: ASCII MOTD with uptime, load, memory, disk and pending updates, replacing Ubuntu's banners and ESM upsell.
-
-| Widgets (Kvantum) | Terminal |
-| --- | --- |
-| <img src="docs/screenshots/widgets.png" width="420"/> | <img src="docs/screenshots/terminal.png" width="420"/> |
-| **Login (SDDM)** | **Splash** |
-| <img src="docs/screenshots/login.png" width="420"/> | <img src="docs/screenshots/splash.png" width="420"/> |
-| **Desktop** | **GTK apps** |
-| <img src="docs/screenshots/desktop.png" width="420"/> | <img src="docs/screenshots/libadwaita.png" width="200"/> |
 
 <p align="center" >
 <img src="https://halitsever-api.vercel.app/api/installation"/>
