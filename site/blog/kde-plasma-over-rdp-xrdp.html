@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KDE Plasma over RDP on a VPS with xrdp | HaltOS</title>
+<meta name="description" content="How to run a KDE Plasma desktop on a headless VPS and reach it with any RDP client: xrdp, the X11 session, booting without a display manager, and keeping it fast without a GPU.">
+<link rel="canonical" href="https://halitsever.github.io/haltos/blog/kde-plasma-over-rdp-xrdp.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="KDE Plasma over RDP on a VPS with xrdp">
+<meta property="og:description" content="How to run a KDE Plasma desktop on a headless VPS and reach it with any RDP client: xrdp, the X11 session, booting without a display manager, and keeping it fast without a GPU.">
+<meta property="og:url" content="https://halitsever.github.io/haltos/blog/kde-plasma-over-rdp-xrdp.html">
+<meta property="og:image" content="https://halitsever.github.io/haltos/blog/covers/kde-plasma-over-rdp-xrdp.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://halitsever.github.io/haltos/blog/covers/kde-plasma-over-rdp-xrdp.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "KDE Plasma over RDP on a VPS with xrdp",
+  "description": "How to run a KDE Plasma desktop on a headless VPS and reach it with any RDP client: xrdp, the X11 session, booting without a display manager, and keeping it fast without a GPU.",
+  "image": "https://halitsever.github.io/haltos/blog/covers/kde-plasma-over-rdp-xrdp.png",
+  "datePublished": "2026-11-16",
+  "author": {
+    "@type": "Person",
+    "name": "Halit Sever",
+    "url": "https://github.com/halitsever"
+  },
+  "mainEntityOfPage": "https://halitsever.github.io/haltos/blog/kde-plasma-over-rdp-xrdp.html"
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../#units">What's inside</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta">16 November 2026, Halit Sever</p>
+    <h1>KDE Plasma over RDP on a VPS with xrdp</h1>
+    <figure class="post-cover"><img src="covers/kde-plasma-over-rdp-xrdp.png" width="1200" height="630" alt=""></figure>
+<p class="post-lede">A VPS has no screen, no GPU and nobody sitting in front of it. You can still run a full KDE Plasma desktop on it and reach it from any RDP client. Here is how the pieces fit.</p>
+<h2>xrdp and the X11 session</h2>
+<p><code>xrdp</code> speaks the RDP protocol and <code>xorgxrdp</code> gives it an X server to draw into. Plasma also runs on Wayland, but xrdp sessions use X11, so install the X11 session:</p>
+<pre class="post-code"><code>apt install kde-plasma-desktop plasma-session-x11 kwin-x11 xrdp xorgxrdp</code></pre>
+<p>When you connect, xrdp starts whatever your <code>~/.xsession</code> says. For Plasma:</p>
+<pre class="post-code"><code>export XDG_SESSION_TYPE=x11
+export XDG_CURRENT_DESKTOP=KDE
+export DESKTOP_SESSION=plasma
+exec startplasma-x11</code></pre>
+<h2>No display manager</h2>
+<p>Nobody logs in at the console of a server, so a graphical login screen only costs memory. Boot to the text target and let xrdp start sessions on demand:</p>
+<pre class="post-code"><code>systemctl disable --now sddm
+systemctl set-default multi-user.target</code></pre>
+<h2>One annoying prompt</h2>
+<p>Out of the box, Plasma over xrdp often greets you with a password prompt about creating a colour profile. A small polkit rule that allows colour manager actions for members of the <code>users</code> group makes it go away.</p>
+<h2>Fast without a GPU</h2>
+<p>Without a GPU, everything is drawn in software. The desktop is still perfectly usable, but heavy effects cost CPU and bandwidth. A flat theme with few gradients and little animation compresses better over RDP and feels snappier. That is part of why HaltOS uses a flat, monochrome look.</p>
+<h2>Screen size and clipboard</h2>
+<p>The resolution follows your RDP client window, and copy and paste works between your machine and the desktop. Most clients also offer full screen and multi-monitor modes.</p>
+<h2>All of it in one command</h2>
+<p><a href="https://github.com/halitsever/claude-code-vps">claude-code-vps</a> does all of the above, and <a href="../">HaltOS</a> adds a theme and Claude Code tooling on top, with one command on a fresh Ubuntu 25.04 or newer server.</p>
+    <p class="post-links"><a href="./">All posts</a> <a href="rebrand-ubuntu-os-release-dpkg-divert.html">Next: Rebrand Ubuntu without breaking apt: os-release and dpkg-divert</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

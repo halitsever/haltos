@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why a monochrome desktop works for AI coding | HaltOS</title>
+<meta name="description" content="When agents write the code, your job is reading and reviewing. A desktop with one palette, one typeface and no accent colour keeps attention on the output that matters.">
+<link rel="canonical" href="https://halitsever.github.io/haltos/blog/monochrome-desktop-for-ai-coding.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="Why a monochrome desktop works for AI coding">
+<meta property="og:description" content="When agents write the code, your job is reading and reviewing. A desktop with one palette, one typeface and no accent colour keeps attention on the output that matters.">
+<meta property="og:url" content="https://halitsever.github.io/haltos/blog/monochrome-desktop-for-ai-coding.html">
+<meta property="og:image" content="https://halitsever.github.io/haltos/blog/covers/monochrome-desktop-for-ai-coding.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://halitsever.github.io/haltos/blog/covers/monochrome-desktop-for-ai-coding.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Why a monochrome desktop works for AI coding",
+  "description": "When agents write the code, your job is reading and reviewing. A desktop with one palette, one typeface and no accent colour keeps attention on the output that matters.",
+  "image": "https://halitsever.github.io/haltos/blog/covers/monochrome-desktop-for-ai-coding.png",
+  "datePublished": "2026-11-16",
+  "author": {
+    "@type": "Person",
+    "name": "Halit Sever",
+    "url": "https://github.com/halitsever"
+  },
+  "mainEntityOfPage": "https://halitsever.github.io/haltos/blog/monochrome-desktop-for-ai-coding.html"
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../#units">What's inside</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta">16 November 2026, Halit Sever</p>
+    <h1>Why a monochrome desktop works for AI coding</h1>
+    <figure class="post-cover"><img src="covers/monochrome-desktop-for-ai-coding.png" width="1200" height="630" alt=""></figure>
+<p class="post-lede">Working with coding agents changes what you do at the screen. You type less and read more: diffs, test output, the agent's reasoning, three panes at once. HaltOS is designed around that, and the most visible result is that it has no colour.</p>
+<h2>Attention is the scarce resource</h2>
+<p>Every coloured badge, gradient and accent on a desktop competes for attention. When four agents are printing output side by side, the desktop chrome should be the quietest thing on the screen. A single neutral palette makes the panes, not the panel, the brightest objects you can see.</p>
+<h2>One palette, a handful of tokens</h2>
+<p>HaltOS takes shadcn's zinc scale: <code>#09090b</code> for backgrounds, <code>#fafafa</code> for text, <code>#27272a</code> for borders and <code>#a1a1aa</code> for secondary text. Selection, hover and focus are steps on the same grey scale. The primary colour is simply white, so a pressed button or a checked box turns white with dark text, and tooltips invert to dark text on white.</p>
+<h2>Colour where it carries meaning</h2>
+<p>Monochrome is not the same as colourless. Red, amber and green stay for errors, warnings and success, in the terminal and in widgets, because there they mean something. Syntax highlighting stays too. The rule is that colour has to earn its place by carrying information.</p>
+<h2>One typeface</h2>
+<p>JetBrains Mono is used everywhere, including menus and titlebars. Code, terminal output and interface text then line up and read the same way, and the desktop looks like the tool it is.</p>
+<h2>Character without noise</h2>
+<p>Monochrome can feel cold, so HaltOS puts its personality into places you only see in passing: an ASCII wordmark, a boot log on the splash screen, a blinking block cursor, and a wallpaper that says <code>shutdown -h never</code>.</p>
+<p>See it in motion on the <a href="../">HaltOS website</a>.</p>
+    <p class="post-links"><a href="./">All posts</a> <a href="safe-self-updating-shell-scripts.html">Next: Self-updating shell scripts without the footguns</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>
