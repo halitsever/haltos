@@ -1,0 +1,5 @@
+[General]
+LogoPath=/usr/share/icons/hicolor/scalable/apps/haltos-logo.svg
+Name=HaltOS
+Variant=SIGKILL
+Website=https://github.com/halitsever/haltos

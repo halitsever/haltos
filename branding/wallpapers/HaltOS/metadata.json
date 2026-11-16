@@ -1,0 +1,8 @@
+{
+  "KPlugin": {
+    "Id": "HaltOS",
+    "Name": "HaltOS",
+    "Authors": [{ "Name": "HaltOS" }],
+    "License": "CC-BY-SA-4.0"
+  }
+}
