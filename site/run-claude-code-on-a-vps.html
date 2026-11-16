@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to run Claude Code on a VPS with a full desktop | HaltOS</title>
+<meta name="description" content="Long Claude Code tasks stop when your laptop sleeps. Here is how to run Claude Code around the clock on a VPS with a KDE Plasma desktop over RDP, several agents side by side, and one install command.">
+<link rel="canonical" href="https://halitsever.github.io/haltos/run-claude-code-on-a-vps.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="How to run Claude Code on a VPS with a full desktop">
+<meta property="og:description" content="Run Claude Code around the clock on a VPS with a KDE Plasma desktop over RDP and several agents side by side.">
+<meta property="og:url" content="https://halitsever.github.io/haltos/run-claude-code-on-a-vps.html">
+<meta property="og:image" content="https://halitsever.github.io/haltos/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://halitsever.github.io/haltos/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "How to run Claude Code on a VPS with a full desktop",
+  "description": "Run Claude Code around the clock on a VPS with a KDE Plasma desktop over RDP and several agents side by side.",
+  "image": "https://halitsever.github.io/haltos/og.png",
+  "datePublished": "2026-11-16",
+  "author": { "@type": "Person", "name": "Halit Sever", "url": "https://github.com/halitsever" },
+  "mainEntityOfPage": "https://halitsever.github.io/haltos/run-claude-code-on-a-vps.html"
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="./" aria-label="HaltOS home">
+    <img src="favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="./#install">Install</a>
+    <a href="./#units">What's inside</a>
+    <a href="./#faq">FAQ</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta">16 November 2026, Halit Sever</p>
+    <h1>How to run Claude Code on a VPS with a full desktop</h1>
+    <p class="post-lede">Give Claude Code a long task, close your laptop, and the work stops with it. Moving the agent to a server fixes that, but a bare server is a poor place to spend a working day. This is how I set up a VPS that runs Claude Code around the clock and still feels like a desktop.</p>
+
+    <h2>Why a VPS</h2>
+    <p>Claude Code is at its best on long tasks: reading a codebase, running tests, fixing what fails, and trying again. On a laptop, those tasks live and die with the lid. Sleep, a dropped Wi-Fi connection or a flat battery ends the session.</p>
+    <p>A small VPS never sleeps. Start a task, disconnect, and come back to find it finished or further along. SSH and tmux cover part of this, but reviewing diffs, reading docs next to a terminal and watching several agents at once is easier on a real desktop.</p>
+
+    <h2>The setup</h2>
+    <p>The stack has two layers, each its own open source project:</p>
+    <ul>
+      <li><a href="https://github.com/halitsever/claude-code-vps">claude-code-vps</a> builds the workstation: a sudo user, key-only SSH, a firewall, KDE Plasma over RDP, Docker, the GitHub CLI and Claude Code. It also keeps your config in sync from a git repository.</li>
+      <li><a href="https://github.com/halitsever/haltos">HaltOS</a> sits on top: a monochrome, terminal-style look, VS Code, and an identity that makes the machine feel like one product instead of a server with a desktop bolted on.</li>
+    </ul>
+    <p>On a fresh Ubuntu 25.04 or newer server, as root:</p>
+    <pre class="post-code"><code>curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh | sudo bash</code></pre>
+    <p>The script checks for Plasma 6 before it touches anything, so on Ubuntu 24.04, which ships Plasma 5, it stops and says why. When it finishes, connect with any RDP client on port 53389.</p>
+
+    <h2>Several agents at once</h2>
+    <p>One agent per task works, but most days have more than one task. <a href="https://github.com/halitsever/claudegrid">claudegrid</a> opens a grid of Claude Code sessions in one window, each with its own prompt, model and, if you want, its own git worktree so the agents never edit the same files:</p>
+    <pre class="post-code"><code>claudegrid --layout 2x2</code></pre>
+    <figure class="post-figure">
+      <img src="assets/screens/claudegrid.png" width="1920" height="975" loading="lazy" alt="claudegrid on HaltOS with four Claude Code agents in a two by two grid">
+      <figcaption>Four Claude Code agents, each answering a different question about the same repository.</figcaption>
+    </figure>
+
+    <h2>Why it looks the way it does</h2>
+    <p>When an agent is working, the screen fills with its output. Everything else should get out of the way. HaltOS uses a single monochrome palette taken from shadcn's zinc scale, JetBrains Mono everywhere, and no accent colour at all. The only colour on screen is your code.</p>
+    <p>The name follows the same idea. <code>halt</code> is the oldest command for stopping a Unix machine, and HaltOS is built never to stop. Its wallpaper says it plainly: <code>shutdown -h never</code>.</p>
+
+    <h2>A few details that took the longest</h2>
+    <ul>
+      <li><strong>Branding without breaking apt.</strong> <code>/etc/os-release</code> says HaltOS, but <code>ID=ubuntu</code> stays, so PPAs and vendor install scripts keep working. The original files are kept aside with <code>dpkg-divert</code>, so an Ubuntu update never silently overwrites them.</li>
+      <li><strong>Themes from code.</strong> The Kvantum widget theme, the Plasma panel and every logo and wallpaper are generated from the same tokens by small Python scripts, so the whole look can be rebuilt or recoloured in one place.</li>
+      <li><strong>Sync without fights.</strong> claude-code-vps syncs your KDE config from git. HaltOS lists the files it owns in a per-machine local-only list, so a sync never undoes the theme and a publish never pushes it into your dotfiles.</li>
+      <li><strong>Nothing private in public.</strong> The dotfiles sync skips binary files such as photos and wallpapers, because they cannot be scrubbed of personal data.</li>
+    </ul>
+
+    <h2>Try it</h2>
+    <p>Everything is open source under the MIT license, and every change can be undone with <code>haltos undo-user</code> and <code>sudo haltos undo-system</code>. If you run Claude Code for hours at a time, give it a server that does not sleep, and tell me what is missing.</p>
+    <p class="post-links"><a href="./">HaltOS website and video</a> <a href="https://github.com/halitsever/haltos">Source on GitHub</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>
