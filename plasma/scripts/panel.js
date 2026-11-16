@@ -11,6 +11,11 @@ panels().forEach(function (p) {
     p.widgets("org.kde.plasma.digitalclock").forEach(function (w) {
         w.currentConfigGroup = ["Appearance"];
         w.writeConfig("dateDisplayFormat", 1);
+        // Auto size grows the clock to the panel height, which looks huge on a thicker bar.
+        w.writeConfig("autoFontAndSize", false);
+        w.writeConfig("fontFamily", "JetBrains Mono");
+        w.writeConfig("fontSize", 10);
+        w.writeConfig("fontWeight", 400);
     });
     p.widgets("org.kde.plasma.kickoff").forEach(function (w) {
         w.currentConfigGroup = ["General"];
