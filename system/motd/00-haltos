@@ -1,0 +1,23 @@
+#!/bin/sh
+# HaltOS login banner for SSH sessions.
+g='\033[38;2;250;250;250m'
+d='\033[38;2;113;113;122m'
+a='\033[38;2;161;161;170m'
+n='\033[0m'
+
+. /etc/os-release
+load=$(cut -d' ' -f1-3 /proc/loadavg)
+mem=$(free -h | awk '/^Mem:/ {print $3 " / " $2}')
+disk=$(df -h / | awk 'NR==2 {print $3 " / " $2 " (" $5 ")"}')
+up=$(uptime -p | sed 's/^up //')
+ip=$(hostname -I 2>/dev/null | cut -d' ' -f1)
+
+printf "\n"
+printf "${g}  ██╗  ██╗     ${n}  ${g}%s${n}\n" "$PRETTY_NAME"
+printf "${g}  ██║  ██║     ${n}  ${d}base   ${n}Ubuntu %s · kernel %s\n" "$VERSION_ID" "$(uname -r)"
+printf "${g}  ███████║     ${n}  ${d}uptime ${n}%s\n" "$up"
+printf "${g}  ██╔══██║     ${n}  ${d}load   ${n}%s\n" "$load"
+printf "${g}  ██║  ██║ ▄▄▄ ${n}  ${d}mem    ${n}%s\n" "$mem"
+printf "${g}  ╚═╝  ╚═╝     ${n}  ${d}disk   ${n}%s\n" "$disk"
+printf "                 ${d}addr   ${n}%s\n" "$ip"
+printf "\n${a}  // authorized access only. every keystroke is someone's problem.${n}\n\n"

@@ -1,0 +1,12 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [{ "Name": "HaltOS" }],
+        "Description": "HaltOS monochrome terminal look",
+        "Id": "org.haltos.mono",
+        "License": "GPL-2.0+",
+        "Name": "HaltOS Mono",
+        "Version": "1.0"
+    },
+    "X-Plasma-APIVersion": "2"
+}
