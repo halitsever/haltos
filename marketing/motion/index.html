@@ -19,7 +19,7 @@
 <script>
 // HaltOS LinkedIn motion: renders the whole timeline on a canvas and records it with MediaRecorder.
 // ?t=SECONDS renders one still frame instead, for reviewing the cut.
-const W = 1080, H = 1080, DURATION = 24.7;
+const W = 1080, H = 1080, DURATION = 29.7;
 const C = { void: "#09090b", panel: "#0e0e10", rule: "#27272a", dim: "#52525b", muted: "#a1a1aa", soft: "#d4d4d8", ink: "#fafafa" };
 const MONO = '"JetBrains Mono", monospace', SANS = '"Geist", sans-serif';
 const cv = document.getElementById("c"), ctx = cv.getContext("2d");
@@ -128,12 +128,14 @@ const BOOT = [
 ];
 
 const SHOTS = [
-  ["claudegrid", "claudegrid: Claude Code agents, side by side"],
   ["desktop", "Your desktop, over RDP, from anywhere"],
   ["widgets", "Every Qt and KDE widget in one palette"],
   ["terminal", "Claude Code in a focused terminal"],
   ["splash", "Boot and login, in character"],
 ].map(([n, cap]) => { const i = new Image(); i.src = `../../docs/screenshots/${n}.png`; return { i, cap }; });
+const GRID = new Image();
+GRID.src = "../../docs/screenshots/claudegrid.png";
+const lerp = (a, b, k) => a + (b - a) * k;
 
 function scene(t, frame) {
   background();
@@ -161,8 +163,37 @@ function scene(t, frame) {
     text(line2, W / 2, 762, { font: `600 48px ${SANS}`, align: "center", alpha: a2, chars: typed - line.length });
   }
 
-  // 3. one command
-  const a3 = win(t, 7.1, 10.7);
+  // 3. claudegrid: the whole grid, then a 1:1 close-up so Claude's answers are readable
+  const ag = win(t, 7.1, 13.6);
+  if (ag > 0 && GRID.complete) {
+    const lt = t - 7.1;
+    text("Claude Code, four at a time.", W / 2, 150, { font: `600 52px ${SANS}`, align: "center", alpha: ag });
+    const pw = text("~/haltos$ ", 70, 240, { font: `26px ${MONO}`, color: C.dim, alpha: ag });
+    text("claudegrid --layout 2x2", 70 + pw, 240, { font: `26px ${MONO}`, color: C.ink, alpha: ag, chars: (lt - 0.2) * 34 });
+    // Source rects in the 1920x975 screenshot: whole grid, bottom-left pane, top-left pane.
+    const full = [0, 0, 1920, 975], pane3 = [0, 488, 960, 487], pane1 = [0, 0, 960, 487];
+    const k1 = ease((lt - 2.6) / 0.8), k2 = ease((lt - 4.9) / 0.6);
+    const src = full.map((v, i) => lerp(lerp(v, pane3[i], k1), pane1[i], k2));
+    const fx = 60, fy = 300, fw = 960, fh = 487;
+    const ia = ag * ease((lt - 1.0) / 0.4);
+    ctx.save(); ctx.globalAlpha = ia;
+    ctx.fillStyle = C.panel; ctx.strokeStyle = C.rule; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(fx - 12, fy - 12, fw + 24, fh + 24, 20); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.roundRect(fx, fy, fw, fh, 8); ctx.clip();
+    ctx.drawImage(GRID, src[0], src[1], src[2], src[3], fx, fy, fw, fh);
+    ctx.restore();
+    const caps = [
+      [1.0, 2.6, "claudegrid opens a grid of Claude Code agents"],
+      [2.6, 4.9, "Each pane is a real Claude Code session"],
+      [4.9, 6.6, "Every agent on its own task, side by side"],
+    ];
+    for (const [a, b, c] of caps) {
+      text(c, W / 2, 900, { font: `500 34px ${SANS}`, color: C.soft, align: "center", alpha: ag * win(lt, a, b, 0.3) });
+    }
+  }
+
+  // 4. one command
+  const a3 = win(t, 13.6, 17.2);
   if (a3 > 0) {
     ctx.save(); ctx.globalAlpha = a3;
     ctx.fillStyle = C.panel; ctx.strokeStyle = C.rule; ctx.lineWidth = 2;
@@ -171,7 +202,7 @@ function scene(t, frame) {
     text("One command.", 90, 250, { font: `600 52px ${SANS}`, alpha: a3 });
     const cmd1 = "curl -fsSL https://raw.githubusercontent.com/";
     const cmd2 = "  halitsever/haltos/main/bootstrap.sh | sudo bash";
-    const typed = (t - 7.5) * 60;
+    const typed = (t - 14.0) * 60;
     const pw = text("root@vps:~# ", 130, 370, { font: `24px ${MONO}`, color: C.dim, alpha: a3 });
     text(cmd1, 130 + pw, 370, { font: `24px ${MONO}`, alpha: a3, chars: typed });
     text(cmd2, 130, 410, { font: `24px ${MONO}`, alpha: a3, chars: typed - cmd1.length });
@@ -182,7 +213,7 @@ function scene(t, frame) {
       ["[4/4]", "desktop ready, connect over RDP"],
     ];
     out.forEach(([n, msg], k) => {
-      const at = 9.0 + k * 0.28;
+      const at = 15.5 + k * 0.28;
       if (t < at) return;
       const al = a3 * ease((t - at) / 0.2);
       const w = text(n + " ", 130, 500 + k * 52, { font: `22px ${MONO}`, color: C.dim, alpha: al });
@@ -190,8 +221,8 @@ function scene(t, frame) {
     });
   }
 
-  // 4. screenshots in a monitor frame
-  const a4 = win(t, 10.7, 18.4);
+  // 5. screenshots in a monitor frame
+  const a4 = win(t, 17.2, 23.4);
   if (a4 > 0) {
     const fx = 60, fy = 230, fw = 960, fh = 600;
     ctx.save(); ctx.globalAlpha = a4;
@@ -199,13 +230,13 @@ function scene(t, frame) {
     ctx.beginPath(); ctx.roundRect(fx - 12, fy - 12, fw + 24, fh + 24, 20); ctx.fill(); ctx.stroke();
     ctx.restore();
     SHOTS.forEach(({ i, cap }, k) => {
-      const a = a4 * win(t, 10.8 + k * 1.5, 12.45 + k * 1.5, 0.3);
+      const a = a4 * win(t, 17.3 + k * 1.5, 18.95 + k * 1.5, 0.3);
       if (a <= 0 || !i.complete) return;
       const s = Math.min(fw / i.width, fh / i.height), w = i.width * s, h = i.height * s;
       ctx.save(); ctx.globalAlpha = a;
       ctx.beginPath(); ctx.roundRect(fx, fy, fw, fh, 8); ctx.clip();
       ctx.fillStyle = C.void; ctx.fillRect(fx, fy, fw, fh);
-      const zoom = 1 + 0.03 * clamp((t - 10.8 - k * 1.5) / 1.65);
+      const zoom = 1 + 0.03 * clamp((t - 17.3 - k * 1.5) / 1.65);
       ctx.translate(fx + fw / 2, fy + fh / 2); ctx.scale(zoom, zoom);
       ctx.drawImage(i, -w / 2, -h / 2, w, h);
       ctx.restore();
@@ -214,19 +245,19 @@ function scene(t, frame) {
     text("Not a remote terminal. A whole desktop.", W / 2, 150, { font: `600 44px ${SANS}`, align: "center", alpha: a4 });
   }
 
-  // 5. the name
-  const a5 = win(t, 18.4, 21.6);
+  // 6. the name
+  const a5 = win(t, 23.4, 26.6);
   if (a5 > 0) {
-    text("$ man halt", 150, 360, { font: `30px ${MONO}`, color: C.dim, alpha: a5, chars: (t - 18.6) * 30 });
-    text("halt - stop the machine", 150, 430, { font: `30px ${MONO}`, color: C.muted, alpha: a5 * ease((t - 19.2) / 0.3) });
-    text("HaltOS - never stops.", 150, 560, { font: `600 64px ${SANS}`, alpha: a5 * ease((t - 19.7) / 0.3) });
+    text("$ man halt", 150, 360, { font: `30px ${MONO}`, color: C.dim, alpha: a5, chars: (t - 23.6) * 30 });
+    text("halt - stop the machine", 150, 430, { font: `30px ${MONO}`, color: C.muted, alpha: a5 * ease((t - 24.2) / 0.3) });
+    text("HaltOS - never stops.", 150, 560, { font: `600 64px ${SANS}`, alpha: a5 * ease((t - 24.7) / 0.3) });
     const s = "root@haltos:~# shutdown -h never";
-    const w = text(s, 150, 680, { font: `30px ${MONO}`, color: C.soft, alpha: a5, chars: (t - 20.3) * 40 });
-    if (t > 20.3) cursor(150 + w + 6, 656, 16, 30, t, a5);
+    const w = text(s, 150, 680, { font: `30px ${MONO}`, color: C.soft, alpha: a5, chars: (t - 25.3) * 40 });
+    if (t > 25.3) cursor(150 + w + 6, 656, 16, 30, t, a5);
   }
 
-  // 6. end card
-  const a6 = ease((t - 21.6) / 0.5);
+  // 7. end card
+  const a6 = ease((t - 26.6) / 0.5);
   if (a6 > 0) {
     const m = wordmark(W / 2, 400, 17, 1, a6, frame);
     cursor(m.right + m.cw, m.bottom - m.ch * 1.5, m.cw * 1.6, m.ch / 2, t, a6);
@@ -243,7 +274,7 @@ const params = new URLSearchParams(location.search);
 
 // Headless runs can stall on font or image promises, so loading gives up after a few seconds.
 const loaded = Promise.race([
-  Promise.all([document.fonts.ready, ...SHOTS.map(({ i }) => i.decode().catch(() => {}))]),
+  Promise.all([document.fonts.ready, GRID.decode().catch(() => {}), ...SHOTS.map(({ i }) => i.decode().catch(() => {}))]),
   new Promise((r) => setTimeout(r, 4000)),
 ]);
 loaded.then(() => {
