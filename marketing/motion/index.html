@@ -292,6 +292,10 @@ loaded.then(() => {
       document.getElementById("ui").remove();
       record();
     }
+    if (params.has("frames")) {
+      document.getElementById("ui").remove();
+      exportFrames(Number(params.get("frames")) || 10, Number(params.get("size")) || 600);
+    }
     if (params.has("export")) {
       document.getElementById("ui").remove();
       exportVideo().catch((e) => { console.log(`[motion] error ${e.message}`); document.title = "error: " + e.message; });
@@ -332,6 +336,25 @@ async function exportVideo() {
   const body = new Blob([target.buffer], { type: "video/mp4" });
   await fetch(`/upload?name=haltos-motion.mp4&fps=${FPS}&mime=video/mp4`, { method: "POST", body });
   console.log(`[motion] done ${(body.size / 1e6).toFixed(1)} MB`);
+  document.title = "done";
+}
+
+// Still frames for the README GIF: ?frames=FPS&size=PX posts every frame as a PNG.
+async function exportFrames(fps, size) {
+  const small = document.createElement("canvas");
+  small.width = small.height = size;
+  const sctx = small.getContext("2d");
+  sctx.imageSmoothingQuality = "high";
+  const total = Math.round(DURATION * fps);
+  for (let i = 0; i < total; i++) {
+    const t = i / fps;
+    scene(t, Math.floor(t * 30));
+    sctx.drawImage(cv, 0, 0, size, size);
+    const blob = await new Promise((r) => small.toBlob(r, "image/png"));
+    await fetch(`/upload?name=frame-${String(i).padStart(4, "0")}.png`, { method: "POST", body: blob });
+    if (i % 50 === 0) console.log(`[motion] png ${i}/${total}`);
+  }
+  console.log("[motion] frames done");
   document.title = "done";
 }
 
