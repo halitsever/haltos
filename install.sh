@@ -139,12 +139,16 @@ install_user() {
     else
         # Without a session Qt has no display, but the colour scheme still has to land in kdeglobals.
         QT_QPA_PLATFORM=offscreen plasma-apply-colorscheme HaltMono >/dev/null 2>&1 || true
-        # Panel and wallpaper live inside plasmashell, so they wait for the first desktop login.
-        install -d "$conf/autostart"
-        printf '[Desktop Entry]\nType=Application\nName=HaltOS first run\nExec=%s/install.sh firstrun\nNoDisplay=true\nX-KDE-autostart-phase=2\n' \
-            "$HERE" >"$conf/autostart/haltos-firstrun.desktop"
+        queue_firstrun
         log "no graphical session found, panel and wallpaper apply at first desktop login"
     fi
+}
+
+# Panel and wallpaper live inside plasmashell, so without one they wait for the next desktop login.
+queue_firstrun() {
+    install -d "$conf/autostart"
+    printf '[Desktop Entry]\nType=Application\nName=HaltOS first run\nExec=%s/install.sh firstrun\nNoDisplay=true\nX-KDE-autostart-phase=2\n' \
+        "$HERE" >"$conf/autostart/haltos-firstrun.desktop"
 }
 
 refresh_user() {
@@ -154,6 +158,14 @@ refresh_user() {
     user_dirs
     apply_user_config "$share" "$conf"
     QT_QPA_PLATFORM=offscreen plasma-apply-colorscheme HaltMono >/dev/null 2>&1 || true
+    # A synced panel file drops the wallpaper and start icon. A live shell takes them now, else next login does.
+    if qdbus6 org.kde.plasmashell /PlasmaShell >/dev/null 2>&1; then
+        qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript \
+            "$(cat "$HERE/plasma/scripts/panel.js")" >/dev/null || true
+        plasma-apply-wallpaperimage "$share/wallpapers/HaltOS" >/dev/null || true
+    else
+        queue_firstrun
+    fi
     log "settings re-applied. log out and back in to see them."
 }
 
