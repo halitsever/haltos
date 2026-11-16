@@ -4,7 +4,7 @@
 <img src="https://halitsever-api.vercel.app/api/repo-title?title=HaltOS">
 
 <p align="center">
-A monochrome, terminal-flavoured identity layer that turns Ubuntu + KDE Plasma into HaltOS, a Claude Code workstation.<br>
+A Claude Code workstation OS for your VPS: a monochrome, terminal-flavoured layer that turns an Ubuntu server into a remote KDE Plasma desktop for Claude Code.<br>
 <br/>
 <br/>
 <img src="https://img.shields.io/github/sponsors/halitsever"/>
