@@ -1,0 +1,72 @@
+# HaltOS boot splash: ASCII wordmark, blinking block cursor, thin progress bar.
+Window.SetBackgroundTopColor(0.035, 0.035, 0.043);
+Window.SetBackgroundBottomColor(0.035, 0.035, 0.043);
+
+cx = Window.GetX() + Window.GetWidth() / 2;
+cy = Window.GetY() + Window.GetHeight() / 2;
+
+logo.image = Image("wordmark.png");
+logo.sprite = Sprite(logo.image);
+logo.x = cx - logo.image.GetWidth() / 2;
+logo.y = cy - logo.image.GetHeight() / 2 - 40;
+logo.sprite.SetPosition(logo.x, logo.y, 1);
+
+cursor.image = Image("cursor.png");
+cursor.sprite = Sprite(cursor.image);
+cursor.sprite.SetPosition(logo.x + logo.image.GetWidth() + 12, logo.y + logo.image.GetHeight() * 5 / 6 - cursor.image.GetHeight(), 2);
+
+track.image = Image("track.png");
+bar.image = Image("bar.png");
+track.width = 240;
+track.x = cx - track.width / 2;
+track.y = logo.y + logo.image.GetHeight() + 48;
+track.sprite = Sprite(track.image.Scale(track.width, 2));
+track.sprite.SetPosition(track.x, track.y, 1);
+bar.sprite = Sprite();
+bar.sprite.SetPosition(track.x, track.y, 2);
+
+tick = 0;
+fun refresh() {
+    tick++;
+    if (Math.Int(tick / 25) % 2 == 0)
+        cursor.sprite.SetOpacity(1);
+    else
+        cursor.sprite.SetOpacity(0);
+}
+Plymouth.SetRefreshFunction(refresh);
+
+fun progress(duration, fraction) {
+    w = Math.Int(track.width * fraction);
+    if (w < 1) w = 1;
+    bar.sprite.SetImage(bar.image.Scale(w, 2));
+}
+Plymouth.SetBootProgressFunction(progress);
+
+message.sprite = Sprite();
+fun show_message(text) {
+    message.sprite.SetImage(Image.Text(text, 0.63, 0.63, 0.67, 1, "JetBrains Mono 11"));
+    message.sprite.SetPosition(cx - message.sprite.GetImage().GetWidth() / 2, track.y + 28, 3);
+}
+Plymouth.SetMessageFunction(show_message);
+
+prompt.sprite = Sprite();
+dots.sprite = Sprite();
+fun display_password(text, bullets) {
+    label = text;
+    if (label == "") label = "passphrase";
+    prompt.sprite.SetImage(Image.Text(label, 0.98, 0.98, 0.98, 1, "JetBrains Mono 12"));
+    prompt.sprite.SetPosition(cx - prompt.sprite.GetImage().GetWidth() / 2, track.y + 28, 3);
+    stars = "";
+    for (i = 0; i < bullets; i++) stars += "*";
+    dots.sprite.SetImage(Image.Text(stars + "_", 0.98, 0.98, 0.98, 1, "JetBrains Mono 12"));
+    dots.sprite.SetPosition(cx - dots.sprite.GetImage().GetWidth() / 2, track.y + 56, 3);
+    dots.sprite.SetOpacity(1);
+    prompt.sprite.SetOpacity(1);
+}
+Plymouth.SetDisplayPasswordFunction(display_password);
+
+fun display_normal() {
+    prompt.sprite.SetOpacity(0);
+    dots.sprite.SetOpacity(0);
+}
+Plymouth.SetDisplayNormalFunction(display_normal);

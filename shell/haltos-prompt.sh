@@ -1,4 +1,5 @@
 # HaltOS bash prompt. Sourced from ~/.bashrc.
+# shellcheck shell=bash
 [ -n "$BASH_VERSION" ] || return 0
 
 __haltos_prompt() {

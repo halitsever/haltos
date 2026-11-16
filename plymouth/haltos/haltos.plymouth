@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=HaltOS
+Description=HaltOS ASCII boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/haltos
+ScriptFile=/usr/share/plymouth/themes/haltos/haltos.script

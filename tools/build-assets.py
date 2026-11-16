@@ -150,7 +150,7 @@ def scanlines(img, k):
     return Image.alpha_composite(img, lines)
 
 
-def wallpaper(w, h, seed=0x48):
+def wallpaper(w, h, seed=0x48, plain=False):
     rng = random.Random(seed)
     k = h / 1080
     base = Image.new("RGBA", (w, h), BG + (255,))
@@ -177,6 +177,8 @@ def wallpaper(w, h, seed=0x48):
                 a = int((1 - edge / 0.32) * rng.randint(8, 26))
                 hd.text((x, y), f"{rng.randrange(256):02x}", font=hf, fill=FG + (a,))
     base = Image.alpha_composite(base, hexl)
+    if plain:
+        return scanlines(base, k).convert("RGB")
 
     rows = banner("HALTOS")
     cols = max(map(len, rows))
@@ -260,6 +262,15 @@ def main():
     for w, h in [(1920, 1080), (2560, 1440), (3840, 2160), (1512, 949)]:
         wallpaper(w, h).save(os.path.join(wp, f"{w}x{h}.png"), optimize=True)
         print(f"wallpaper {w}x{h}", file=sys.stderr)
+    wallpaper(1920, 1080, plain=True).save(os.path.join(ROOT, "sddm", "haltos", "background.png"), optimize=True)
+    splash_wordmark(os.path.join(ROOT, "sddm", "haltos", "wordmark.png"))
+
+    ply = os.path.join(ROOT, "plymouth", "haltos")
+    os.makedirs(ply, exist_ok=True)
+    ww, wh = splash_wordmark(os.path.join(ply, "wordmark.png"))
+    Image.new("RGBA", (round(wh / 6 * 1.4), round(wh / 12)), FG + (255,)).save(os.path.join(ply, "cursor.png"))
+    Image.new("RGBA", (1, 1), (39, 39, 42, 255)).save(os.path.join(ply, "track.png"))
+    Image.new("RGBA", (1, 1), FG + (255,)).save(os.path.join(ply, "bar.png"))
     write(
         os.path.join(BRAND, "wallpapers", "HaltOS", "metadata.json"),
         '{\n  "KPlugin": {\n    "Id": "HaltOS",\n    "Name": "HaltOS",\n'
