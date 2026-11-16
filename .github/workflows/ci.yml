@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: |
+          shellcheck -S warning install.sh shell/haltos-prompt.sh plasma/scripts/windeco.sh tools/clean-shot.sh
+          shellcheck -S warning -s sh system/motd/00-haltos
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-jetbrains-mono
+          pip install pillow
+      - name: generators run
+        run: |
+          python tools/build-assets.py
+          python tools/build-kvantum.py
+      - name: kvantum theme is committed as generated
+        run: git diff --exit-code -- kvantum/
+      - name: config files parse
+        run: |
+          python - <<'PY'
+          import json, xml.etree.ElementTree as ET
+          for p in ["plasma/look-and-feel/org.haltos.mono/metadata.json", "branding/wallpapers/HaltOS/metadata.json"]:
+              json.load(open(p))
+          for p in ["kvantum/HaltMono/HaltMono.svg", "branding/haltos-logo.svg", "branding/haltos-wordmark.svg"]:
+              ET.parse(p)
+          print("ok")
+          PY
