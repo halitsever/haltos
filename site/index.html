@@ -54,6 +54,18 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
+  "@type": "VideoObject",
+  "name": "HaltOS in 30 seconds",
+  "description": "HaltOS boots, claudegrid opens four Claude Code agents side by side, one command installs everything, and the KDE Plasma desktop comes up over RDP.",
+  "thumbnailUrl": "https://halitsever.github.io/haltos/haltos-video-poster.jpg",
+  "contentUrl": "https://halitsever.github.io/haltos/haltos.mp4",
+  "uploadDate": "2026-11-16",
+  "duration": "PT30S"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
     { "@type": "Question", "name": "Why is it called HaltOS?",
@@ -117,6 +129,16 @@
     <figure class="monitor">
       <img src="assets/screens/claudegrid.png" width="1920" height="975" alt="claudegrid on HaltOS: four Claude Code agents in a two by two grid, each answering a question about the HaltOS repository" loading="eager" fetchpriority="high">
       <figcaption><a href="https://github.com/halitsever/claudegrid">claudegrid</a> running four Claude Code agents side by side, each on its own task.</figcaption>
+    </figure>
+  </section>
+
+  <section id="video" class="video" aria-labelledby="video-title">
+    <div class="section-head">
+      <h2 id="video-title">HaltOS in 30 seconds</h2>
+      <p>From the first boot line to four Claude Code agents working side by side.</p>
+    </div>
+    <figure class="player">
+      <video id="tour" src="haltos.mp4" poster="haltos-video-poster.jpg" width="1080" height="1080" muted loop playsinline controls preload="none" aria-describedby="video-title"></video>
     </figure>
   </section>
 

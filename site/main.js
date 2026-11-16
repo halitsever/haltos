@@ -93,6 +93,17 @@
     });
   });
 
+  // The tour only downloads and plays once it scrolls into view, and never on its own under reduced motion.
+  const tour = document.getElementById("tour");
+  if (tour && !still && "IntersectionObserver" in window) {
+    new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) tour.play().catch(() => {});
+        else tour.pause();
+      }
+    }, { threshold: 0.5 }).observe(tour);
+  }
+
   // Tabs follow the WAI-ARIA pattern: arrow keys move between them, Home and End jump to the ends.
   const tabs = [...document.querySelectorAll('[role="tab"]')];
   const select = (tab) => {
