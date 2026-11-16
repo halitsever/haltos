@@ -66,12 +66,14 @@ To update a bootstrapped server:
 sudo claude-vps update && sudo haltos update
 ```
 
-To remove HaltOS:
+To remove HaltOS, use the `haltos` command a bootstrapped server has (on a manual clone, `~/haltos/install.sh` takes the same arguments). VS Code stays installed.
 
 ```sh
-~/haltos/install.sh undo-user          # restore the pre-HaltOS KDE config
-sudo ~/haltos/install.sh undo-system   # restore Ubuntu's identity files, MOTD and defaults
+haltos undo-user          # restore the pre-HaltOS KDE config
+sudo haltos undo-system   # restore Ubuntu's identity files, MOTD and defaults
 ```
+
+To check a release on a fresh server, follow [docs/testing.md](docs/testing.md).
 
 ### Known limits
 
