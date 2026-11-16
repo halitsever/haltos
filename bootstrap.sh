@@ -48,6 +48,9 @@ TARGET_USER=$(. /etc/claude-vps.conf && echo "$TARGET_USER")
 
 log "installing HaltOS for $TARGET_USER"
 clone "$HALTOS_REPO" "$HALTOS_DIR"
+# Servers run the newest release, not whatever is on main; `haltos update --edge` opts into main.
+latest=$(git -C "$HALTOS_DIR" tag -l 'v*' | sed 's/^v//' | sort -V | tail -1)
+[ -z "$latest" ] || git -C "$HALTOS_DIR" checkout -q "v$latest"
 git config --system --add safe.directory "$HALTOS_DIR"
 ln -sf "$HALTOS_DIR/install.sh" /usr/local/bin/haltos
 "$HALTOS_DIR/install.sh" system
@@ -55,4 +58,4 @@ ln -sf "$HALTOS_DIR/install.sh" /usr/local/bin/haltos
 runuser -l "$TARGET_USER" -c "dbus-run-session -- '$HALTOS_DIR/install.sh' user"
 
 log "done. connect over RDP and HaltOS finishes the panel on first login."
-log "update later with: sudo claude-vps update && sudo haltos update"
+log "update later with: sudo haltos update"

@@ -4,12 +4,14 @@
 #   ./install.sh refresh         re-apply user settings without a backup or restart (sync hook)
 #   ./install.sh undo-user       restore the KDE config saved before the first user install
 #   sudo ./install.sh system     OS identity, MOTD, login and boot themes, defaults for new users
-#   sudo ./install.sh update     pull HaltOS, re-run system, refresh the claude-vps user
+#   sudo ./install.sh update     newest release (--edge: follow main), claude-code-vps too, then system and refresh
+#   ./install.sh version         installed version, channel and whether a newer release exists
 #   sudo ./install.sh undo-system
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
-HALTOS_VER="1.0"
+HALTOS_RELEASE=$(cat "$HERE/VERSION" 2>/dev/null || echo 1.0.0)
+HALTOS_VER=${HALTOS_RELEASE%.*}
 HALTOS_CODENAME="SIGKILL"
 LNF=org.haltos.mono
 MOTD_OFF="00-header 10-help-text 50-motd-news 50-landscape-sysinfo 90-updates-available 91-contract-ua-esm-status"
@@ -46,7 +48,7 @@ copy_assets() {
     cp -r "$HERE/plasma/look-and-feel/$LNF" "$share/plasma/look-and-feel/"
     cp -r "$HERE/branding/icons/hicolor" "$share/icons/"
     install -m644 "$HERE/system/fastfetch/haltos.txt" "$share/haltos/fastfetch/"
-    install -m644 "$HERE/shell/haltos-prompt.sh" "$HERE/gtk/haltos-adw.css" "$share/haltos/"
+    install -m644 "$HERE/shell/haltos-prompt.sh" "$HERE/gtk/haltos-adw.css" "$HERE/VERSION" "$share/haltos/"
 }
 
 gtk_import() {
@@ -364,21 +366,100 @@ install_system() {
             log "plymouth theme set; add 'splash' to the kernel command line to see it"
         fi
     fi
+    install_update_check
     log "system branding installed. reconnect via SSH to see the new MOTD."
 }
 
-# Bootstrapped servers: newest HaltOS from git, system layer, then the workstation user's settings.
+CONF=/etc/haltos.conf
+STATE=/var/lib/haltos
+
+channel() {
+    local c=stable
+    # shellcheck disable=SC1090  # written at runtime on the server, not part of the repo
+    [ -r "$CONF" ] && c=$(. "$CONF" && echo "${CHANNEL:-stable}")
+    echo "$c"
+}
+
+# Newest vX.Y.Z on GitHub, read without fetching the repository.
+latest_release() {
+    git -C "$HERE" ls-remote --tags --refs origin 'v*' 2>/dev/null | sed 's|.*refs/tags/v||' | sort -V | tail -1
+}
+
+newer() { [ -n "$2" ] && [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -1)" = "$2" ]; }
+
+show_version() {
+    local latest
+    latest=$(latest_release)
+    echo "HaltOS $HALTOS_RELEASE ($HALTOS_CODENAME), $(channel) channel"
+    if newer "$HALTOS_RELEASE" "$latest"; then
+        echo "HaltOS $latest is available: sudo haltos update"
+    else
+        echo "up to date"
+    fi
+}
+
+# Run daily by haltos-update-check.timer; the login banner reads the result.
+check_update() {
+    install -d "$STATE"
+    latest_release >"$STATE/latest.tmp" && mv "$STATE/latest.tmp" "$STATE/latest"
+}
+
 update_all() {
     [ "$EUID" -eq 0 ] || die "update needs root: sudo haltos update"
-    git -C "$HERE" pull -q --ff-only
+    local ch old target
+    ch=$(channel)
+    case "${1:-}" in
+    --edge) ch=edge ;;
+    --stable) ch=stable ;;
+    esac
+    old=$HALTOS_RELEASE
+    [ -z "$(git -C "$HERE" status --porcelain --untracked-files=no)" ] || die "$HERE has local changes, commit or stash them first"
+    git -C "$HERE" fetch -q --tags origin
+    if [ "$ch" = edge ]; then
+        git -C "$HERE" checkout -q main
+        git -C "$HERE" pull -q --ff-only
+    else
+        target=$(git -C "$HERE" tag -l 'v*' | sed 's/^v//' | sort -V | tail -1)
+        [ -n "$target" ] || die "no HaltOS releases found"
+        git -C "$HERE" checkout -q "v$target"
+    fi
+    printf 'CHANNEL=%s\n' "$ch" >"$CONF"
+    # The checkout rewrote this script while bash may still be reading it, so the rest runs in the new copy.
+    exec "$HERE/install.sh" finish-update "$old"
+}
+
+finish_update() {
+    [ "$EUID" -eq 0 ] || die "update needs root: sudo haltos update"
+    local old=${1:-unknown} user=""
+    if command -v claude-vps >/dev/null; then
+        log "updating claude-code-vps"
+        claude-vps update
+    fi
     "$HERE/install.sh" system
-    local user=""
     [ -r /etc/claude-vps.conf ] && user=$(. /etc/claude-vps.conf && echo "${TARGET_USER:-}")
     if [ -n "$user" ]; then
         runuser -l "$user" -c "dbus-run-session -- '$HERE/install.sh' refresh"
     else
         log "no claude-vps user recorded, run 'haltos refresh' as your desktop user"
     fi
+    check_update || true
+    if [ "$old" = "$HALTOS_RELEASE" ]; then
+        log "HaltOS $HALTOS_RELEASE is up to date"
+    else
+        log "HaltOS $old -> $HALTOS_RELEASE"
+        awk -v v="$HALTOS_RELEASE" '$0 ~ "^## "v {on=1; next} /^## / {on=0} on' "$HERE/CHANGELOG.md"
+    fi
+}
+
+install_update_check() {
+    printf '[Unit]\nDescription=Check for a newer HaltOS release\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=oneshot\nExecStart=%s/install.sh check-update\n' \
+        "$HERE" >/etc/systemd/system/haltos-update-check.service
+    printf '[Unit]\nDescription=Check for a newer HaltOS release every day\n\n[Timer]\nOnBootSec=5min\nOnUnitActiveSec=1d\nRandomizedDelaySec=1h\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n' \
+        >/etc/systemd/system/haltos-update-check.timer
+    systemctl daemon-reload
+    systemctl enable -q --now haltos-update-check.timer
+    [ -f "$CONF" ] || printf 'CHANNEL=stable\n' >"$CONF"
+    check_update || true
 }
 
 undo_system() {
@@ -399,6 +480,9 @@ undo_system() {
     done
     rm -f /etc/xdg/breezerc
     rm -rf /usr/share/Kvantum/HaltMono /usr/share/sddm/themes/haltos /usr/share/haltos
+    systemctl disable -q --now haltos-update-check.timer 2>/dev/null || true
+    rm -rf /etc/systemd/system/haltos-update-check.service /etc/systemd/system/haltos-update-check.timer "$CONF" "$STATE"
+    systemctl daemon-reload
     if command -v plymouth-set-default-theme >/dev/null && [ -d /usr/share/plymouth/themes/haltos ]; then
         plymouth-set-default-theme --reset
         rm -rf /usr/share/plymouth/themes/haltos
@@ -412,10 +496,13 @@ refresh) refresh_user ;;
 firstrun) firstrun_user ;;
 undo-user) undo_user ;;
 system) install_system ;;
-update) update_all ;;
+update) update_all "${2:-}" ;;
+finish-update) finish_update "${2:-}" ;;
+check-update) check_update ;;
+version | --version | -v) show_version ;;
 undo-system) undo_system ;;
 *)
-    sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
     ;;
 esac
