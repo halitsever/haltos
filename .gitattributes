@@ -1,1 +1,5 @@
 * text=auto eol=lf
+
+# The website and marketing pages are not the product, keep them out of the language stats
+site/** linguist-documentation
+marketing/** linguist-documentation
