@@ -2,10 +2,15 @@
 panels().forEach(function (p) {
     p.location = "top";
     p.floating = true;
-    p.height = 44;
+    p.height = 32;
     // The virtual desktop pager is two grey boxes on a monochrome bar and of little use over RDP.
     p.widgets("org.kde.plasma.pager").forEach(function (w) {
         w.remove();
+    });
+    // A slim bar has no room for the date under the time, so it goes beside it.
+    p.widgets("org.kde.plasma.digitalclock").forEach(function (w) {
+        w.currentConfigGroup = ["Appearance"];
+        w.writeConfig("dateDisplayFormat", 1);
     });
     p.widgets("org.kde.plasma.kickoff").forEach(function (w) {
         w.currentConfigGroup = ["General"];
