@@ -38,7 +38,7 @@
   "name": "HaltOS",
   "softwareVersion": "1.0",
   "alternateName": "HaltOS SIGKILL",
-  "description": "An Ubuntu and KDE Plasma layer that turns a VPS into a Claude Code workstation with a monochrome terminal-style theme.",
+  "description": "An Ubuntu and KDE Plasma layer that turns a VPS into a Claude Code workstation with a monochrome terminal-style theme and claudegrid for running several Claude Code agents side by side.",
   "applicationCategory": "DeveloperApplication",
   "keywords": "Claude Code workstation, Claude Code VPS, Claude Code remote desktop, AI coding workstation, KDE Plasma VPS, Ubuntu RDP desktop",
   "operatingSystem": "Ubuntu 25.04 or newer",
@@ -46,7 +46,7 @@
   "downloadUrl": "https://github.com/halitsever/haltos",
   "license": "https://opensource.org/licenses/MIT",
   "image": "https://halitsever.github.io/haltos/og.png",
-  "screenshot": "https://halitsever.github.io/haltos/assets/screens/desktop.png",
+  "screenshot": "https://halitsever.github.io/haltos/assets/screens/claudegrid.png",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "author": { "@type": "Person", "name": "Halit Sever", "url": "https://github.com/halitsever" }
 }
@@ -100,7 +100,7 @@
 
     <p class="version"><span>v1.0</span> <span>SIGKILL</span></p>
 
-    <p class="lede">A Claude Code workstation OS for your VPS. One command turns a blank Ubuntu server into a monochrome KDE Plasma desktop you reach over RDP, built for long sessions in a terminal.</p>
+    <p class="lede">A Claude Code workstation OS for your VPS. One command turns a blank Ubuntu server into a monochrome KDE Plasma desktop you reach over RDP, with <a href="https://github.com/halitsever/claudegrid">claudegrid</a> to run several Claude Code agents side by side.</p>
 
     <div class="cmd" id="install-cmd">
       <span class="cmd-prompt" aria-hidden="true">root@vps:~#</span>
@@ -115,8 +115,8 @@
 
   <section class="monitor-section" aria-label="HaltOS desktop">
     <figure class="monitor">
-      <img src="assets/screens/desktop.png" width="1512" height="949" alt="The HaltOS desktop: HALTOS in ASCII block letters on a black wallpaper with a floating panel and a dot start button" loading="eager" fetchpriority="high">
-      <figcaption>The desktop right after the first RDP login.</figcaption>
+      <img src="assets/screens/claudegrid.png" width="1920" height="975" alt="claudegrid on HaltOS: four Claude Code agents in a two by two grid, each answering a question about the HaltOS repository" loading="eager" fetchpriority="high">
+      <figcaption><a href="https://github.com/halitsever/claudegrid">claudegrid</a> running four Claude Code agents side by side, each on its own task.</figcaption>
     </figure>
   </section>
 
@@ -139,10 +139,11 @@
           <tr><td>haltos-terminal</td><td><span class="dot" aria-hidden="true"></span>active</td><td>A Konsole profile, a two-line prompt with the git branch and exit code, and fastfetch with the HALTOS banner.</td></tr>
           <tr><td>haltos-boot</td><td><span class="dot" aria-hidden="true"></span>active</td><td>A splash screen with a scrolling boot log, an SDDM login card and a Plymouth splash.</td></tr>
           <tr><td>haltos-motd</td><td><span class="dot" aria-hidden="true"></span>active</td><td>An SSH banner with uptime, load, memory, disk and pending updates, without Ubuntu's ads.</td></tr>
+          <tr><td>claudegrid</td><td><span class="dot" aria-hidden="true"></span>active</td><td>Opens a grid of Claude Code agents in one window, with a prompt, model and git worktree per pane. <a href="https://github.com/halitsever/claudegrid">See claudegrid</a>.</td></tr>
           <tr><td>claude-code-vps</td><td><span class="dot" aria-hidden="true"></span>active</td><td>Plasma over RDP, key-only SSH, ufw, Docker, Claude Code and claudegrid. <a href="https://github.com/halitsever/claude-code-vps">Its own project</a>, and it runs fine without HaltOS.</td></tr>
         </tbody>
       </table>
-      <p class="term-foot">8 units listed. All of them are reversible.</p>
+      <p class="term-foot">9 units listed. All of them are reversible.</p>
     </div>
   </section>
 
@@ -153,14 +154,19 @@
     </div>
     <div class="viewer">
       <div class="tabs" role="tablist" aria-label="Screens">
-        <button role="tab" id="tab-widgets" aria-controls="panel-widgets" aria-selected="true">Widgets</button>
+        <button role="tab" id="tab-desktop" aria-controls="panel-desktop" aria-selected="true">Desktop</button>
+        <button role="tab" id="tab-widgets" aria-controls="panel-widgets" aria-selected="false" tabindex="-1">Widgets</button>
         <button role="tab" id="tab-terminal" aria-controls="panel-terminal" aria-selected="false" tabindex="-1">Terminal</button>
         <button role="tab" id="tab-splash" aria-controls="panel-splash" aria-selected="false" tabindex="-1">Splash</button>
         <button role="tab" id="tab-login" aria-controls="panel-login" aria-selected="false" tabindex="-1">Login</button>
         <button role="tab" id="tab-gtk" aria-controls="panel-gtk" aria-selected="false" tabindex="-1">GTK apps</button>
       </div>
       <div class="panels">
-        <figure role="tabpanel" id="panel-widgets" aria-labelledby="tab-widgets">
+        <figure role="tabpanel" id="panel-desktop" aria-labelledby="tab-desktop">
+          <img src="assets/screens/desktop.png" width="1512" height="949" loading="lazy" alt="The HaltOS desktop: HALTOS in ASCII block letters on a black wallpaper with a floating panel and a dot start button">
+          <figcaption>The desktop right after the first RDP login.</figcaption>
+        </figure>
+        <figure role="tabpanel" id="panel-widgets" aria-labelledby="tab-widgets" hidden>
           <img src="assets/screens/widgets.png" width="1005" height="765" loading="lazy" alt="Kvantum widget preview: outline push buttons, a white toggled button and rounded inputs">
           <figcaption>Qt and KDE apps: outline buttons, white when pressed or checked.</figcaption>
         </figure>

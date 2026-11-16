@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>HaltOS motion</title>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #09090b; color: #fafafa; font: 14px "Geist", sans-serif; }
+  canvas { display: block; width: 1080px; height: 1080px; }
+  #ui { position: fixed; right: 12px; bottom: 12px; display: flex; gap: 8px; align-items: center; }
+  button { font: 600 14px "Geist", sans-serif; background: #fafafa; color: #09090b; border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+  #status { color: #a1a1aa; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1080"></canvas>
+<div id="ui"><span id="status">loading</span><button id="rec">Record video</button></div>
+<script>
+// HaltOS LinkedIn motion: renders the whole timeline on a canvas and records it with MediaRecorder.
+// ?t=SECONDS renders one still frame instead, for reviewing the cut.
+const W = 1080, H = 1080, DURATION = 24.7;
+const C = { void: "#09090b", panel: "#0e0e10", rule: "#27272a", dim: "#52525b", muted: "#a1a1aa", soft: "#d4d4d8", ink: "#fafafa" };
+const MONO = '"JetBrains Mono", monospace', SANS = '"Geist", sans-serif';
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+
+const WORD = [
+  "██╗  ██╗ █████╗ ██╗  ████████╗ ██████╗ ███████╗",
+  "██║  ██║██╔══██╗██║  ╚══██╔══╝██╔═══██╗██╔════╝",
+  "███████║███████║██║     ██║   ██║   ██║███████╗",
+  "██╔══██║██╔══██║██║     ██║   ██║   ██║╚════██║",
+  "██║  ██║██║  ██║███████╗██║   ╚██████╔╝███████║",
+  "╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝    ╚═════╝ ╚══════╝",
+];
+const COLS = WORD[0].length;
+
+// Deterministic noise, so a still frame and the recording show the same hex.
+const hash = (a, b) => { let h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+const HEX = "0123456789abcdef";
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const ease = (v) => { v = clamp(v); return v * v * (3 - 2 * v); };
+const win = (t, a, b, fade = 0.35) => ease((t - a) / fade) * (1 - ease((t - b + fade) / fade));
+
+function cellRects(ch, x, y, w, h) {
+  const t = w * 0.13, d = w * 0.2, cx = x + w / 2, cy = y + h / 2, e = t / 2;
+  const hl = (x0, x1, yy) => [x0, yy - t / 2, x1 - x0, t];
+  const vl = (xx, y0, y1) => [xx - t / 2, y0, t, y1 - y0];
+  switch (ch) {
+    case "█": return [[x, y, w, h]];
+    case "═": return [hl(x, x + w, cy - d), hl(x, x + w, cy + d)];
+    case "║": return [vl(cx - d, y, y + h), vl(cx + d, y, y + h)];
+    case "╗": return [hl(x, cx + d + e, cy - d), vl(cx + d, cy - d - e, y + h), hl(x, cx - d + e, cy + d), vl(cx - d, cy + d - e, y + h)];
+    case "╔": return [hl(cx - d - e, x + w, cy - d), vl(cx - d, cy - d - e, y + h), hl(cx + d - e, x + w, cy + d), vl(cx + d, cy + d - e, y + h)];
+    case "╚": return [vl(cx - d, y, cy + d + e), hl(cx - d - e, x + w, cy + d), vl(cx + d, y, cy - d + e), hl(cx + d - e, x + w, cy - d)];
+    case "╝": return [vl(cx + d, y, cy + d + e), hl(x, cx + d + e, cy + d), vl(cx - d, y, cy - d + e), hl(x, cx - d + e, cy - d)];
+    default: return [];
+  }
+}
+
+function wordmark(cx, cy, cw, decode, alpha, frame) {
+  const ch = cw * 2, ox = cx - (COLS * cw) / 2, oy = cy - (6 * ch) / 2;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.shadowColor = "rgba(250,250,250,0.45)";
+  ctx.shadowBlur = cw * 1.4;
+  ctx.font = `${Math.round(cw * 1.35)}px ${MONO}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  WORD.forEach((line, r) => [...line].forEach((g, c) => {
+    if (g === " ") return;
+    const settle = (c / COLS) * 0.75 + hash(r, c) * 0.25;
+    const x = ox + c * cw, y = oy + r * ch;
+    if (decode >= settle) {
+      ctx.fillStyle = C.ink;
+      for (const [a, b, w, h] of cellRects(g, x, y, cw, ch)) ctx.fillRect(a, b, w + 0.4, h + 0.4);
+    } else if (decode > 0) {
+      ctx.fillStyle = C.dim;
+      ctx.fillText(HEX[Math.floor(hash(frame, r * 97 + c) * 16)], x + cw / 2, y + ch / 2);
+    }
+  }));
+  ctx.restore();
+  return { right: ox + COLS * cw, bottom: oy + 6 * ch, cw, ch };
+}
+
+function cursor(x, y, w, h, t, alpha = 1) {
+  if (Math.floor(t / 0.53) % 2) return;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = C.ink; ctx.shadowColor = "rgba(250,250,250,0.6)"; ctx.shadowBlur = 12;
+  ctx.fillRect(x, y, w, h); ctx.restore();
+}
+
+function text(str, x, y, { font = `24px ${MONO}`, color = C.ink, align = "left", alpha = 1, chars = Infinity } = {}) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = "alphabetic";
+  const s = str.slice(0, Math.max(0, Math.floor(chars)));
+  ctx.fillText(s, x, y);
+  const w = ctx.measureText(s).width;
+  ctx.restore();
+  return w;
+}
+
+const hexField = [];
+for (let r = 0; r < 54; r++) for (let c = 0; c < 42; c++) {
+  const edge = Math.min(c, 41 - c) / 20.5;
+  if (edge < 0.3 && hash(r, c + 900) < 0.5) hexField.push([c * 26, r * 20 + 14, HEX[Math.floor(hash(r, c) * 16)] + HEX[Math.floor(hash(c, r) * 16)], (1 - edge / 0.3) * (0.1 + hash(c, r + 7) * 0.25)]);
+}
+
+function background() {
+  ctx.fillStyle = C.void; ctx.fillRect(0, 0, W, H);
+  const g = ctx.createRadialGradient(W / 2, H * 0.45, 0, W / 2, H * 0.45, W * 0.7);
+  g.addColorStop(0, "rgba(161,161,170,0.10)"); g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.font = `13px ${MONO}`; ctx.fillStyle = C.muted;
+  for (const [x, y, s, a] of hexField) { ctx.globalAlpha = a * 0.35; ctx.fillText(s, x, y); }
+  ctx.globalAlpha = 1;
+}
+
+function scanlines() {
+  ctx.fillStyle = "rgba(0,0,0,0.28)";
+  for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+}
+
+const BOOT = [
+  ["  OK  ", "Reached target HaltOS base system."],
+  ["  OK  ", "Started claude-code-vps workstation."],
+  ["  OK  ", "Started xrdp remote desktop on :53389."],
+  ["  OK  ", "Started KWin window manager."],
+  ["  OK  ", "Loaded HaltOS mono palette."],
+  [" INFO ", "uid0 privileges: granted. shutdown: never."],
+];
+
+const SHOTS = [
+  ["claudegrid", "claudegrid: Claude Code agents, side by side"],
+  ["desktop", "Your desktop, over RDP, from anywhere"],
+  ["widgets", "Every Qt and KDE widget in one palette"],
+  ["terminal", "Claude Code in a focused terminal"],
+  ["splash", "Boot and login, in character"],
+].map(([n, cap]) => { const i = new Image(); i.src = `../../docs/screenshots/${n}.png`; return { i, cap }; });
+
+function scene(t, frame) {
+  background();
+
+  // 1. boot log
+  const a1 = win(t, 0, 2.9);
+  if (a1 > 0) BOOT.forEach(([tag, msg], k) => {
+    const at = 0.25 + k * 0.33;
+    if (t < at) return;
+    const y = 380 + k * 40;
+    const w = text(`[${tag}]`, 150, y, { font: `24px ${MONO}`, color: tag.includes("INFO") ? C.ink : C.muted, alpha: a1 });
+    text(" " + msg, 150 + w, y, { font: `24px ${MONO}`, color: C.dim, alpha: a1, chars: (t - at) * 90 });
+  });
+
+  // 2. wordmark decode and tagline
+  const a2 = win(t, 2.6, 7.1);
+  if (a2 > 0) {
+    const m = wordmark(W / 2, 420, 19.5, clamp((t - 2.8) / 1.3), a2, frame);
+    cursor(m.right + m.cw, m.bottom - m.ch * 1.5, m.cw * 1.6, m.ch / 2, t, a2);
+    text("v1.0   SIGKILL", W / 2, 600, { font: `22px ${MONO}`, color: C.muted, align: "center", alpha: a2 * ease((t - 4.0) / 0.4) });
+    const line = "A Claude Code workstation OS";
+    const line2 = "for your VPS.";
+    const typed = (t - 4.5) * 34;
+    text(line, W / 2, 700, { font: `600 48px ${SANS}`, align: "center", alpha: a2, chars: typed });
+    text(line2, W / 2, 762, { font: `600 48px ${SANS}`, align: "center", alpha: a2, chars: typed - line.length });
+  }
+
+  // 3. one command
+  const a3 = win(t, 7.1, 10.7);
+  if (a3 > 0) {
+    ctx.save(); ctx.globalAlpha = a3;
+    ctx.fillStyle = C.panel; ctx.strokeStyle = C.rule; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(90, 300, 900, 480, 18); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    text("One command.", 90, 250, { font: `600 52px ${SANS}`, alpha: a3 });
+    const cmd1 = "curl -fsSL https://raw.githubusercontent.com/";
+    const cmd2 = "  halitsever/haltos/main/bootstrap.sh | sudo bash";
+    const typed = (t - 7.5) * 60;
+    const pw = text("root@vps:~# ", 130, 370, { font: `24px ${MONO}`, color: C.dim, alpha: a3 });
+    text(cmd1, 130 + pw, 370, { font: `24px ${MONO}`, alpha: a3, chars: typed });
+    text(cmd2, 130, 410, { font: `24px ${MONO}`, alpha: a3, chars: typed - cmd1.length });
+    const out = [
+      ["[1/4]", "Plasma 6 found, nothing touched yet"],
+      ["[2/4]", "claude-code-vps: SSH, ufw, xrdp, Docker, Claude Code"],
+      ["[3/4]", "this system is now HaltOS 1.0 (SIGKILL)"],
+      ["[4/4]", "desktop ready, connect over RDP"],
+    ];
+    out.forEach(([n, msg], k) => {
+      const at = 9.0 + k * 0.28;
+      if (t < at) return;
+      const al = a3 * ease((t - at) / 0.2);
+      const w = text(n + " ", 130, 500 + k * 52, { font: `22px ${MONO}`, color: C.dim, alpha: al });
+      text(msg, 130 + w, 500 + k * 52, { font: `22px ${MONO}`, color: k === 3 ? C.ink : C.soft, alpha: al });
+    });
+  }
+
+  // 4. screenshots in a monitor frame
+  const a4 = win(t, 10.7, 18.4);
+  if (a4 > 0) {
+    const fx = 60, fy = 230, fw = 960, fh = 600;
+    ctx.save(); ctx.globalAlpha = a4;
+    ctx.fillStyle = C.panel; ctx.strokeStyle = C.rule; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(fx - 12, fy - 12, fw + 24, fh + 24, 20); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    SHOTS.forEach(({ i, cap }, k) => {
+      const a = a4 * win(t, 10.8 + k * 1.5, 12.45 + k * 1.5, 0.3);
+      if (a <= 0 || !i.complete) return;
+      const s = Math.min(fw / i.width, fh / i.height), w = i.width * s, h = i.height * s;
+      ctx.save(); ctx.globalAlpha = a;
+      ctx.beginPath(); ctx.roundRect(fx, fy, fw, fh, 8); ctx.clip();
+      ctx.fillStyle = C.void; ctx.fillRect(fx, fy, fw, fh);
+      const zoom = 1 + 0.03 * clamp((t - 10.8 - k * 1.5) / 1.65);
+      ctx.translate(fx + fw / 2, fy + fh / 2); ctx.scale(zoom, zoom);
+      ctx.drawImage(i, -w / 2, -h / 2, w, h);
+      ctx.restore();
+      text(cap, W / 2, 920, { font: `500 34px ${SANS}`, color: C.soft, align: "center", alpha: a });
+    });
+    text("Not a remote terminal. A whole desktop.", W / 2, 150, { font: `600 44px ${SANS}`, align: "center", alpha: a4 });
+  }
+
+  // 5. the name
+  const a5 = win(t, 18.4, 21.6);
+  if (a5 > 0) {
+    text("$ man halt", 150, 360, { font: `30px ${MONO}`, color: C.dim, alpha: a5, chars: (t - 18.6) * 30 });
+    text("halt - stop the machine", 150, 430, { font: `30px ${MONO}`, color: C.muted, alpha: a5 * ease((t - 19.2) / 0.3) });
+    text("HaltOS - never stops.", 150, 560, { font: `600 64px ${SANS}`, alpha: a5 * ease((t - 19.7) / 0.3) });
+    const s = "root@haltos:~# shutdown -h never";
+    const w = text(s, 150, 680, { font: `30px ${MONO}`, color: C.soft, alpha: a5, chars: (t - 20.3) * 40 });
+    if (t > 20.3) cursor(150 + w + 6, 656, 16, 30, t, a5);
+  }
+
+  // 6. end card
+  const a6 = ease((t - 21.6) / 0.5);
+  if (a6 > 0) {
+    const m = wordmark(W / 2, 400, 17, 1, a6, frame);
+    cursor(m.right + m.cw, m.bottom - m.ch * 1.5, m.cw * 1.6, m.ch / 2, t, a6);
+    text("Claude Code workstation OS for your VPS", W / 2, 600, { font: `600 40px ${SANS}`, align: "center", alpha: a6 });
+    text("halitsever.github.io/haltos", W / 2, 690, { font: `30px ${MONO}`, color: C.ink, align: "center", alpha: a6 });
+    text("Open source. One command.", W / 2, 750, { font: `26px ${SANS}`, color: C.muted, align: "center", alpha: a6 });
+  }
+
+  scanlines();
+}
+
+const status = document.getElementById("status");
+const params = new URLSearchParams(location.search);
+
+// Headless runs can stall on font or image promises, so loading gives up after a few seconds.
+const loaded = Promise.race([
+  Promise.all([document.fonts.ready, ...SHOTS.map(({ i }) => i.decode().catch(() => {}))]),
+  new Promise((r) => setTimeout(r, 4000)),
+]);
+loaded.then(() => {
+  try {
+    if (params.has("t")) {
+      const t = Number(params.get("t"));
+      scene(t, Math.floor(t * 30));
+      document.getElementById("ui").remove();
+      document.title = "ready";
+      return;
+    }
+    scene(DURATION, 0);
+    status.textContent = "ready";
+    if (params.has("record")) {
+      document.getElementById("ui").remove();
+      record();
+    }
+    if (params.has("export")) {
+      document.getElementById("ui").remove();
+      exportVideo().catch((e) => { console.log(`[motion] error ${e.message}`); document.title = "error: " + e.message; });
+    }
+  } catch (e) {
+    document.title = "error: " + e.message;
+    status.textContent = "error: " + e.message;
+  }
+});
+
+// Frame-exact export: every frame is drawn at its own timestamp and encoded with WebCodecs,
+// so a busy machine only makes the export slower, never choppier.
+async function exportVideo() {
+  const FPS = 30, total = Math.round(DURATION * FPS);
+  const target = new Mp4Muxer.ArrayBufferTarget();
+  const muxer = new Mp4Muxer.Muxer({ target, video: { codec: "avc", width: W, height: H, frameRate: FPS }, fastStart: "in-memory" });
+  let config = null;
+  for (const codec of ["avc1.640028", "avc1.4d0028", "avc1.42e028"]) {
+    const c = { codec, width: W, height: H, bitrate: 10_000_000, framerate: FPS, avc: { format: "avc" } };
+    if ((await VideoEncoder.isConfigSupported(c)).supported) { config = c; break; }
+  }
+  if (!config) throw new Error("no H.264 encoder available");
+  let failed = null;
+  const enc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: (e) => { failed = e; } });
+  enc.configure(config);
+  console.log(`[motion] export ${total} frames with ${config.codec}`);
+  for (let i = 0; i < total; i++) {
+    scene(i / FPS, i);
+    const frame = new VideoFrame(cv, { timestamp: Math.round((i * 1e6) / FPS), duration: Math.round(1e6 / FPS) });
+    enc.encode(frame, { keyFrame: i % (FPS * 2) === 0 });
+    frame.close();
+    while (enc.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 1));
+    if (failed) throw failed;
+    if (i % 150 === 0) console.log(`[motion] frame ${i}/${total}`);
+  }
+  await enc.flush();
+  muxer.finalize();
+  const body = new Blob([target.buffer], { type: "video/mp4" });
+  await fetch(`/upload?name=haltos-motion.mp4&fps=${FPS}&mime=video/mp4`, { method: "POST", body });
+  console.log(`[motion] done ${(body.size / 1e6).toFixed(1)} MB`);
+  document.title = "done";
+}
+
+function record() {
+  const types = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
+  const mimeType = types.find((m) => MediaRecorder.isTypeSupported(m));
+  const rec = new MediaRecorder(cv.captureStream(30), { mimeType, videoBitsPerSecond: 12_000_000 });
+  const chunks = [];
+  rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  let frames = 0;
+  rec.onstop = async () => {
+    const blob = new Blob(chunks, { type: mimeType });
+    const name = `haltos-motion.${mimeType.startsWith("video/mp4") ? "mp4" : "webm"}`;
+    const fps = (frames / DURATION).toFixed(1);
+    // Headless runs hand the file to the local motion server, a visible tab downloads it.
+    if (params.has("record")) {
+      await fetch(`/upload?name=${name}&fps=${fps}&mime=${encodeURIComponent(mimeType)}`, { method: "POST", body: blob });
+    } else {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+    }
+    status.textContent = `saved ${name} (${(blob.size / 1e6).toFixed(1)} MB, ${fps} fps)`;
+    document.title = "done";
+  };
+  document.getElementById("rec").disabled = true;
+  status.textContent = `recording ${mimeType}`;
+  console.log(`[motion] recording ${mimeType}`);
+  rec.start(250);
+  const start = performance.now();
+  const loop = (now) => {
+    const t = (now - start) / 1000;
+    scene(Math.min(t, DURATION), Math.floor(t * 30));
+    frames++;
+    if (frames % 150 === 0) console.log(`[motion] t=${t.toFixed(1)} frames=${frames}`);
+    if (t < DURATION) requestAnimationFrame(loop); else rec.stop();
+  };
+  requestAnimationFrame(loop);
+}
+document.getElementById("rec").addEventListener("click", record);
+</script>
+</body>
+</html>
