@@ -42,7 +42,7 @@ On a fresh Ubuntu 25.04+ server, as root. This installs [claude-code-vps](https:
 curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh | sudo bash
 ```
 
-Options after `bash -s --` go to `claude-vps setup`, e.g. `| sudo bash -s -- --user dev --yes`. The bootstrap also isolates Claude Code agents from your account, see [Security / Hardening](#security--hardening). Add `--no-harden` to skip that. Connect over RDP afterwards and HaltOS finishes the panel and wallpaper on the first login. The bootstrap stops before installing anything on releases without Plasma 6 (Ubuntu 24.04 ships Plasma 5).
+Options after `bash -s --` go to `claude-vps setup`, e.g. `| sudo bash -s -- --user dev --yes`. Connect over RDP afterwards and HaltOS finishes the panel and wallpaper on the first login. The bootstrap stops before installing anything on releases without Plasma 6 (Ubuntu 24.04 ships Plasma 5).
 
 On a machine that already runs Plasma 6:
 
@@ -80,49 +80,6 @@ sudo haltos undo-system   # restore Ubuntu's identity files, MOTD and defaults
 ```
 
 To check a release on a fresh server, follow [docs/testing.md](docs/testing.md).
-
-### Security / Hardening
-
-By default claudegrid starts every agent as your own account. That account can use sudo, is in the `docker` group (which is root in practice) and can read your SSH keys and GitHub token. `haltos harden` moves the agents into a separate, unprivileged account so that a malicious package an agent installs cannot reach any of that.
-
-New servers set up with `bootstrap.sh` get this by default through `haltos harden --auto`, which asks nothing and keeps the firewall rules only if its own check passes: the agent is blocked, npm and your own traffic work, and SSH is still allowed. Otherwise it rolls them back and prints how to retry. On a server installed before this, run it yourself:
-
-```sh
-sudo haltos harden                 # asks before every layer
-sudo haltos harden --confirm       # keep the new firewall rules (asked for within 5 minutes)
-sudo haltos harden --status        # one OK/FAIL line per layer, exits non-zero on any FAIL
-sudo haltos harden --with-docker   # also give the agent its own rootless Docker
-sudo haltos undo-harden            # remove all of it
-```
-
-**Threat model.** An agent, or code it runs (an npm `postinstall` script, a typosquatted PyPI package, a prompt injection in a README), acts against you. The goal is that it cannot touch your secrets, cannot get root, and can only reach the network hosts it needs. The goal is *not* to make the agent's own output safe: that stays your job.
-
-| Layer | What it does | Protects against |
-| --- | --- | --- |
-| `agent` user | System user with no sudo, not in `docker`, home `700`. Your home becomes `750` and `~/.ssh`, `~/.config/gh`, git credentials and `/opt/claude-vps` lose world access | reading keys and tokens, `sudo`, root through the Docker socket |
-| `/srv/agents` | `root:agents 2770`, setgid, default ACLs for you and `agent` | nothing by itself: it lets you and the agent edit the same files without loosening anything else |
-| `claude-agent` + sudoers | claudegrid's pane command becomes `claude-agent`, which runs `sudo -u agent /usr/local/lib/haltos/agent-launch`. `/etc/sudoers.d/haltos-agent` allows that one program and nothing else | agents running as you |
-| Claude Code policy | `/etc/claude-code/managed-settings.json` (every user): sandbox on, fail if it cannot start, no unsandboxed retries, no `~/.ssh` or `.env*` reads. `/etc/haltos/agent-settings.json` (agent only, through `--settings`): denies `sudo`, `su`, `docker`, `curl \| sh`, bypass mode, and limits sandboxed commands to the allowlisted domains | the model doing something it should not, and the commands it runs leaving the worktree |
-| AppArmor | Ubuntu's `bwrap-userns-restrict` lets bwrap start, but moves what it runs into `unpriv_bwrap`, which has no capabilities. Claude Code's seccomp helper then cannot open its nested user namespace and every sandboxed command fails. harden tests exactly that, and if it fails it disables Ubuntu's profile (link in `/etc/apparmor.d/disable/`) and loads `/etc/apparmor.d/haltos-bwrap`, which grants `userns` to `/usr/bin/bwrap` alone. `kernel.apparmor_restrict_unprivileged_userns` stays `1` | every other program still being blocked from user namespaces |
-| Egress firewall | A `--uid-owner agent` block in `/etc/ufw/after.rules` and `after6.rules`. The agent can reach DNS and ports 80/443 of the IPs in `/etc/haltos/agent-allowlist` and nothing else. A timer re-resolves the list into ipsets every 15 minutes | exfiltration and payload downloads, for every process the agent runs, sandboxed or not |
-| Package settings | `ignore-scripts=true` in the agent's `.npmrc`, pip `require-virtualenv`, pnpm `minimum-release-age` and uv `exclude-newer` when those tools are installed | install scripts running at all, and packages published minutes ago |
-
-The firewall uses IP sets instead of a forced HTTP proxy. A proxy filters by host name, which is more exact, but every tool would have to honour `HTTPS_PROXY`, including Claude Code's own sandbox proxy, and plain `curl` in a script would just fail. IP sets are transparent and cover every process. The cost is that CDN addresses are shared: an allowlisted Cloudflare or Fastly IP also serves other sites. Claude Code's sandbox proxy adds the host-name check for the commands it runs, so the two layers cover each other.
-
-The ufw change cannot lock you out. Before `ufw reload`, harden arms `systemd-run --on-active=300`, which restores the previous rule files. Open a new SSH session and an RDP connection, then type `keep` (or run `sudo haltos harden --confirm`). If you do nothing, or the session dies, the old rules come back after 5 minutes. The rules only match the `agent` user anyway, so your traffic, SSH and RDP do not go through them. With claude-code-vps's Tailscale mode, `tailscaled` runs as root and is not affected, and the agent cannot reach other machines on your tailnet either.
-
-**Using it.** Projects the agents work on must live under `/srv/agents`, for example `git clone … /srv/agents/myapp` (claudegrid puts worktrees next to the repo, in `/srv/agents/myapp.claudegrid/`). Existing trees: `sudo haltos harden --adopt /srv/agents/myapp`. Log out and back in once so your session joins the `agents` group. The agent has its own Claude Code login: run `cd /srv/agents && claude-agent` once and use `/login`. To add a host, edit `/etc/haltos/agent-allowlist` and run `sudo haltos-agent-net refresh`.
-
-**Known limits.**
-
-- The code the agent writes can itself be malicious. Read the diff before you run, build or test it as yourself, and before you merge it.
-- Everything under `/srv/agents` is shared: one agent can change another pane's worktree, and git hooks in `.git/hooks` run as whoever runs git. Check them before you commit or pull as yourself.
-- DNS goes through your resolver, so a determined process can still leak small amounts of data through lookups.
-- The managed settings also sandbox your own Claude Code sessions. Sandboxed commands cannot use `sudo`, because the sandbox sets `no_new_privs`. Add `"sandbox": {"excludedCommands": ["sudo *", "docker *"]}` to your own `~/.claude/settings.json` if you need them there.
-- With `--with-docker` the agent can run containers as itself. That gives it no host privileges, but sandboxed commands can use Docker to leave the Claude Code sandbox, so only the firewall and the user boundary still hold.
-- A project's own `.claudegrid.json` can set `"command"` and override the wrapper.
-
-**Turning it off.** `sudo haltos harden --no-claudegrid` keeps every layer but starts panes as you again (`--claudegrid` switches back). `sudo haltos undo-harden` removes the user, group, sudoers rule, settings, AppArmor profile, firewall block and timers, and restores the original permissions. `/srv/agents` is kept and handed back to you, and backups of every changed system file stay in `/var/lib/haltos/harden-backup/`. `haltos update` re-applies the hardening files automatically. If a release changes the firewall rules, it tells you to run `sudo haltos harden` again.
 
 ### Known limits
 
