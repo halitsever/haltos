@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0
+
+- `sudo haltos harden` isolates claudegrid's Claude Code agents: they run as an unprivileged `agent` user with no sudo, no Docker and no access to your home, SSH keys or tokens. Projects live in `/srv/agents`, shared with your account.
+- Claude Code runs sandboxed through `/etc/claude-code/managed-settings.json`, and the agent gets its own deny rules and domain allowlist.
+- An egress firewall lets the agent reach only DNS, Anthropic, npm, PyPI and GitHub. Your own traffic, SSH and RDP are untouched, and a 5-minute guard rolls the ufw change back unless it is confirmed.
+- On Ubuntu, a narrow AppArmor profile lets bubblewrap run Claude Code's sandbox without lifting the user namespace restriction for other programs.
+- New servers get this by default from `bootstrap.sh`. `--no-harden` skips it, `sudo haltos harden --status` checks every layer and `sudo haltos undo-harden` removes it.
+- `undo-system` keeps the hardening backups in `/var/lib/haltos`.
+
 ## 1.1.0
 
 - Central updates: `sudo haltos update` installs the newest release instead of whatever is on main, updates claude-code-vps too, re-applies the system and user settings and prints what changed. `--edge` follows main and `--stable` switches back.
