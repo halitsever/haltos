@@ -15,7 +15,7 @@ A Claude Code workstation OS for your VPS: a monochrome, terminal-flavoured laye
 </p>
 
 <p align="center">
-<img src="docs/haltos.gif" alt="HaltOS in 30 seconds: ASCII boot, claudegrid running four Claude Code agents, the one-command install and the desktop" width="600"/>
+<img src="docs/haltos.gif" alt="HaltOS in 30 seconds: ASCII boot, claudegrid running four Claude Code agents, the one-command install and the desktop" width="1020"/>
 </p>
 
 <p align="center">
