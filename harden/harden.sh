@@ -2,6 +2,7 @@
 # Isolates claudegrid's Claude Code agents: own user, shared worktree area, sandbox, egress allowlist.
 #   sudo haltos harden [--yes] [--with-docker] [--no-claudegrid|--claudegrid]   asks before every layer
 #   sudo haltos harden --status | --confirm | --adopt <dir> | --reapply
+#   sudo haltos harden --auto    unattended (bootstrap): no questions, firewall kept only if its self-test passes
 #   sudo haltos undo-harden
 # Layers and checks are called by name through run() and check().
 # shellcheck disable=SC2317
@@ -33,6 +34,7 @@ MARK_BEGIN="# >>> haltos-harden"
 MARK_END="# <<< haltos-harden"
 
 YES=0
+AUTO=0
 WITH_DOCKER=0
 CLAUDEGRID=1
 
@@ -318,7 +320,11 @@ confirm_firewall() {
 }
 
 layer_firewall() {
-    ufw status 2>/dev/null | grep -q '^Status: active' || die "ufw is not active, enable it before hardening egress"
+    if ! ufw status 2>/dev/null | grep -q '^Status: active'; then
+        [ "$AUTO" = 1 ] || die "ufw is not active, enable it before hardening egress"
+        warn "ufw is not active, agent egress stays open. enable ufw, then run: sudo haltos harden"
+        return 0
+    fi
     install_net_units
     if guard_pending; then
         warn "a firewall change is waiting for confirmation: sudo haltos harden --confirm"
@@ -346,6 +352,10 @@ layer_firewall() {
         die "firewall layer not applied"
     fi
     quick_egress_report
+    if [ "$AUTO" = 1 ]; then
+        auto_confirm
+        return 0
+    fi
     if [ "$YES" = 1 ]; then
         log "confirm within $((GUARD_SECONDS / 60)) minutes from a NEW ssh session: sudo haltos harden --confirm"
         return 0
@@ -368,6 +378,17 @@ layer_firewall() {
         confirm_firewall
     else
         warn "not confirmed, the rules roll back when the guard fires (or run: sudo haltos-agent-net rollback)"
+    fi
+}
+
+# Unattended installs have nobody to type keep, so the rules stay only if every check that matters passes.
+auto_confirm() {
+    if agent_blocked && agent_npm && main_open && port_allowed "$(ssh_port)|OpenSSH"; then
+        confirm_firewall
+    else
+        warn "firewall self-test failed, rolling back. retry later with: sudo haltos harden"
+        systemctl stop "$GUARD.timer" 2>/dev/null || true
+        "$NET" rollback
     fi
 }
 
@@ -721,6 +742,10 @@ adopt_dir=""
 while [ $# -gt 0 ]; do
     case $1 in
     --yes | -y) YES=1 ;;
+    --auto)
+        YES=1
+        AUTO=1
+        ;;
     --with-docker) ARG_DOCKER=1 ;;
     --no-claudegrid) ARG_CLAUDEGRID=0 ;;
     --claudegrid) ARG_CLAUDEGRID=1 ;;
@@ -734,7 +759,7 @@ while [ $# -gt 0 ]; do
         shift
         ;;
     *)
-        sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
         exit 1
         ;;
     esac

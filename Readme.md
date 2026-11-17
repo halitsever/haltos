@@ -42,7 +42,7 @@ On a fresh Ubuntu 25.04+ server, as root. This installs [claude-code-vps](https:
 curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh | sudo bash
 ```
 
-Options after `bash -s --` go to `claude-vps setup`, e.g. `| sudo bash -s -- --user dev --yes`. Connect over RDP afterwards and HaltOS finishes the panel and wallpaper on the first login. The bootstrap stops before installing anything on releases without Plasma 6 (Ubuntu 24.04 ships Plasma 5).
+Options after `bash -s --` go to `claude-vps setup`, e.g. `| sudo bash -s -- --user dev --yes`. The bootstrap also isolates Claude Code agents from your account, see [Security / Hardening](#security--hardening). Add `--no-harden` to skip that. Connect over RDP afterwards and HaltOS finishes the panel and wallpaper on the first login. The bootstrap stops before installing anything on releases without Plasma 6 (Ubuntu 24.04 ships Plasma 5).
 
 On a machine that already runs Plasma 6:
 
@@ -84,6 +84,8 @@ To check a release on a fresh server, follow [docs/testing.md](docs/testing.md).
 ### Security / Hardening
 
 By default claudegrid starts every agent as your own account. That account can use sudo, is in the `docker` group (which is root in practice) and can read your SSH keys and GitHub token. `haltos harden` moves the agents into a separate, unprivileged account so that a malicious package an agent installs cannot reach any of that.
+
+New servers set up with `bootstrap.sh` get this by default through `haltos harden --auto`, which asks nothing and keeps the firewall rules only if its own check passes: the agent is blocked, npm and your own traffic work, and SSH is still allowed. Otherwise it rolls them back and prints how to retry. On a server installed before this, run it yourself:
 
 ```sh
 sudo haltos harden                 # asks before every layer
