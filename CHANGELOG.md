@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1
+
+- `haltos harden` is removed. claudegrid agents run as your own account again, and `bootstrap.sh` no longer sets up the agent isolation on new servers.
+- On a server hardened with 1.2.0, run `sudo haltos undo-harden` before you update, because 1.2.1 no longer ships that command.
+
 ## 1.2.0
 
 - `sudo haltos harden` isolates claudegrid's Claude Code agents: they run as an unprivileged `agent` user with no sudo, no Docker and no access to your home, SSH keys or tokens. Projects live in `/srv/agents`, shared with your account.
