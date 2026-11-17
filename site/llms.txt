@@ -1,0 +1,27 @@
+# HaltOS
+
+> HaltOS is a monochrome, terminal-style layer for Ubuntu that turns a VPS into a KDE Plasma remote desktop for Claude Code over RDP. It adds an OS identity, Plasma, Kvantum, SDDM and Plymouth themes, and claudegrid for running several Claude Code agents side by side.
+
+Install on a fresh Ubuntu 25.04 or newer server, as root: `curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh | sudo bash`. It installs claude-code-vps first (Plasma over RDP, hardened SSH, Docker, Claude Code), then HaltOS on top. HaltOS is not a separate distribution: `/etc/os-release` keeps `ID=ubuntu` and packages still come from Ubuntu. It needs Plasma 6, so Ubuntu 24.04 is refused.
+
+## Docs
+
+- [HaltOS home](https://halitsever.github.io/haltos/): what HaltOS installs, the one-command install, removal and FAQ
+- [How to run Claude Code on a VPS with a full desktop](https://halitsever.github.io/haltos/run-claude-code-on-a-vps.html): running Claude Code around the clock on a VPS with KDE Plasma over RDP
+- [README](https://github.com/halitsever/haltos/blob/main/Readme.md): features, install on an existing Plasma 6 machine, updates, removal and known limits
+- [Testing a release](https://github.com/halitsever/haltos/blob/main/docs/testing.md): step-by-step checks on a fresh server
+- [Releasing](https://github.com/halitsever/haltos/blob/main/docs/releasing.md): how versions are tagged and published
+
+## Optional
+
+- [Blog](https://halitsever.github.io/haltos/blog/): all posts
+- [Run several Claude Code agents in parallel with git worktrees](https://halitsever.github.io/haltos/blog/parallel-claude-code-agents-git-worktrees.html): one worktree and branch per agent, side by side with claudegrid
+- [Secure a VPS for remote development](https://halitsever.github.io/haltos/blog/secure-vps-remote-development.html): key-only SSH, ufw, unattended upgrades and RDP
+- [KDE Plasma over RDP on a VPS with xrdp](https://halitsever.github.io/haltos/blog/kde-plasma-over-rdp-xrdp.html): xrdp, the X11 session and running without a display manager or GPU
+- [Rebrand Ubuntu without breaking apt](https://halitsever.github.io/haltos/blog/rebrand-ubuntu-os-release-dpkg-divert.html): os-release fields and dpkg-divert
+- [Generate a Kvantum theme from design tokens](https://halitsever.github.io/haltos/blog/kvantum-theme-from-design-tokens.html): building the HaltMono Kvantum SVG from a few tokens
+- [Keep your dotfiles in git without leaking private files](https://halitsever.github.io/haltos/blog/dotfiles-sync-without-leaks.html): scrubbing paths, skipping binaries and a local-only list
+- [Why a monochrome desktop works for AI coding](https://halitsever.github.io/haltos/blog/monochrome-desktop-for-ai-coding.html): one palette and one typeface to keep attention on agent output
+- [Self-updating shell scripts without the footguns](https://halitsever.github.io/haltos/blog/safe-self-updating-shell-scripts.html): safe git-based updates that follow release tags
+- [Source](https://github.com/halitsever/haltos): repository
+- [claude-code-vps](https://github.com/halitsever/claude-code-vps): the server setup HaltOS installs on top of

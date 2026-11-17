@@ -4,10 +4,10 @@
 <img src="https://halitsever-api.vercel.app/api/repo-title?title=HaltOS">
 
 <p align="center">
-A Claude Code workstation OS for your VPS: a monochrome, terminal-flavoured layer that turns an Ubuntu server into a remote KDE Plasma desktop for Claude Code.<br>
+A workstation OS for running Claude Code on a VPS: a monochrome, terminal-flavoured layer for Ubuntu that turns a server into a KDE Plasma remote desktop over RDP.<br>
 <br/>
 <br/>
-<img src="https://img.shields.io/github/sponsors/halitsever"/>
+<img src="https://img.shields.io/github/sponsors/halitsever" alt="GitHub Sponsors"/>
 </p>
 <p align="center">
 <a align="center" href="#installation">Documentation</a>
@@ -107,6 +107,12 @@ python3 tools/build-kvantum.py   # kvantum/HaltMono from the shadcn tokens
 Found a bug or have an idea? Open an <a href="https://github.com/halitsever/haltos/issues">issue</a>.<br/>
 Read the <a href=".github/CONTRIBUTING.md">contributing guide</a> before sending a pull request.
 </p>
+
+### Related projects
+
+- [claude-code-vps](https://github.com/halitsever/claude-code-vps): one command sets up an Ubuntu server for Claude Code with Plasma over RDP, hardened SSH, Docker and config sync. HaltOS installs on top of it.
+- [claudegrid](https://github.com/halitsever/claudegrid): opens a grid of Claude Code agents in one terminal window, with a prompt, model and git worktree per pane.
+- [explain-to-customer](https://github.com/halitsever/explain-to-customer): an agent skill for Claude Code that turns a code change into a short video, slides and diagrams for a client.
 
 <p align="center">
 <img src="https://halitsever-api.vercel.app/api/sponsor"/>
