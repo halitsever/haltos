@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: shellcheck
         run: |
-          shellcheck -S warning install.sh bootstrap.sh shell/haltos-prompt.sh plasma/scripts/windeco.sh tools/clean-shot.sh tools/release.sh
+          shellcheck -S warning install.sh bootstrap.sh shell/haltos-prompt.sh plasma/scripts/windeco.sh tools/clean-shot.sh tools/release.sh tests/system.sh tests/user.sh tests/lib.sh
           shellcheck -S warning -s sh system/motd/00-haltos
 
   build:
@@ -32,8 +32,10 @@ jobs:
           python tools/build-assets.py
           python tools/build-kvantum.py
           python tools/build-plasma-theme.py
-      - name: kvantum theme and site wordmark are committed as generated
-        run: git diff --exit-code -- kvantum/ plasma/desktoptheme/ site/index.html
+      - name: generated files and the release stamp are committed
+        run: |
+          git diff --exit-code -- kvantum/ plasma/desktoptheme/ system/ site/index.html Readme.md docs/testing.md \
+            sddm/haltos/Main.qml plasma/look-and-feel/org.haltos.mono/contents/splash/Splash.qml marketing/motion/index.html
       - name: config files parse
         run: |
           python - <<'PY'
@@ -44,3 +46,19 @@ jobs:
               ET.parse(p)
           print("ok")
           PY
+
+  system:
+    runs-on: ubuntu-latest
+    container: ubuntu:26.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: install, reinstall and undo the system layer
+        run: tests/system.sh
+
+  user:
+    runs-on: ubuntu-latest
+    container: ubuntu:26.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: install, reinstall, refresh and undo for one account
+        run: tests/user.sh

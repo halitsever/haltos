@@ -2,6 +2,7 @@
 """Generates every HaltOS logo, icon, wallpaper and ASCII banner from one ANSI Shadow glyph set."""
 import os
 import random
+import re
 import sys
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -9,6 +10,36 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BRAND = os.path.join(ROOT, "branding")
 FONT_DIR = "/usr/share/fonts/truetype/jetbrains-mono"
+
+
+def release():
+    """Version as install.sh writes it into os-release (major.minor) and the codename."""
+    version = open(os.path.join(ROOT, "VERSION")).read().strip()
+    codename = re.search(r'^HALTOS_CODENAME="(\w+)"$', open(os.path.join(ROOT, "install.sh")).read(), re.M).group(1)
+    return version.rsplit(".", 1)[0], codename
+
+
+VER, CODENAME = release()
+TAG = f"v{VER} // {CODENAME}"
+# Files that spell out the release. Blog posts keep the version they were written about.
+STAMPED = [
+    "Readme.md",
+    "docs/testing.md",
+    "site/index.html",
+    "sddm/haltos/Main.qml",
+    "plasma/look-and-feel/org.haltos.mono/contents/splash/Splash.qml",
+    "system/xdg/kcm-about-distrc",
+    "marketing/motion/index.html",
+]
+STAMPS = [
+    (r"HaltOS \d+\.\d+ \([A-Z]+\)", f"HaltOS {VER} ({CODENAME})"),
+    (r"HaltOS \d+\.\d+ // [A-Z]+", f"HaltOS {VER} // {CODENAME}"),
+    (r"v\d+\.\d+( +)[A-Z]+\b", lambda m: f"v{VER}{m.group(1)}{CODENAME}"),
+    (r"<span>v\d+\.\d+</span> <span>[A-Z]+</span>", f"<span>v{VER}</span> <span>{CODENAME}</span>"),
+    (r'"softwareVersion": "[\d.]+"', f'"softwareVersion": "{VER}"'),
+    (r'"alternateName": "HaltOS [A-Z]+"', f'"alternateName": "HaltOS {CODENAME}"'),
+    (r"(?m)^Variant=\w+$", f"Variant={CODENAME}"),
+]
 
 FG = (250, 250, 250)
 DIM = (113, 113, 122)
@@ -199,8 +230,7 @@ def wallpaper(w, h, seed=0x48, plain=False):
     fd.rectangle([cx, sy + round(4 * k), cx + round(12 * k), sy + round(26 * k)], fill=FG + (255,))
 
     tag_font = ImageFont.truetype(os.path.join(FONT_DIR, "JetBrainsMono-Regular.ttf"), round(15 * k))
-    tag = "v1.0 // SIGKILL"
-    fd.text((ox + bw - fd.textlength(tag, font=tag_font), oy - round(30 * k)), tag, font=tag_font, fill=DIM + (255,))
+    fd.text((ox + bw - fd.textlength(TAG, font=tag_font), oy - round(30 * k)), TAG, font=tag_font, fill=DIM + (255,))
 
     base = Image.alpha_composite(base, glow(fg, round(10 * k), strength=1))
     return scanlines(base, k).convert("RGB")
@@ -266,6 +296,15 @@ def splash_wordmark(path):
     return img.size
 
 
+def stamp_release():
+    for rel in STAMPED:
+        path = os.path.join(ROOT, rel)
+        text = open(path).read()
+        for pattern, value in STAMPS:
+            text = re.sub(pattern, value, text)
+        write(path, text)
+
+
 def write(path, text):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
@@ -273,6 +312,7 @@ def write(path, text):
 
 
 def main():
+    stamp_release()
     write(os.path.join(BRAND, "haltos-logo.svg"), grid_svg(MARK, 10, 20, 6))
     write(os.path.join(BRAND, "haltos-logo-tile.svg"), grid_svg(MARK, 10, 20, 18, bg="#09090b"))
     write(os.path.join(BRAND, "haltos-wordmark.svg"), grid_svg(banner("HALTOS"), 10, 20, 4))
@@ -282,7 +322,7 @@ def main():
     write(os.path.join(ascii_dir, "wordmark.txt"), "\n".join(banner("HALTOS")) + "\n")
     write(
         os.path.join(ROOT, "system", "fastfetch", "haltos.txt"),
-        "".join(f"$1{line}\n" for line in banner("HALTOS")) + "$2  v1.0 // SIGKILL\n",
+        "".join(f"$1{line}\n" for line in banner("HALTOS")) + f"$2  {TAG}\n",
     )
 
     icons = os.path.join(BRAND, "icons", "hicolor")

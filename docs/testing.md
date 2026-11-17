@@ -2,6 +2,15 @@
 
 Run this on a fresh server before tagging a release. Every step lists the command and what it should print. If a step fails, keep its output and `/root/bootstrap.log`.
 
+CI already installs, reinstalls and undoes both layers in an Ubuntu 26.04 container on every pull request. To run the same checks locally:
+
+```sh
+docker run --rm -v "$PWD":/src:ro ubuntu:26.04 /src/tests/system.sh
+docker run --rm -v "$PWD":/src:ro ubuntu:26.04 /src/tests/user.sh
+```
+
+This list covers what a container cannot: the bootstrap, RDP, the live Plasma session and the login screens.
+
 ## 0. Prepare
 
 - [ ] A fresh **Ubuntu 25.04 or 26.04** VPS, amd64, 4 GB RAM or more.
@@ -29,7 +38,7 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 | Command | Expected |
 | --- | --- |
 | Login banner | ASCII `H` logo and an `apt` line, no Ubuntu ads |
-| `lsb_release -d` | `HaltOS 1.0 (SIGKILL)` |
+| `lsb_release -d` | `HaltOS 1.2 (SIGKILL)` |
 | `grep ^ID= /etc/os-release` | `ID=ubuntu` |
 | `dpkg-divert --list \| grep -cE 'os-release\|lsb-release\|issue'` | `3` |
 | `fastfetch` | HALTOS banner, the `os` line says HaltOS, not Kubuntu |

@@ -22,7 +22,7 @@ A workstation OS for running Claude Code on a VPS: a monochrome, terminal-flavou
 <img src="https://halitsever-api.vercel.app/api/details"/>
 </p>
 
-- **OS identity**: `/etc/os-release`, `lsb_release`, `/etc/issue` and the KDE About page report `HaltOS 1.0 (SIGKILL)`. `ID=ubuntu` is kept, so apt, PPAs and vendor scripts keep working. Ubuntu's files are preserved with `dpkg-divert`.
+- **OS identity**: `/etc/os-release`, `lsb_release`, `/etc/issue` and the KDE About page report `HaltOS 1.2 (SIGKILL)`. `ID=ubuntu` is kept, so apt, PPAs and vendor scripts keep working. Ubuntu's files are preserved with `dpkg-divert`.
 - **Claude Code**: [claudegrid](https://github.com/halitsever/claudegrid) opens a grid of Claude Code agents in one window, with a prompt, model and git worktree per pane.
 - **Editor**: the latest VS Code from Microsoft's apt repository, so `apt upgrade` keeps it current.
 - **Plasma**: `HaltMono` colour scheme (shadcn zinc palette), JetBrains Mono everywhere, ASCII splash with a fake boot log, a translucent floating top bar with a dot start icon, flat Breeze titlebars.
@@ -32,6 +32,7 @@ A workstation OS for running Claude Code on a VPS: a monochrome, terminal-flavou
 - **Login and boot**: SDDM card login screen and a Plymouth splash with a blinking cursor.
 - **SSH**: ASCII MOTD with uptime, load, memory, disk and pending updates, replacing Ubuntu's banners and ESM upsell.
 
+<a name="installation"></a>
 <p align="center" >
 <img src="https://halitsever-api.vercel.app/api/installation"/>
 </p>
@@ -96,6 +97,8 @@ The logo, icons, wallpapers, splash and login wordmarks, Plymouth images, ASCII 
 python3 tools/build-assets.py    # logo, icons, wallpapers, splash, login, plymouth, fastfetch banner
 python3 tools/build-kvantum.py   # kvantum/HaltMono from the shadcn tokens
 ```
+
+The launch video and the readme GIF come from `marketing/motion/index.html`. Start `python3 marketing/motion/serve.py`, open `http://127.0.0.1:8770/marketing/motion/index.html?export` to write the MP4 (copy it to `site/haltos.mp4`), or `?frames=8&size=1020` for the GIF frames, then run `python3 tools/build-gif.py`.
 
 `tools/clean-shot.sh` takes screenshots on a temporary empty virtual desktop so other windows never leak into them. `tools/xshot.py` and `tools/xclick.py` capture and click through UIs over X11 when no screenshot tool is installed. KWin draws titlebars on the GPU, so X11 captures show windows without them.
 

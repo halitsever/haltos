@@ -143,6 +143,12 @@ drop_local_only() {
     return 0
 }
 
+# Takes the blank line written before the hook too, so undo leaves .bashrc as it was.
+drop_prompt_hook() {
+    [ -f "$1" ] && sed -i -z 's/\n\n# HaltOS\n[^\n]*//; s/# HaltOS\n[^\n]*\n\?//' "$1"
+    return 0
+}
+
 install_user() {
     [ "$EUID" -ne 0 ] || die "user mode runs as your normal account, not root"
     need kwriteconfig6 qdbus6 plasma-apply-colorscheme plasma-apply-wallpaperimage
@@ -240,7 +246,7 @@ undo_user() {
     rm -f "$conf/claude-vps/post-apply.d/50-haltos" "$conf/autostart/haltos-firstrun.desktop"
     drop_local_only
     find "$share/icons/hicolor" -name 'haltos-*' -delete 2>/dev/null || true
-    sed -i '/^# HaltOS$/,+1d' "$HOME/.bashrc"
+    drop_prompt_hook "$HOME/.bashrc"
     rm -f "$HOME/.cache/icon-cache.kcache"
     log "restored $snap. log out and back in to finish."
 }
@@ -472,7 +478,7 @@ undo_system() {
     for f in $MOTD_OFF; do
         if [ -f "/etc/update-motd.d/$f" ]; then chmod +x "/etc/update-motd.d/$f"; fi
     done
-    sed -i '/^# HaltOS$/,+1d' /etc/skel/.bashrc
+    drop_prompt_hook /etc/skel/.bashrc
     for f in kdeglobals ksplashrc konsolerc plasmarc Kvantum/kvantum.kvconfig; do
         if [ -f "/etc/xdg/$f" ]; then
             sed -i '/HaltMono\|org.haltos.mono\|HaltOS.profile\|widgetStyle=kvantum\|^name=haltos$/d' "/etc/xdg/$f"

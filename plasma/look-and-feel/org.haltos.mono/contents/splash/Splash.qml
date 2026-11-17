@@ -85,7 +85,7 @@ Rectangle {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: 40
-        text: "HaltOS 1.0 (SIGKILL)"
+        text: "HaltOS 1.2 (SIGKILL)"
         color: "#71717a"
         font.family: "JetBrains Mono"
         font.pixelSize: 14
