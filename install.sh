@@ -7,6 +7,8 @@
 #   sudo ./install.sh update     newest release (--edge: follow main), claude-code-vps too, then system and refresh
 #   ./install.sh version         installed version, channel and whether a newer release exists
 #   sudo ./install.sh undo-system
+#   sudo ./install.sh harden     isolate claudegrid agents (--status, --confirm, --with-docker; see harden/harden.sh)
+#   sudo ./install.sh undo-harden
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
@@ -442,6 +444,7 @@ finish_update() {
     else
         log "no claude-vps user recorded, run 'haltos refresh' as your desktop user"
     fi
+    [ ! -r /etc/haltos/harden.conf ] || "$HERE/harden/harden.sh" --reapply
     check_update || true
     if [ "$old" = "$HALTOS_RELEASE" ]; then
         log "HaltOS $HALTOS_RELEASE is up to date"
@@ -481,7 +484,9 @@ undo_system() {
     rm -f /etc/xdg/breezerc
     rm -rf /usr/share/Kvantum/HaltMono /usr/share/sddm/themes/haltos /usr/share/haltos
     systemctl disable -q --now haltos-update-check.timer 2>/dev/null || true
-    rm -rf /etc/systemd/system/haltos-update-check.service /etc/systemd/system/haltos-update-check.timer "$CONF" "$STATE"
+    # The agent hardening keeps its backups under $STATE and is removed with undo-harden.
+    rm -rf /etc/systemd/system/haltos-update-check.service /etc/systemd/system/haltos-update-check.timer "$CONF" "$STATE/latest"
+    rmdir "$STATE" 2>/dev/null || true
     systemctl daemon-reload
     if command -v plymouth-set-default-theme >/dev/null && [ -d /usr/share/plymouth/themes/haltos ]; then
         plymouth-set-default-theme --reset
@@ -501,8 +506,13 @@ finish-update) finish_update "${2:-}" ;;
 check-update) check_update ;;
 version | --version | -v) show_version ;;
 undo-system) undo_system ;;
+harden)
+    shift
+    exec "$HERE/harden/harden.sh" "$@"
+    ;;
+undo-harden) exec "$HERE/harden/harden.sh" --undo ;;
 *)
-    sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
     ;;
 esac

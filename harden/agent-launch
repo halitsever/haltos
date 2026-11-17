@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Runs as the agent user through the haltos-agent sudoers rule: enter the worktree, trust it, start Claude Code.
+set -euo pipefail
+
+AREA=/srv/agents
+
+# What a login shell would set up, since sudo starts this without one.
+USER=$(id -un)
+HOME=$(getent passwd "$USER" | cut -d: -f6)
+LOGNAME=$USER
+SHELL=/bin/bash
+export USER HOME LOGNAME SHELL
+if [ -r "$HOME/.profile" ]; then
+    set +eu
+    # shellcheck disable=SC1091
+    . "$HOME/.profile"
+    set -eu
+fi
+# After .profile, so a umask set there cannot take group write away.
+umask 002
+dir=$(realpath -e -- "${1:?usage: agent-launch <dir> [claude args...]}")
+shift
+case $dir/ in
+"$AREA"/*) ;;
+*)
+    echo "agent-launch: $dir is outside $AREA" >&2
+    exit 64
+    ;;
+esac
+cd "$dir"
+
+# claudegrid only trusts folders in the main user's state file, so the agent's copy needs its own entry.
+state=$HOME/.claude.json
+[ -s "$state" ] || echo '{}' >"$state"
+tmp=$(mktemp "$state.XXXXXX")
+if jq --arg d "$dir" '.projects[$d].hasTrustDialogAccepted = true' "$state" >"$tmp"; then
+    mv "$tmp" "$state"
+else
+    rm -f "$tmp"
+fi
+
+exec claude --settings /etc/haltos/agent-settings.json "$@"
