@@ -4,7 +4,7 @@
 <img src="https://halitsever-api.vercel.app/api/repo-title?title=HaltOS">
 
 <p align="center">
-A workstation OS for running Claude Code on a VPS: a monochrome, terminal-flavoured layer for Ubuntu that turns a server into a KDE Plasma remote desktop over RDP.<br>
+A Claude Code VPS workstation with a full Ubuntu desktop: a monochrome, terminal-flavoured layer that turns an Ubuntu server into a KDE Plasma remote desktop over RDP.<br>
 <br/>
 <br/>
 <img src="https://img.shields.io/github/sponsors/halitsever" alt="GitHub Sponsors"/>

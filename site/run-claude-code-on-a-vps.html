@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How to run Claude Code on a VPS with a full desktop | HaltOS</title>
-<meta name="description" content="Long Claude Code tasks stop when your laptop sleeps. Here is how to run Claude Code around the clock on a VPS with a KDE Plasma desktop over RDP, several agents side by side, and one install command.">
+<title>A full Ubuntu desktop for Claude Code on your VPS | HaltOS</title>
+<meta name="description" content="Long Claude Code tasks stop when your laptop sleeps. Here is how to turn a VPS into a Claude Code workstation with a full Ubuntu desktop: KDE Plasma over RDP, several agents side by side, and one install command.">
 <link rel="canonical" href="https://halitsever.github.io/haltos/run-claude-code-on-a-vps.html">
 <meta name="theme-color" content="#09090b">
 <meta name="color-scheme" content="dark">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="HaltOS">
-<meta property="og:title" content="How to run Claude Code on a VPS with a full desktop">
-<meta property="og:description" content="Run Claude Code around the clock on a VPS with a KDE Plasma desktop over RDP and several agents side by side.">
+<meta property="og:title" content="A full Ubuntu desktop for Claude Code on your VPS">
+<meta property="og:description" content="Turn a VPS into a Claude Code workstation with a KDE Plasma Ubuntu desktop over RDP and several agents side by side.">
 <meta property="og:url" content="https://halitsever.github.io/haltos/run-claude-code-on-a-vps.html">
 <meta property="og:image" content="https://halitsever.github.io/haltos/og.png">
 <meta property="og:image:width" content="1200">
@@ -27,8 +27,8 @@
 {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
-  "headline": "How to run Claude Code on a VPS with a full desktop",
-  "description": "Run Claude Code around the clock on a VPS with a KDE Plasma desktop over RDP and several agents side by side.",
+  "headline": "A full Ubuntu desktop for Claude Code on your VPS",
+  "description": "Turn a VPS into a Claude Code workstation with a KDE Plasma Ubuntu desktop over RDP and several agents side by side.",
   "image": "https://halitsever.github.io/haltos/og.png",
   "datePublished": "2026-11-16",
   "author": { "@type": "Person", "name": "Halit Sever", "url": "https://github.com/halitsever" },
@@ -54,7 +54,7 @@
 <main id="main" class="post">
   <article>
     <p class="post-meta">16 November 2026, Halit Sever</p>
-    <h1>How to run Claude Code on a VPS with a full desktop</h1>
+    <h1>A full Ubuntu desktop for Claude Code on your VPS</h1>
     <p class="post-lede">Give Claude Code a long task, close your laptop, and the work stops with it. Moving the agent to a server fixes that, but a bare server is a poor place to spend a working day. This is how I set up a VPS that runs Claude Code around the clock and still feels like a desktop.</p>
 
     <h2>Why a VPS</h2>
@@ -69,6 +69,7 @@
     </ul>
     <p>On a fresh Ubuntu 25.04 or newer server, as root:</p>
     <pre class="post-code"><code>curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh | sudo bash</code></pre>
+    <p>If you only need the server part, the claude-code-vps guide <a href="https://halitsever.github.io/claude-code-vps/guide/claude-code-vps">How to run Claude Code on a VPS</a> walks through every step by hand.</p>
     <p>The script checks for Plasma 6 before it touches anything, so on Ubuntu 24.04, which ships Plasma 5, it stops and says why. When it finishes, connect with any RDP client on port 53389.</p>
 
     <h2>Several agents at once</h2>
