@@ -299,7 +299,8 @@ install_vscode() {
     command -v code >/dev/null && return 0
     log "installing VS Code"
     [ -f /usr/share/keyrings/microsoft.gpg ] ||
-        curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor --yes -o /usr/share/keyrings/microsoft.gpg
+        # packages.microsoft.com answers bursts with 429, which curl retries on its own.
+        curl -fsSL --retry 5 --retry-delay 10 https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor --yes -o /usr/share/keyrings/microsoft.gpg
     printf 'Types: deb\nURIs: https://packages.microsoft.com/repos/code\nSuites: stable\nComponents: main\nArchitectures: amd64,arm64,armhf\nSigned-By: /usr/share/keyrings/microsoft.gpg\n' \
         >/etc/apt/sources.list.d/vscode.sources
     # The package would otherwise add a second copy of the same repository.
