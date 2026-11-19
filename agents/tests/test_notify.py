@@ -17,7 +17,7 @@ class NotifyTest(unittest.TestCase):
         p = NotifyPolicy()
         p.observe([s("a", "working", "busy")], 0, None)
         notices = p.observe([s("a", "blocked", "waiting")], 5, None)
-        self.assertEqual([(n.key, n.title, n.body) for n in notices], [("a", "a seni bekliyor", "Cevabını bekliyor.")])
+        self.assertEqual([(n.key, n.title, n.body) for n in notices], [("a", "a is waiting", "It needs your answer.")])
 
     def test_staying_blocked_notifies_once(self):
         p = NotifyPolicy()
@@ -35,12 +35,12 @@ class NotifyTest(unittest.TestCase):
         p.observe([s("a", "done", "idle")], 0, None)
         p.observe([s("a", "working", "busy")], 10, None)
         notices = p.observe([s("a", "done", "idle")], 190, None)
-        self.assertEqual([(n.title, n.body) for n in notices], [("a bitti", "3 dk çalıştı.")])
+        self.assertEqual([(n.title, n.body) for n in notices], [("a is done", "It ran for 3 min.")])
 
     def test_minutes_never_below_one(self):
         p = NotifyPolicy(min_busy=10)
         p.observe([s("a", "working")], 0, None)
-        self.assertEqual(p.observe([s("a", "done")], 20, None)[0].body, "1 dk çalıştı.")
+        self.assertEqual(p.observe([s("a", "done")], 20, None)[0].body, "It ran for 1 min.")
 
     def test_focused_agent_is_silent(self):
         p = NotifyPolicy()
@@ -64,12 +64,12 @@ class DbusTest(unittest.TestCase):
         self.assertEqual(gvariant_str("kahvefalin'in \\ yolu"), "'kahvefalin\\'in \\\\ yolu'")
 
     def test_notify_argv(self):
-        argv = notify_argv(Notice("k", "seo-fix bitti", "3 dk çalıştı."))
+        argv = notify_argv(Notice("k", "seo-fix is done", "It ran for 3 min."))
         self.assertEqual(argv[:8], ["gdbus", "call", "--session", "--dest", "org.freedesktop.Notifications",
                                     "--object-path", "/org/freedesktop/Notifications",
                                     "--method"])
-        self.assertEqual(argv[9:], ["'HaltOS Agents'", "0", "'haltos-agents'", "'seo-fix bitti'", "'3 dk çalıştı.'",
-                                    "['default', 'Aç', 'open', 'Aç']", "{'desktop-entry': <'haltos-agents'>}", "int32 -1"])
+        self.assertEqual(argv[9:], ["'HaltOS Agents'", "0", "'haltos-agents'", "'seo-fix is done'", "'It ran for 3 min.'",
+                                    "['default', 'Open', 'open', 'Open']", "{'desktop-entry': <'haltos-agents'>}", "int32 -1"])
 
     def test_parse_notify_id(self):
         self.assertEqual(parse_notify_id("(uint32 7,)\n"), 7)
@@ -83,7 +83,7 @@ class DbusTest(unittest.TestCase):
 
 class BodyClickTest(unittest.TestCase):
     def test_body_click_counts_as_open(self):
-        self.assertIn("'default', 'Aç'", notify_argv(Notice("k", "t", "b"))[14])
+        self.assertIn("'default', 'Open'", notify_argv(Notice("k", "t", "b"))[14])
         line = "/org/freedesktop/Notifications: org.freedesktop.Notifications.ActionInvoked (uint32 3, 'default')"
         self.assertEqual(parse_action(line), (3, "open"))
 

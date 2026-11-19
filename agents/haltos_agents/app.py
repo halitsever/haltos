@@ -48,7 +48,7 @@ from .transcript import CANCEL, PROJECTS, FeedItem, find_transcript, last_model,
 
 QML = Path(__file__).resolve().parent.parent / "qml" / "Main.qml"
 SCHEME = Path(__file__).resolve().parent / "HaltMono.colors"
-LABELS = {"need": "seni bekliyor", "work": "çalışıyor", "done": "bitti"}
+LABELS = {"need": "waiting", "work": "working", "done": "done"}
 POLL_MS = 2000
 INDEX_MS = 60_000
 BRANCH_TTL = 30.0
@@ -390,7 +390,7 @@ class Controller(QObject):
             a.close()
             del self.attachments[key]
             if a.failed and key in live:
-                self._action_error = f"{live[key].name} oturumuna bağlanılamadı. Terminal ile dene."
+                self._action_error = f"Could not attach to {live[key].name}. Try the terminal."
 
     def _attachment(self) -> Attachment | None:
         """One live `claude attach` per agent, opened the first time the owner acts on it."""
@@ -416,7 +416,7 @@ class Controller(QObject):
             a, self._action_error = None, str(e)
         ok = bool(a) and fn(a)
         if not ok:
-            self._action_error = self._action_error or "Ajana yazılamadı. Terminal ile dene."
+            self._action_error = self._action_error or "Could not write to the agent. Try the terminal."
             self.changed.emit()
         return ok
 
@@ -478,7 +478,7 @@ class Controller(QObject):
                 start_new_session=True,
             )
         except OSError as e:
-            self._action_error = f"Konsole açılamadı: {e}"
+            self._action_error = f"Could not open Konsole: {e}"
             self.changed.emit()
 
     @Slot()
@@ -723,8 +723,8 @@ def run(args) -> int:
     if not args.smoke and QSystemTrayIcon.isSystemTrayAvailable():
         tray = QSystemTrayIcon(app.windowIcon(), app)
         menu = QMenu()
-        menu.addAction("Aç", controller.showRequested.emit)
-        menu.addAction("Çık", app.quit)
+        menu.addAction("Open", controller.showRequested.emit)
+        menu.addAction("Quit", app.quit)
         tray.setContextMenu(menu)
         tray.setToolTip("HaltOS Agents")
         tray.activated.connect(lambda reason: reason == QSystemTrayIcon.Trigger and controller.showRequested.emit())

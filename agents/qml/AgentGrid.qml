@@ -127,11 +127,11 @@ Item {
         }
         QQC2.Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "henüz ajan yok"
+            text: "no agents yet"
         }
         QQC2.Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: Ansi.paint(Ansi.accent, "n") + " yeni ajan"
+            text: Ansi.paint(Ansi.accent, "n") + " new agent"
             textFormat: Text.StyledText
             color: Ansi.faint
         }
@@ -145,8 +145,8 @@ Item {
         property string target
         property string targetName
 
-        title: "Ajanı durdur"
-        subtitle: targetName + " durdurulsun mu? Konuşma silinmez."
+        title: "Stop agent"
+        subtitle: "Stop " + targetName + "? The conversation is kept."
         standardButtons: Kirigami.Dialog.Ok | Kirigami.Dialog.Cancel
         onAccepted: {
             root.controller.select(target)

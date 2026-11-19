@@ -143,7 +143,7 @@ class TranscriptTest(unittest.TestCase):
         p = self.write([tool("Bash", "t1", command="rm -rf build")])
         q = pending_question(p, waiting=True)
         self.assertEqual(q.text, "Bash: rm -rf build")
-        self.assertEqual(q.options, [("İzin ver", b"1"), ("Reddet", b"\x1b")])
+        self.assertEqual(q.options, [("Allow", b"1"), ("Deny", b"\x1b")])
         self.assertIsNone(pending_question(p, waiting=False))
 
     def test_find_transcript_globs_by_session_id(self):

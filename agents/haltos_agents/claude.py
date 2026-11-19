@@ -17,7 +17,7 @@ class UntrustedDir(ClaudeError):
     """`claude --bg` cannot show the trust prompt, so the owner has to accept it once in a terminal."""
 
     def __init__(self, cwd: str):
-        super().__init__(f"{cwd} klasörüne henüz güvenilmedi.")
+        super().__init__(f"{cwd} is not trusted yet.")
         self.cwd = cwd
 
 
@@ -136,7 +136,7 @@ def remove(key: str, run=subprocess.run) -> bool:
 def launch(argv: list[str], cwd: str, run=subprocess.run) -> str:
     """Starts a background session and returns the id `claude attach` takes."""
     if not os.path.isdir(cwd):
-        raise ClaudeError(f"{cwd} klasörü yok.")
+        raise ClaudeError(f"{cwd} does not exist.")
     p = _call(argv, run, cwd=cwd)
     out = (p.stdout or "") + (p.stderr or "")
     if p.returncode != 0:

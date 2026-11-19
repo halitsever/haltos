@@ -159,12 +159,12 @@ FocusScope {
                     QQC2.Menu {
                         id: more
                         QQC2.MenuItem {
-                            text: "arşivle"
+                            text: "archive"
                             enabled: tile.group === "done"
                             onTriggered: tile.act(() => tile.controller.archive())
                         }
                         QQC2.MenuItem {
-                            text: "durdur…"
+                            text: "stop…"
                             onTriggered: tile.act(() => tile.stopRequested())
                         }
                     }
@@ -275,7 +275,7 @@ FocusScope {
                     background: null
                     enabled: tile.attachable
                     wrapMode: TextEdit.Wrap
-                    placeholderText: tile.attachable ? "" : "bu oturum bir terminalde açık"
+                    placeholderText: tile.attachable ? "" : "this session is open in a terminal"
                     Component.onCompleted: tile.loadDraft()
                     onTextChanged: tile.controller.setDraft(tile.key, text)
                     onActiveFocusChanged: {

@@ -30,7 +30,7 @@ QQC2.ScrollView {
                 results.controller.resume(sessionId, cwd)
                 results.picked()
             }
-            QQC2.ToolTip.text: "Bu oturumu ajan olarak sürdür"
+            QQC2.ToolTip.text: "Resume this session as an agent"
             QQC2.ToolTip.visible: hovered
             QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
 
@@ -64,7 +64,7 @@ QQC2.ScrollView {
             anchors.centerIn: parent
             width: parent.width - Kirigami.Units.gridUnit * 2
             visible: view.count === 0
-            text: "Sonuç yok"
+            text: "No results"
         }
     }
 }

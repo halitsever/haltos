@@ -82,12 +82,12 @@ ColumnLayout {
             QQC2.Menu {
                 id: more
                 QQC2.MenuItem {
-                    text: "arşivle"
+                    text: "archive"
                     enabled: detail.agent.group === "done"
                     onTriggered: detail.controller.archive()
                 }
                 QQC2.MenuItem {
-                    text: "durdur…"
+                    text: "stop…"
                     onTriggered: {
                         confirmStop.target = detail.agent.key
                         confirmStop.open()
@@ -103,8 +103,8 @@ ColumnLayout {
         // The selection can change while the dialog is open, so it stops the agent it asked about.
         property string target
 
-        title: "Ajanı durdur"
-        subtitle: (detail.agent.name ?? "") + " durdurulsun mu? Konuşma silinmez."
+        title: "Stop agent"
+        subtitle: "Stop " + (detail.agent.name ?? "") + "? The conversation is kept."
         standardButtons: Kirigami.Dialog.Ok | Kirigami.Dialog.Cancel
         onAccepted: {
             detail.controller.select(target)
@@ -220,8 +220,8 @@ ColumnLayout {
             background: null
             enabled: detail.canAct
             wrapMode: TextEdit.Wrap
-            placeholderText: detail.canAct ? "ajana yaz… enter gönderir, shift+enter yeni satır"
-                                           : "bu oturum bir terminalde açık, buradan yönetilemez"
+            placeholderText: detail.canAct ? "write to the agent… enter sends, shift+enter adds a line"
+                                           : "this session is open in a terminal and cannot be driven from here"
             onTextChanged: detail.controller.setDraft(detail.key, text)
             Keys.onEscapePressed: detail.escaped()
             Keys.onReturnPressed: event => {
@@ -242,7 +242,7 @@ ColumnLayout {
         visible: !detail.hasAgent
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
-        text: "ajan seçilmedi"
+        text: "no agent selected"
         color: Kirigami.Theme.disabledTextColor
     }
 }

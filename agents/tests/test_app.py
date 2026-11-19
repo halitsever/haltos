@@ -124,7 +124,7 @@ class ControllerTest(unittest.TestCase):
         self.c._on_polled([session("a"), session("b")], "")
         self.assertEqual((gone.closed, failed.closed, live.closed), (True, True, False))
         self.assertEqual(set(self.c.attachments), {"b"})
-        self.assertIn("Terminal", self.c.error)
+        self.assertIn("terminal", self.c.error)
 
     def test_dead_attachment_is_closed_before_replacing(self):
         dead = Stub()
@@ -309,7 +309,7 @@ class ControllerTest(unittest.TestCase):
             self.c._on_polled([s], "")
         finally:
             A.find_transcript = orig
-        self.assertEqual(self.c._agents.rows[0]["question"]["options"], ["İzin ver", "Reddet"])
+        self.assertEqual(self.c._agents.rows[0]["question"]["options"], ["Allow", "Deny"])
 
     def test_tile_without_transcript_is_empty(self):
         orig = A.find_transcript
@@ -470,8 +470,8 @@ class ThemeTest(QmlCase):
         need = dataclasses.replace(session("a"), status="waiting")
         work = [dataclasses.replace(session(k), status="busy", state="") for k in "bc"]
         self.poll(need, *work)
-        self.assertEqual(self.item("counter:need").property("text"), "1 seni bekliyor")
-        self.assertEqual(self.item("counter:work").property("text"), "2 çalışıyor")
+        self.assertEqual(self.item("counter:need").property("text"), "1 waiting")
+        self.assertEqual(self.item("counter:work").property("text"), "2 working")
         self.assertFalse(self.item("counter:done").property("visible"))
         self.assertFalse(self.item("emptyState").property("visible"))
         self.poll()

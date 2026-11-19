@@ -177,7 +177,7 @@ Kirigami.ApplicationWindow {
             // The built-in close button overwrites the visible binding, so later errors would stay hidden.
             showCloseButton: false
             actions: Kirigami.Action {
-                text: "Kapat"
+                text: "Close"
                 onTriggered: root.controller.dismissError()
             }
         }
@@ -186,20 +186,20 @@ Kirigami.ApplicationWindow {
             Layout.fillWidth: true
             visible: root.controller.untrustedDir !== ""
             type: Kirigami.MessageType.Warning
-            text: root.controller.untrustedDir + " klasörüne henüz güvenilmedi. Konsole'da Claude Code'un güven sorusunu onayla, sonra yeniden başlat."
+            text: root.controller.untrustedDir + " is not trusted yet. Accept Claude Code's trust prompt in Konsole, then start again."
             actions: [
                 Kirigami.Action {
-                    text: "Konsole'da aç"
+                    text: "Open in Konsole"
                     icon.name: "utilities-terminal"
                     onTriggered: root.controller.trustInKonsole()
                 },
                 Kirigami.Action {
-                    text: "Yeniden başlat"
+                    text: "Start again"
                     icon.name: "media-playback-start"
                     onTriggered: root.controller.retryLaunch()
                 },
                 Kirigami.Action {
-                    text: "Vazgeç"
+                    text: "Dismiss"
                     onTriggered: root.controller.dismissUntrusted()
                 }
             ]
@@ -228,17 +228,17 @@ Kirigami.ApplicationWindow {
 
             Counter {
                 group: "need"
-                label: "seni bekliyor"
+                label: "waiting"
                 color: Ansi.yellow
             }
             Counter {
                 group: "work"
-                label: "çalışıyor"
+                label: "working"
                 color: Ansi.accent
             }
             Counter {
                 group: "done"
-                label: "bitti"
+                label: "done"
                 color: Ansi.faint
             }
 
@@ -250,7 +250,7 @@ Kirigami.ApplicationWindow {
                 id: search
                 objectName: "searchField"
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 16
-                placeholderText: "oturumlarda ara…"
+                placeholderText: "search sessions…"
                 delaySearch: true
                 onAccepted: root.controller.search(text)
                 Keys.onEscapePressed: {
@@ -262,7 +262,7 @@ Kirigami.ApplicationWindow {
             QQC2.ToolButton {
                 text: "+"
                 focusPolicy: Qt.NoFocus
-                QQC2.ToolTip.text: "Yeni ajan (ctrl+n)"
+                QQC2.ToolTip.text: "New agent (ctrl+n)"
                 QQC2.ToolTip.visible: hovered
                 onClicked: newAgent.open()
             }
