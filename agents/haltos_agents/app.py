@@ -51,8 +51,9 @@ POLL_MS = 2000
 INDEX_MS = 60_000
 BRANCH_TTL = 30.0
 TILE_LINES = 6
-# Tiles are re-read every poll while agents work, so read less of each transcript than the full view.
-TILE_BYTES = 128_000
+# Tiles are re-read every poll while agents work, so start small and read further only when a few
+# huge rows (tool output, attachments) leave the short tail empty.
+TILE_BYTES = (128_000, 512_000, 2_000_000)
 INDEX_DB = Path.home() / ".cache" / "haltos-agents" / "index.sqlite"
 
 
@@ -276,18 +277,23 @@ class Controller(QObject):
         for s in sessions:
             path = find_transcript(s.session_id)
             try:
-                stamp = (path, path.stat().st_mtime, s.status) if path else None
+                st = path.stat() if path else None
             except OSError:
-                stamp = None
+                st = None
+            stamp = (path, st.st_mtime, s.status) if st else None
             cached = self._tiles.get(s.key)
             if cached and cached[0] == stamp:
                 tiles[s.key] = cached
             elif stamp is None:
                 tiles[s.key] = (None, [], {})
             else:
-                q = pending_question(path, waiting=s.status == "waiting", tail_bytes=TILE_BYTES)
+                for size in TILE_BYTES:
+                    items = read_feed(path, TILE_LINES, size)
+                    if len(items) >= TILE_LINES or size >= st.st_size:
+                        break
+                q = pending_question(path, waiting=s.status == "waiting", tail_bytes=size)
                 question = {} if q is None else {"text": q.text, "options": [label for label, _ in q.options]}
-                tiles[s.key] = (stamp, [_item(i) for i in read_feed(path, TILE_LINES, TILE_BYTES)], question)
+                tiles[s.key] = (stamp, [_item(i) for i in items], question)
         self._tiles = tiles
 
     @Slot(object, str)

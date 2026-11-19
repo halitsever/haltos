@@ -16,14 +16,6 @@ ColumnLayout {
         input.forceActiveFocus()
     }
 
-    function esc(s) {
-        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")
-    }
-
-    function paint(c, s) {
-        return "<font color=\"" + c + "\">" + s + "</font>"
-    }
-
     spacing: 0
 
     RowLayout {
@@ -123,10 +115,10 @@ ColumnLayout {
                 textFormat: styled ? Text.StyledText : Text.PlainText
                 color: kind === "result" ? (error ? Ansi.red : Kirigami.Theme.disabledTextColor)
                      : kind === "text" ? Kirigami.Theme.disabledTextColor : Kirigami.Theme.textColor
-                text: kind === "prompt" ? detail.paint(Ansi.green, "$") + " " + detail.esc(body)
-                    : kind === "tool" ? detail.paint(Ansi.cyan, "⏺ " + detail.esc(name)) + "(" + detail.esc(body) + ")"
-                                        + (added ? " " + detail.paint(Ansi.green, "+" + added) : "")
-                                        + (removed ? " " + detail.paint(Ansi.red, "-" + removed) : "")
+                text: kind === "prompt" ? Ansi.paint(Ansi.green, "$") + " " + Ansi.esc(body)
+                    : kind === "tool" ? Ansi.paint(Ansi.cyan, "⏺ " + Ansi.esc(name)) + "(" + Ansi.esc(body) + ")"
+                                        + (added ? " " + Ansi.paint(Ansi.green, "+" + added) : "")
+                                        + (removed ? " " + Ansi.paint(Ansi.red, "-" + removed) : "")
                     : kind === "result" ? "⎿ " + body
                     : body
             }
@@ -142,7 +134,7 @@ ColumnLayout {
         QQC2.Label {
             Layout.fillWidth: true
             textFormat: Text.StyledText
-            text: detail.paint(Ansi.yellow, "?") + " " + detail.esc(detail.question.text ?? "")
+            text: Ansi.paint(Ansi.yellow, "?") + " " + Ansi.esc(detail.question.text ?? "")
             wrapMode: Text.Wrap
         }
         Flow {

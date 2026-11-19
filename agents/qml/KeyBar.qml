@@ -15,11 +15,11 @@ RowLayout {
 
     Repeater {
         model: [
+            { action: "next", text: "alt+←↑↓→ geç" },
             { action: "interrupt", text: "esc kes" },
             { action: "new", text: "ctrl+n yeni" },
             { action: "search", text: "ctrl+f ara" },
-            { action: "terminal", text: "ctrl+t terminal" },
-            { action: "next", text: "alt+↑↓ geç" }
+            { action: "terminal", text: "ctrl+t terminal" }
         ]
 
         QQC2.ToolButton {

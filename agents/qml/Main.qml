@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 
@@ -17,25 +18,44 @@ Kirigami.ApplicationWindow {
     visible: !startHidden
     font: Kirigami.Theme.fixedWidthFont
 
+    function focusInput() {
+        agentGrid.focusSelected()
+    }
+
     function trigger(action: string) {
         switch (action) {
         case "interrupt": controller.interrupt(); break
         case "new": newAgent.open(); break
-        case "search": agentList.focusSearch(); break
+        case "search": search.forceActiveFocus(); search.selectAll(); break
         case "terminal": controller.openTerminal(); break
-        case "prev": controller.step(-1); agentDetail.focusInput(); break
-        case "next": controller.step(1); agentDetail.focusInput(); break
+        case "prev": controller.step(-1); focusInput(); break
+        case "next": controller.step(1); focusInput(); break
+        case "up": controller.step(-agentGrid.columns); focusInput(); break
+        case "down": controller.step(agentGrid.columns); focusInput(); break
         }
     }
-
-    // Focus moves only on what the user does; a poll changing the selection must not pull it.
-    Component.onCompleted: agentDetail.focusInput()
 
     Shortcut { sequence: "Ctrl+N"; onActivated: root.trigger("new") }
     Shortcut { sequence: "Ctrl+F"; onActivated: root.trigger("search") }
     Shortcut { sequence: "Ctrl+T"; onActivated: root.trigger("terminal") }
-    Shortcut { sequence: "Alt+Up"; onActivated: root.trigger("prev") }
-    Shortcut { sequence: "Alt+Down"; onActivated: root.trigger("next") }
+    Shortcut { sequence: "Alt+Left"; onActivated: root.trigger("prev") }
+    Shortcut { sequence: "Alt+Right"; onActivated: root.trigger("next") }
+    Shortcut { sequence: "Alt+Up"; onActivated: root.trigger("up") }
+    Shortcut { sequence: "Alt+Down"; onActivated: root.trigger("down") }
+
+    // Focus moves only on what the user does. The one exception is the first agent showing up
+    // while nothing else holds focus, so typing works right after the window opens.
+    property bool placedFocus: false
+    Connections {
+        target: root.controller
+        function onChanged() {
+            if (root.placedFocus || root.controller.selectedIndex < 0)
+                return
+            root.placedFocus = true
+            if (!newAgent.visible && !search.activeFocus)
+                Qt.callLater(root.focusInput)
+        }
+    }
 
     onActiveChanged: controller.setWindowActive(active)
 
@@ -52,7 +72,7 @@ Kirigami.ApplicationWindow {
             root.show()
             root.raise()
             root.requestActivate()
-            agentDetail.focusInput()
+            root.focusInput()
         }
     }
 
@@ -99,30 +119,56 @@ Kirigami.ApplicationWindow {
 
         RowLayout {
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: 0
+            Layout.margins: Kirigami.Units.smallSpacing * 2
 
-            AgentList {
-                id: agentList
-                controller: root.controller
-                onNewAgentRequested: newAgent.open()
-                onSearchLeft: agentDetail.focusInput()
-                onPicked: agentDetail.focusInput()
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 15
-                Layout.maximumWidth: Kirigami.Units.gridUnit * 15
-                Layout.fillHeight: true
-            }
-
-            Kirigami.Separator {
-                Layout.fillHeight: true
-            }
-
-            AgentDetail {
-                id: agentDetail
-                controller: root.controller
+            Kirigami.SearchField {
+                id: search
+                objectName: "searchField"
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                placeholderText: "oturumlarda ara…"
+                delaySearch: true
+                onAccepted: root.controller.search(text)
+                Keys.onEscapePressed: {
+                    search.clear()
+                    root.controller.search("")
+                    root.focusInput()
+                }
             }
+            QQC2.ToolButton {
+                text: "+"
+                focusPolicy: Qt.NoFocus
+                QQC2.ToolTip.text: "Yeni ajan (ctrl+n)"
+                QQC2.ToolTip.visible: hovered
+                onClicked: newAgent.open()
+            }
+        }
+
+        Kirigami.Separator {
+            Layout.fillWidth: true
+        }
+
+        SearchResults {
+            controller: root.controller
+            onPicked: root.focusInput()
+            visible: root.controller.query !== ""
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+        }
+
+        AgentGrid {
+            id: agentGrid
+            controller: root.controller
+            visible: root.controller.query === ""
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+        }
+
+        AgentDetail {
+            id: agentDetail
+            controller: root.controller
+            visible: false
+            Layout.fillWidth: true
+            Layout.fillHeight: true
         }
 
         Kirigami.Separator {

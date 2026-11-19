@@ -17,6 +17,7 @@ try:
 
     from haltos_agents import app as A
     from haltos_agents.claude import ClaudeError, Session, UntrustedDir
+    from haltos_agents.transcript import Question
 except ImportError:  # CI runners have no PySide6; the Qt layer is checked on a desktop.
     A = None
 
@@ -249,6 +250,19 @@ class ControllerTest(unittest.TestCase):
         self.assertEqual(row["tail"][-1]["kind"], "prompt")
         self.assertEqual(row["tail"][-1]["body"], "fix login")
 
+    def test_tile_reads_past_a_huge_last_row(self):
+        path = self._transcript(
+            {"type": "user", "message": {"content": [{"type": "text", "text": "fix login"}]}},
+            {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "t", "content": "x" * 300_000}]}},
+        )
+        orig, A.find_transcript = A.find_transcript, lambda sid: path
+        try:
+            self.c._read_tiles([session("a")])
+            self.c._on_polled([session("a")], "")
+        finally:
+            A.find_transcript = orig
+        self.assertEqual(self.c._agents.rows[0]["tail"][0]["body"], "fix login")
+
     def test_waiting_tile_has_question(self):
         path = self._transcript({"type": "assistant", "message": {"content": [
             {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "git push"}}]}})
@@ -335,11 +349,11 @@ class BannerTest(unittest.TestCase):
         # Repeater items hang off the item tree, not the QObject tree.
         keys = {b.objectName(): b.property("text") for b in bar.childItems() if b.objectName().startswith("key:")}
         self.assertEqual(keys, {
+            "key:next": "alt+←↑↓→ geç",
             "key:interrupt": "esc kes",
             "key:new": "ctrl+n yeni",
             "key:search": "ctrl+f ara",
             "key:terminal": "ctrl+t terminal",
-            "key:next": "alt+↑↓ geç",
         })
         QMetaObject.invokeMethod(root, "trigger", Q_ARG(str, "new"))
         self.assertTrue(root.findChild(QObject, "newAgentDialog").property("visible"))
@@ -349,36 +363,115 @@ class BannerTest(unittest.TestCase):
         loop.exec()
         del root, bar, engine
 
+
+@unittest.skipIf(A is None, "PySide6 not installed")
+class GridTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication(sys.argv)
+
+    def setUp(self):
+        self.c = A.Controller()
+        self.c.pool.start = lambda job: None
+        self.engine = QQmlApplicationEngine()
+        self.engine.rootContext().setContextProperty("agentsController", self.c)
+        self.engine.setInitialProperties({"hideOnClose": False, "startHidden": False})
+        self.engine.load(A.QML)
+        self.root = self.engine.rootObjects()[0]
+        self.root.requestActivate()
+        self.grid = self.root.findChild(QQuickItem, "agentGrid")
+        self.keep = []
+
+    def tearDown(self):
+        self.wait(300)
+        del self.keep, self.grid, self.root, self.engine
+
+    def wait(self, ms=200):
+        loop = QEventLoop()
+        QTimer.singleShot(ms, loop.quit)
+        loop.exec()
+
+    def poll(self, *sessions):
+        self.c._on_polled(list(sessions), "")
+        self.wait()
+
+    def trigger(self, action):
+        QMetaObject.invokeMethod(self.root, "trigger", Q_ARG(str, action))
+
+    def tile(self, key):
+        items = self.grid.property("contentItem").childItems()
+        return next(i for i in items if i.objectName() == "agentTile" and i.property("agentKey") == key)
+
+    def tile_input(self, key):
+        # PySide drops a child's wrapper with its parent's, so the tile wrapper has to outlive this call.
+        tile = self.tile(key)
+        self.keep.append(tile)
+        return tile.findChild(QQuickItem, "tileInput")
+
+    def test_grid_shows_every_agent(self):
+        self.assertIsNotNone(self.grid)
+        self.poll(session("a"), session("b"), session("c"))
+        self.assertEqual(self.grid.property("count"), 3)
+        self.assertIsNone(self.root.findChild(QQuickItem, "agentList"))
+
     def test_poll_does_not_move_focus(self):
-        c = A.Controller()
-        c.pool.start = lambda job: None
-        engine = QQmlApplicationEngine()
-        engine.rootContext().setContextProperty("agentsController", c)
-        engine.setInitialProperties({"hideOnClose": False, "startHidden": False})
-        engine.load(A.QML)
-        root = engine.rootObjects()[0]
-        root.requestActivate()
-        c._on_polled([session("a")], "")
-        wait = QEventLoop()
-        QTimer.singleShot(200, wait.quit)
-        wait.exec()
-        search = root.findChild(QQuickItem, "searchField")
-        field = root.findChild(QQuickItem, "agentInput")
-        QMetaObject.invokeMethod(root, "trigger", Q_ARG(str, "search"))
+        self.poll(session("a"))
+        search = self.root.findChild(QQuickItem, "searchField")
+        self.trigger("search")
         self.assertTrue(search.hasActiveFocus())
-        c._on_polled([session("b")], "")
-        self.assertEqual(c.selectedKey, "b")
-        self.assertFalse(field.hasActiveFocus())
+        self.poll(session("b"))
+        self.assertEqual(self.c.selectedKey, "b")
         self.assertTrue(search.hasActiveFocus())
-        QMetaObject.invokeMethod(root, "trigger", Q_ARG(str, "next"))
-        self.assertTrue(field.hasActiveFocus())
-        bar = root.findChild(QQuickItem, "keyBar")
+        self.trigger("next")
+        self.assertTrue(self.tile_input("b").hasActiveFocus())
+        bar = self.root.findChild(QQuickItem, "keyBar")
         policies = {b.property("focusPolicy") for b in bar.childItems() if b.objectName().startswith("key:")}
         self.assertEqual(policies, {0})
-        wait = QEventLoop()
-        QTimer.singleShot(300, wait.quit)
-        wait.exec()
-        del root, search, field, bar, engine
+
+    def test_focus_and_draft_survive_new_agent(self):
+        self.poll(session("a"))
+        field = self.tile_input("a")
+        field.forceActiveFocus()
+        field.setProperty("text", "hello")
+        newer = Session("b", "sid-b", "b", "/tmp", "background", "done", "idle", 1.0, True)
+        self.poll(newer, session("a"))
+        self.assertEqual([r["key"] for r in self.c._agents.rows], ["b", "a"])
+        self.assertTrue(field.hasActiveFocus())
+        self.assertEqual(field.property("text"), "hello")
+        self.assertEqual(self.c.draft("a"), "hello")
+
+    def test_unselected_tile_acts_on_its_agent(self):
+        path = os.path.join(tempfile.mkdtemp(), "s.jsonl")
+        open(path, "w").close()
+        seen = []
+        orig = A.find_transcript, A.pending_question
+        A.find_transcript = lambda sid: Path(path)
+        A.pending_question = lambda *a, **k: Question("q", [("Evet", b"1")])
+        self.c._act = lambda fn: seen.append(self.c._selected) or True
+        try:
+            self.poll(session("a"), session("b"))
+            self.c.select("a")
+            QMetaObject.invokeMethod(self.tile("b"), "choose", Q_ARG(int, 0))
+        finally:
+            A.find_transcript, A.pending_question = orig
+        self.assertEqual(seen, ["b"])
+
+    def test_alt_arrows_move_by_rows_and_clamp(self):
+        self.poll(*(session(k) for k in "abcde"))
+        self.c.select("a")
+        cols = self.grid.property("columns")
+        self.trigger("down")
+        self.assertEqual(self.c.selectedIndex, min(cols, 4))
+        for _ in range(3):
+            self.trigger("down")
+        self.assertEqual(self.c.selectedIndex, 4)
+        self.trigger("up")
+        self.assertEqual(self.c.selectedIndex, max(0, 4 - cols))
+
+    def test_narrow_window_has_one_column(self):
+        self.root.setProperty("width", self.root.property("minimumWidth"))
+        self.wait()
+        self.assertEqual(self.grid.property("columns"), 1)
 
 
 if __name__ == "__main__":
