@@ -348,6 +348,11 @@ class Controller(QObject):
             s = self.session(key)
             if s is None or not s.attachable:
                 return False
+            if screen.pyte is None:
+                # Without python3-pyte the app cannot draw a terminal, so Konsole stands in.
+                self.select(key)
+                self.openTerminal()
+                return True
             try:
                 self.terminals[key] = Terminal(self._attachment_for(key), self)
             except ClaudeError as e:
@@ -699,8 +704,8 @@ class Controller(QObject):
         hit = parse_action(line)
         key = hit and hit[1] == "open" and self.notice_keys.pop(hit[0], None)
         if key:
-            self.select(key)
-            self.openTerminal()
+            self.openTab(key)
+            self.showRequested.emit()
 
     def _watch_notifications(self) -> None:
         """Clicks on our notifications arrive as ActionInvoked signals on the session bus."""

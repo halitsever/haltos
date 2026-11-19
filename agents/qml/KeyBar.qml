@@ -7,6 +7,7 @@ RowLayout {
     id: bar
 
     property bool canInterrupt: false
+    property bool agentTab: false
 
     signal triggered(string action)
 
@@ -14,7 +15,12 @@ RowLayout {
     Layout.leftMargin: Kirigami.Units.smallSpacing
 
     Repeater {
-        model: [
+        model: bar.agentTab ? [
+            { key: "ctrl+tab", label: "next tab" },
+            { key: "alt+0", label: "agents" },
+            { key: "ctrl+shift+v", label: "paste" },
+            { key: "ctrl+shift+w", label: "close tab" }
+        ] : [
             { key: "←↑↓→", label: "select" },
             { key: "enter", label: "open in Claude Code", action: "open" },
             { key: "1 2", label: "answer" },

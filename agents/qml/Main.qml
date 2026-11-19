@@ -32,9 +32,27 @@ Kirigami.ApplicationWindow {
     Kirigami.Theme.highlightedTextColor: Ansi.text
 
     readonly property bool searching: controller.query !== ""
+    readonly property int tab: controller.currentTab
 
     function navigate() {
         navigator.forceActiveFocus()
+    }
+
+    // The grid takes letter keys on the navigator; an agent tab gives every key to its Claude Code.
+    function focusTab() {
+        if (searching)
+            return
+        const view = tab > 0 ? terminals.itemAt(tab - 1) : null
+        if (view)
+            view.forceActiveFocus()
+        else
+            navigate()
+    }
+    onTabChanged: Qt.callLater(focusTab)
+
+    function cycleTab(step: int) {
+        const n = tabBar.count
+        controller.showTab((tab + step + n) % n)
     }
 
     function trigger(action: string) {
@@ -71,7 +89,7 @@ Kirigami.ApplicationWindow {
         if (controller.selected.attachable !== true)
             agentGrid.hint("Already open in a terminal")
         else
-            controller.openTerminal()
+            controller.openTab(controller.selectedKey)
     }
 
     function clearSearch() {
@@ -80,9 +98,27 @@ Kirigami.ApplicationWindow {
         navigate()
     }
 
-    Shortcut { sequence: "Ctrl+N"; onActivated: root.trigger("new") }
-    Shortcut { sequence: "Ctrl+F"; onActivated: root.trigger("search") }
-    Shortcut { sequence: "Ctrl+K"; onActivated: root.trigger("interrupt") }
+    // On an agent tab these keys belong to Claude Code, so the app's own ones stay on the grid.
+    Shortcut { sequence: "Ctrl+N"; enabled: root.tab === 0; onActivated: root.trigger("new") }
+    Shortcut { sequence: "Ctrl+F"; enabled: root.tab === 0; onActivated: root.trigger("search") }
+    Shortcut { sequence: "Ctrl+K"; enabled: root.tab === 0; onActivated: root.trigger("interrupt") }
+
+    // Tab keys Claude Code does not use, so they work everywhere.
+    Shortcut { sequence: "Ctrl+Tab"; onActivated: root.cycleTab(1) }
+    Shortcut { sequences: ["Ctrl+Shift+Tab", "Ctrl+Backtab"]; onActivated: root.cycleTab(-1) }
+    Shortcut {
+        sequence: "Ctrl+Shift+W"
+        enabled: root.tab > 0
+        onActivated: root.controller.closeTab(tabBar.itemAt(root.tab).agentKey)
+    }
+    Instantiator {
+        model: 10
+        delegate: Shortcut {
+            required property int index
+            sequence: "Alt+" + index
+            onActivated: root.controller.showTab(index)
+        }
+    }
 
     // Kirigami's page stack asks for focus too, so the grid claims it once everything is built.
     Component.onCompleted: {
@@ -117,14 +153,14 @@ Kirigami.ApplicationWindow {
         // A new window would take the keyboard from whatever the user is typing into here.
         function onLaunchReady(key) {
             if (!newAgent.visible && !search.activeFocus)
-                root.controller.openTerminal()
+                root.controller.openTab(key)
         }
         function onShowRequested() {
             if (!root.visible)
                 root.showMaximized()
             root.raise()
             root.requestActivate()
-            root.navigate()
+            root.focusTab()
         }
     }
 
@@ -216,28 +252,92 @@ Kirigami.ApplicationWindow {
             }
         }
 
-        Rectangle {
+        QQC2.TabBar {
+            id: tabBar
+            objectName: "tabBar"
             Layout.fillWidth: true
-            implicitHeight: 1
-            color: Ansi.rule
+            currentIndex: root.tab
+            onCurrentIndexChanged: {
+                if (currentIndex !== root.tab)
+                    root.controller.showTab(currentIndex)
+            }
+
+            QQC2.TabButton {
+                readonly property string agentKey: ""
+                text: "Agents"
+                width: implicitWidth
+                focusPolicy: Qt.NoFocus
+            }
+
+            Repeater {
+                model: root.controller.tabs
+
+                QQC2.TabButton {
+                    id: tabButton
+                    required property string key
+                    required property string name
+                    required property string group
+                    readonly property string agentKey: key
+
+                    // The KDE style paints `text` itself, so the name lives only in the content row.
+                    width: tabRow.implicitWidth + Kirigami.Units.largeSpacing * 2
+                    focusPolicy: Qt.NoFocus
+                    contentItem: RowLayout {
+                        id: tabRow
+                        spacing: Kirigami.Units.smallSpacing * 2
+                        QQC2.Label {
+                            text: "●"
+                            color: tabButton.group === "need" ? Ansi.yellow : tabButton.group === "work" ? Ansi.accent : Ansi.faint
+                        }
+                        QQC2.Label {
+                            text: tabButton.name
+                            font.bold: tabButton.checked
+                        }
+                        QQC2.ToolButton {
+                            objectName: "closeTab"
+                            text: "×"
+                            focusPolicy: Qt.NoFocus
+                            implicitHeight: Kirigami.Units.gridUnit
+                            implicitWidth: Kirigami.Units.gridUnit
+                            onClicked: root.controller.closeTab(tabButton.key)
+                        }
+                    }
+                }
+            }
         }
 
         SearchResults {
             controller: root.controller
             onPicked: root.navigate()
-            visible: root.controller.query !== ""
+            visible: root.searching
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
 
-        AgentGrid {
-            id: agentGrid
-            controller: root.controller
-            visible: root.controller.query === ""
-            onOpened: root.trigger("open")
-            onNewRequested: newAgent.open()
+        StackLayout {
+            id: stack
+            visible: !root.searching
+            currentIndex: root.tab
             Layout.fillWidth: true
             Layout.fillHeight: true
+
+            AgentGrid {
+                id: agentGrid
+                controller: root.controller
+                onOpened: root.trigger("open")
+                onNewRequested: newAgent.open()
+            }
+
+            Repeater {
+                id: terminals
+                model: root.controller.tabs
+
+                TerminalView {
+                    required property string key
+                    terminal: root.controller.terminal(key)
+                    termFont: root.font
+                }
+            }
         }
 
         Rectangle {
@@ -249,6 +349,7 @@ Kirigami.ApplicationWindow {
         KeyBar {
             objectName: "keyBar"
             Layout.fillWidth: true
+            agentTab: root.tab > 0
             canInterrupt: root.controller.selected.group === "work" && root.controller.selected.attachable === true
             onTriggered: action => root.trigger(action)
         }
@@ -258,7 +359,7 @@ Kirigami.ApplicationWindow {
         id: newAgent
         objectName: "newAgentDialog"
         controller: root.controller
-        onClosed: root.navigate()
+        onClosed: root.focusTab()
     }
 
     // Holds focus on the grid. Text fields never pass letters on, so here they are always commands.

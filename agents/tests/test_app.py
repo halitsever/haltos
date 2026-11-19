@@ -44,6 +44,32 @@ def session(key, sid=None, attachable=True):
     return Session(key, sid or f"sid-{key}", key, "/tmp", "background", "done", "idle", 0.0, attachable)
 
 
+class FakeAttachment:
+    def __init__(self):
+        self.listener, self.sent, self.sizes = None, [], []
+
+    def key(self, data):
+        self.sent.append(data)
+        return True
+
+    def type_paste(self, text):
+        self.sent.append(("paste", text))
+        return True
+
+    def resize(self, cols, rows):
+        self.sizes.append((cols, rows))
+
+
+def fake_attachments(controller):
+    """Tabs and actions share one attachment per agent; these record instead of running claude attach."""
+    made = {}
+    controller._attachment_for = lambda key: made.setdefault(key, FakeAttachment())
+    return made
+
+
+NO_PYTE = "pyte not installed"
+
+
 class Stub:
     def __init__(self):
         self.closed = False
@@ -377,12 +403,24 @@ class ControllerTest(unittest.TestCase):
             self.assertIn(flag, argv)
         self.assertEqual(argv[-3:], ["claude", "attach", "a"])
 
-    def test_notification_click_opens_claude_code(self):
-        calls = self.spawned()
+    @unittest.skipIf(A is not None and A.screen.pyte is None, "pyte not installed")
+    def test_notification_click_opens_the_agent_tab(self):
+        fake_attachments(self.c)
+        shown = []
+        self.c.showRequested.connect(lambda: shown.append(1))
         self.c._on_polled([session("a"), session("b")], "")
         self.c.notice_keys[7] = "b"
         self.c._on_action("signal ... org.freedesktop.Notifications.ActionInvoked (uint32 7, 'default')")
-        self.assertEqual((self.c.selectedKey, [c[-1] for c in calls]), ("b", ["b"]))
+        self.assertEqual((self.c.selectedKey, self.c.currentTab, shown), ("b", 1, [1]))
+
+    def test_without_pyte_a_tab_falls_back_to_konsole(self):
+        calls = self.spawned()
+        orig = A.screen.pyte
+        A.screen.pyte = None
+        self.addCleanup(setattr, A.screen, "pyte", orig)
+        self.c._on_polled([session("a")], "")
+        self.assertTrue(self.c.openTab("a"))
+        self.assertEqual(([c[-1] for c in calls], self.c.currentTab), (["a"], 0))
 
     def test_launched_agent_is_selected_and_announced(self):
         ready = []
@@ -392,33 +430,9 @@ class ControllerTest(unittest.TestCase):
         self.c._on_polled([session("a"), session("b")], "")
         self.assertEqual((self.c.selectedKey, ready), ("b", ["b"]))
 
-    def fake_attachments(self):
-        made = {}
-
-        class Fake:
-            def __init__(self):
-                self.listener, self.sent, self.sizes = None, [], []
-
-            def key(self, data):
-                self.sent.append(data)
-                return True
-
-            def type_paste(self, text):
-                self.sent.append(("paste", text))
-                return True
-
-            def resize(self, cols, rows):
-                self.sizes.append((cols, rows))
-
-        def attachment_for(key):
-            return made.setdefault(key, Fake())
-
-        self.c._attachment_for = attachment_for
-        return made
-
     @unittest.skipIf(A is not None and A.screen.pyte is None, "pyte not installed")
     def test_tabs_open_once_switch_and_close(self):
-        made = self.fake_attachments()
+        made = fake_attachments(self.c)
         self.c._on_polled([session("a"), session("b")], "")
         self.assertTrue(self.c.openTab("b"))
         self.assertTrue(self.c.openTab("a"))
@@ -434,7 +448,7 @@ class ControllerTest(unittest.TestCase):
 
     @unittest.skipIf(A is not None and A.screen.pyte is None, "pyte not installed")
     def test_terminal_draws_output_and_sends_keys(self):
-        made = self.fake_attachments()
+        made = fake_attachments(self.c)
         self.c._on_polled([session("a")], "")
         self.c.openTab("a")
         term = self.c.terminal("a")
@@ -651,12 +665,15 @@ class GridTest(QmlCase):
             self.wait(400)
             self.assertEqual({(self.tile(k).width(), self.tile(k).height()) for k in "abc"}, {size})
 
-    def test_click_opens_claude_code(self):
-        calls = self.konsoles()
+    @unittest.skipIf(A is not None and A.screen.pyte is None, NO_PYTE)
+    def test_click_opens_a_tab(self):
+        fake_attachments(self.c)
         self.poll(session("a"), session("b"))
         QMetaObject.invokeMethod(self.tile("b"), "open")
         self.wait()
-        self.assertEqual((self.c.selectedKey, calls), ("b", ["b"]))
+        self.assertEqual((self.c.selectedKey, self.c.currentTab), ("b", 1))
+        self.assertEqual(self.item("tabBar").property("count"), 2)
+        self.assertEqual(self.root.property("activeFocusItem").objectName(), "terminalView")
 
     def test_waiting_tile_shows_buttons(self):
         self.poll(self.need("a", "Commit?"), session("b"))
@@ -766,11 +783,25 @@ class KeysTest(QmlCase):
         self.press(Qt.Key_Right)
         self.assertEqual(self.c.selectedKey, "b")
 
-    def test_enter_opens_claude_code(self):
-        calls = self.konsoles()
-        self.poll(session("a"), session("b"))
+    @unittest.skipIf(A is not None and A.screen.pyte is None, NO_PYTE)
+    def test_enter_opens_a_tab_that_takes_every_key(self):
+        made = fake_attachments(self.c)
+        self.poll(dataclasses.replace(session("a"), status="busy", state=""), session("b"))
         self.press(Qt.Key_Return, "\r")
-        self.assertEqual(calls, ["a"])
+        self.wait()
+        self.assertEqual(self.root.property("activeFocusItem").objectName(), "terminalView")
+        self.letter("x")
+        self.press(Qt.Key_Escape, "\x1b")
+        self.assertEqual(made["a"].sent, [b"x", b"\x1b"])
+        self.assertEqual(self.sent, [])
+        self.c.showTab(0)
+        self.wait()
+        self.assertTrue(self.navigating())
+        self.c.showTab(1)
+        self.wait()
+        self.c.closeTab("a")
+        self.wait()
+        self.assertEqual(self.c.currentTab, 0)
         self.assertTrue(self.navigating())
 
     def test_tty_agent_shows_hint_instead(self):
@@ -786,25 +817,27 @@ class KeysTest(QmlCase):
         self.trigger("interrupt")
         self.assertEqual(len(self.sent), 2)
 
-    def test_launched_agent_opens_claude_code(self):
-        calls = self.konsoles()
+    @unittest.skipIf(A is not None and A.screen.pyte is None, NO_PYTE)
+    def test_launched_agent_opens_a_tab(self):
+        fake_attachments(self.c)
         self.poll(session("a"))
         self.c._want = "b"
         self.poll(session("a"), session("b"))
-        self.assertEqual(calls, ["b"])
+        self.assertEqual(self.c.currentTab, 1)
 
     def test_launch_never_steals_focus_from_the_dialog(self):
         calls = self.konsoles()
+        fake_attachments(self.c)
         self.poll(session("a"))
         self.trigger("new")
         self.wait()
         self.c._want = "b"
         self.poll(session("a"), session("b"))
-        self.assertEqual((calls, self.c.selectedKey), ([], "b"))
+        self.assertEqual((calls, self.c.currentTab, self.c.selectedKey), ([], 0, "b"))
         self.trigger("search")
         self.c._want = "c"
         self.poll(session("a"), session("b"), session("c"))
-        self.assertEqual(calls, [])
+        self.assertEqual((calls, self.c.currentTab), ([], 0))
 
     def test_grid_digit_answers(self):
         self.poll(dataclasses.replace(session("a"), status="waiting"))

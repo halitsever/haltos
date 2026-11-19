@@ -5,3 +5,4 @@ HelpOverlay 1.0 HelpOverlay.qml
 KeyBar 1.0 KeyBar.qml
 NewAgentDialog 1.0 NewAgentDialog.qml
 SearchResults 1.0 SearchResults.qml
+TerminalView 1.0 TerminalView.qml
