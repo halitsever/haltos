@@ -75,6 +75,13 @@ class ListModel(QAbstractListModel):
     def replace(self, rows: list[dict]) -> None:
         if rows == self.rows:
             return
+        if [r.get("key") for r in rows] == [r.get("key") for r in self.rows] and rows and "key" in rows[0]:
+            # Same rows in the same order: update in place so the view keeps its scroll position.
+            old, self.rows = self.rows, rows
+            for i, (a, b) in enumerate(zip(old, rows)):
+                if a != b:
+                    self.dataChanged.emit(self.index(i), self.index(i))
+            return
         self.beginResetModel()
         self.rows = rows
         self.endResetModel()

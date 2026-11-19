@@ -10,6 +10,7 @@ ColumnLayout {
 
     signal newAgentRequested()
     signal searchLeft()
+    signal picked()
 
     function focusSearch() {
         search.forceActiveFocus()
@@ -24,6 +25,7 @@ ColumnLayout {
 
         Kirigami.SearchField {
             id: search
+            objectName: "searchField"
             Layout.fillWidth: true
             placeholderText: "oturumlarda ara…"
             delaySearch: true
@@ -36,6 +38,7 @@ ColumnLayout {
         }
         QQC2.ToolButton {
             text: "+"
+            focusPolicy: Qt.NoFocus
             QQC2.ToolTip.text: "Yeni ajan (ctrl+n)"
             QQC2.ToolTip.visible: hovered
             onClicked: list.newAgentRequested()
@@ -52,6 +55,7 @@ ColumnLayout {
 
     SearchResults {
         controller: list.controller
+        onPicked: list.picked()
         visible: list.controller.query !== ""
         Layout.fillWidth: true
         Layout.fillHeight: true
@@ -78,7 +82,11 @@ ColumnLayout {
 
                 width: ListView.view.width
                 highlighted: key === list.controller.selectedKey
-                onClicked: list.controller.select(key)
+                focusPolicy: Qt.NoFocus
+                onClicked: {
+                    list.controller.select(key)
+                    list.picked()
+                }
                 QQC2.ToolTip.text: cwd
                 QQC2.ToolTip.visible: hovered
                 QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay

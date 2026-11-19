@@ -71,6 +71,14 @@ class TranscriptTest(unittest.TestCase):
         self.assertEqual(line_counts("MultiEdit", {"edits": ["x", None]}), (0, 0))
         self.assertEqual(line_counts("Bash", {"command": "ls"}), (0, 0))
 
+    def test_line_counts_stay_fast_on_big_edits(self):
+        import time
+        old = "\n".join(["}", "", "x = 1"] * 700)
+        new = "\n".join(["}", "", "y = 2"] * 700)
+        start = time.monotonic()
+        self.assertEqual(line_counts("Edit", {"old_string": old, "new_string": new}), (700, 700))
+        self.assertLess(time.monotonic() - start, 0.5)
+
     def test_tool_item_carries_counts(self):
         item = read_feed(self.write([tool("Edit", "t1", file_path="/a.py", old_string="x", new_string="y\nz")]))[0]
         self.assertEqual((item.name, item.text, item.added, item.removed), ("Edit", "/a.py", 2, 1))

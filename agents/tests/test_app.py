@@ -180,6 +180,16 @@ class ControllerTest(unittest.TestCase):
             A.find_transcript = orig
         self.assertEqual((sel["project"], sel["model"]), ("kahvefalin", "opus-5.5"))
 
+    def test_same_rows_update_in_place(self):
+        resets = []
+        self.c._agents.modelReset.connect(lambda: resets.append(1))
+        self.c._agents.replace([{"key": "a", "age": "1m"}, {"key": "b", "age": "2m"}])
+        self.c._agents.replace([{"key": "a", "age": "2m"}, {"key": "b", "age": "3m"}])
+        self.assertEqual(len(resets), 1)
+        self.assertEqual(self.c._agents.rows[0]["age"], "2m")
+        self.c._agents.replace([{"key": "b", "age": "3m"}])
+        self.assertEqual(len(resets), 2)
+
     def test_rows_carry_age_and_feed_roles(self):
         self.assertIn("age", self.c._agents.keys)
         self.assertEqual(self.c._feed.keys, ["kind", "body", "name", "added", "removed", "error"])
@@ -241,6 +251,37 @@ class BannerTest(unittest.TestCase):
         QTimer.singleShot(300, loop.quit)
         loop.exec()
         del root, bar, engine
+
+    def test_poll_does_not_move_focus(self):
+        c = A.Controller()
+        c.pool.start = lambda job: None
+        engine = QQmlApplicationEngine()
+        engine.rootContext().setContextProperty("agentsController", c)
+        engine.setInitialProperties({"hideOnClose": False, "startHidden": False})
+        engine.load(A.QML)
+        root = engine.rootObjects()[0]
+        root.requestActivate()
+        c._on_polled([session("a")], "")
+        wait = QEventLoop()
+        QTimer.singleShot(200, wait.quit)
+        wait.exec()
+        search = root.findChild(QQuickItem, "searchField")
+        field = root.findChild(QQuickItem, "agentInput")
+        QMetaObject.invokeMethod(root, "trigger", Q_ARG(str, "search"))
+        self.assertTrue(search.hasActiveFocus())
+        c._on_polled([session("b")], "")
+        self.assertEqual(c.selectedKey, "b")
+        self.assertFalse(field.hasActiveFocus())
+        self.assertTrue(search.hasActiveFocus())
+        QMetaObject.invokeMethod(root, "trigger", Q_ARG(str, "next"))
+        self.assertTrue(field.hasActiveFocus())
+        bar = root.findChild(QQuickItem, "keyBar")
+        policies = {b.property("focusPolicy") for b in bar.childItems() if b.objectName().startswith("key:")}
+        self.assertEqual(policies, {0})
+        wait = QEventLoop()
+        QTimer.singleShot(300, wait.quit)
+        wait.exec()
+        del root, search, field, bar, engine
 
 
 if __name__ == "__main__":

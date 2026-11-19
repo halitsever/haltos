@@ -1,7 +1,7 @@
 """Reads Claude Code session transcripts (JSONL) into a short feed and the open question, if any."""
-import difflib
 import json
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -88,13 +88,9 @@ def _lines(value) -> list[str]:
 
 
 def _diff(old, new) -> tuple[int, int]:
-    added = removed = 0
-    ops = difflib.SequenceMatcher(None, _lines(old), _lines(new), autojunk=False).get_opcodes()
-    for tag, i1, i2, j1, j2 in ops:
-        if tag != "equal":
-            removed += i2 - i1
-            added += j2 - j1
-    return added, removed
+    """Counts lines as multisets: linear, and close to a real diff for an Edit's small hunks."""
+    a, b = Counter(_lines(old)), Counter(_lines(new))
+    return sum((b - a).values()), sum((a - b).values())
 
 
 def line_counts(name: str, args: dict) -> tuple[int, int]:

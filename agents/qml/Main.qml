@@ -23,10 +23,13 @@ Kirigami.ApplicationWindow {
         case "new": newAgent.open(); break
         case "search": agentList.focusSearch(); break
         case "terminal": controller.openTerminal(); break
-        case "prev": controller.step(-1); break
-        case "next": controller.step(1); break
+        case "prev": controller.step(-1); agentDetail.focusInput(); break
+        case "next": controller.step(1); agentDetail.focusInput(); break
         }
     }
+
+    // Focus moves only on what the user does; a poll changing the selection must not pull it.
+    Component.onCompleted: agentDetail.focusInput()
 
     Shortcut { sequence: "Ctrl+N"; onActivated: root.trigger("new") }
     Shortcut { sequence: "Ctrl+F"; onActivated: root.trigger("search") }
@@ -49,6 +52,7 @@ Kirigami.ApplicationWindow {
             root.show()
             root.raise()
             root.requestActivate()
+            agentDetail.focusInput()
         }
     }
 
@@ -103,6 +107,7 @@ Kirigami.ApplicationWindow {
                 controller: root.controller
                 onNewAgentRequested: newAgent.open()
                 onSearchLeft: agentDetail.focusInput()
+                onPicked: agentDetail.focusInput()
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 15
                 Layout.maximumWidth: Kirigami.Units.gridUnit * 15
                 Layout.fillHeight: true

@@ -11,7 +11,6 @@ ColumnLayout {
     readonly property var question: controller.question
     readonly property bool hasAgent: agent.key !== undefined
     readonly property bool canAct: hasAgent && agent.attachable
-    readonly property string key: controller.selectedKey
 
     function focusInput() {
         input.forceActiveFocus()
@@ -24,8 +23,6 @@ ColumnLayout {
     function paint(c, s) {
         return "<font color=\"" + c + "\">" + s + "</font>"
     }
-
-    onKeyChanged: if (key !== "") focusInput()
 
     spacing: 0
 
@@ -60,6 +57,7 @@ ColumnLayout {
         }
         QQC2.ToolButton {
             text: "⋮"
+            focusPolicy: Qt.NoFocus
             enabled: detail.canAct
             onClicked: more.popup()
 
@@ -159,6 +157,7 @@ ColumnLayout {
                     required property int index
                     text: "[" + (index + 1) + "] " + modelData
                     flat: true
+                    focusPolicy: Qt.NoFocus
                     highlighted: index === 0
                     onClicked: detail.controller.answer(index)
                 }
@@ -186,6 +185,7 @@ ColumnLayout {
         }
         QQC2.TextArea {
             id: input
+            objectName: "agentInput"
             Layout.fillWidth: true
             Layout.maximumHeight: Kirigami.Units.gridUnit * 8
             leftPadding: 0

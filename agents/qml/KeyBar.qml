@@ -27,6 +27,7 @@ RowLayout {
             objectName: "key:" + modelData.action
             text: modelData.text
             flat: true
+            focusPolicy: Qt.NoFocus
             font.pointSize: Kirigami.Theme.smallFont.pointSize
             enabled: modelData.action === "interrupt" ? bar.canInterrupt
                    : modelData.action === "terminal" ? bar.canTerminal : true

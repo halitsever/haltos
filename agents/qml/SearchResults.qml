@@ -8,6 +8,8 @@ QQC2.ScrollView {
 
     required property QtObject controller
 
+    signal picked()
+
     ListView {
         id: view
         model: results.controller.results
@@ -23,7 +25,11 @@ QQC2.ScrollView {
             required property string snippet
 
             width: ListView.view.width
-            onClicked: results.controller.resume(sessionId, cwd)
+            focusPolicy: Qt.NoFocus
+            onClicked: {
+                results.controller.resume(sessionId, cwd)
+                results.picked()
+            }
             QQC2.ToolTip.text: "Bu oturumu ajan olarak sürdür"
             QQC2.ToolTip.visible: hovered
             QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
