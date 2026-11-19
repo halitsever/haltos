@@ -1,0 +1,78 @@
+import sys
+import tempfile
+import time
+import unittest
+from pathlib import Path
+
+from haltos_agents.attach import Attachment, attach_argv
+
+RECORDER = """
+import os, sys, tty
+tty.setraw(0)
+out = open(sys.argv[1], "wb")
+while True:
+    data = os.read(0, 1024)
+    if not data:
+        break
+    out.write(data)
+    out.flush()
+"""
+
+
+def wait_until(cond, timeout=5.0):
+    end = time.time() + timeout
+    while time.time() < end:
+        if cond():
+            return True
+        time.sleep(0.02)
+    return False
+
+
+class AttachTest(unittest.TestCase):
+    def setUp(self):
+        self.out = Path(tempfile.mkdtemp()) / "got.bin"
+
+    def recorder(self):
+        a = Attachment([sys.executable, "-c", RECORDER, str(self.out)], {})
+        a.start()
+        self.addCleanup(a.close)
+        self.assertTrue(wait_until(self.out.exists))
+        return a
+
+    def recorded(self, size):
+        wait_until(lambda: self.out.stat().st_size >= size)
+        return self.out.read_bytes()
+
+    def test_paste_clears_input_then_writes_bracketed_utf8_and_enter(self):
+        a = self.recorder()
+        a.paste("çalış\nikinci")
+        want = b"\x15\x1b[200~" + "çalış\nikinci".encode() + b"\x1b[201~\r"
+        self.assertEqual(self.recorded(len(want)), want)
+
+    def test_key_writes_raw_bytes(self):
+        a = self.recorder()
+        a.key(b"\x1b")
+        self.assertEqual(self.recorded(1), b"\x1b")
+
+    def test_dead_child_reports_not_alive_and_writes_are_noops(self):
+        a = Attachment(["true"], {})
+        a.start()
+        self.assertTrue(wait_until(lambda: not a.alive))
+        a.paste("x")
+        a.key(b"1")
+        a.close()
+
+    def test_noisy_child_does_not_block(self):
+        a = Attachment(["yes"], {})
+        a.start()
+        time.sleep(1)
+        self.assertTrue(a.alive)
+        a.close()
+        self.assertFalse(a.alive)
+
+    def test_attach_argv(self):
+        self.assertEqual(attach_argv("3c4701cd"), ["claude", "attach", "3c4701cd"])
+
+
+if __name__ == "__main__":
+    unittest.main()
