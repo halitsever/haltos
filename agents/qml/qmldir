@@ -1,0 +1,6 @@
+singleton Ansi 1.0 Ansi.qml
+AgentDetail 1.0 AgentDetail.qml
+AgentList 1.0 AgentList.qml
+KeyBar 1.0 KeyBar.qml
+NewAgentDialog 1.0 NewAgentDialog.qml
+SearchResults 1.0 SearchResults.qml

@@ -6,8 +6,10 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
-    from PySide6.QtCore import QEventLoop, QObject, QTimer
+    from PySide6.QtCore import Q_ARG, QEventLoop, QMetaObject, QObject, QTimer
+    from PySide6.QtGui import QFontInfo
     from PySide6.QtQml import QQmlApplicationEngine
+    from PySide6.QtQuick import QQuickItem
     from PySide6.QtWidgets import QApplication
 
     from haltos_agents import app as A
@@ -212,6 +214,33 @@ class BannerTest(unittest.TestCase):
         QTimer.singleShot(300, loop.quit)
         loop.exec()
         del root, banner, engine
+
+    def test_terminal_ui(self):
+        c = A.Controller()
+        c.pool.start = lambda job: None
+        engine = QQmlApplicationEngine()
+        engine.rootContext().setContextProperty("agentsController", c)
+        engine.setInitialProperties({"hideOnClose": False, "startHidden": True})
+        engine.load(A.QML)
+        root = engine.rootObjects()[0]
+        bar = root.findChild(QQuickItem, "keyBar")
+        self.assertIsNotNone(bar)
+        # Repeater items hang off the item tree, not the QObject tree.
+        keys = {b.objectName(): b.property("text") for b in bar.childItems() if b.objectName().startswith("key:")}
+        self.assertEqual(keys, {
+            "key:interrupt": "esc kes",
+            "key:new": "ctrl+n yeni",
+            "key:search": "ctrl+f ara",
+            "key:terminal": "ctrl+t terminal",
+            "key:next": "alt+↑↓ geç",
+        })
+        QMetaObject.invokeMethod(root, "trigger", Q_ARG(str, "new"))
+        self.assertTrue(root.findChild(QObject, "newAgentDialog").property("visible"))
+        self.assertTrue(QFontInfo(root.property("font")).fixedPitch())
+        loop = QEventLoop()
+        QTimer.singleShot(300, loop.quit)
+        loop.exec()
+        del root, bar, engine
 
 
 if __name__ == "__main__":

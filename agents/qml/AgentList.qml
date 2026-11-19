@@ -9,6 +9,12 @@ ColumnLayout {
     required property QtObject controller
 
     signal newAgentRequested()
+    signal searchLeft()
+
+    function focusSearch() {
+        search.forceActiveFocus()
+        search.selectAll()
+    }
 
     spacing: 0
 
@@ -17,17 +23,31 @@ ColumnLayout {
         Layout.margins: Kirigami.Units.smallSpacing * 2
 
         Kirigami.SearchField {
+            id: search
             Layout.fillWidth: true
-            placeholderText: "Oturumlarda ara…"
+            placeholderText: "oturumlarda ara…"
             delaySearch: true
             onAccepted: list.controller.search(text)
+            Keys.onEscapePressed: {
+                search.clear()
+                list.controller.search("")
+                list.searchLeft()
+            }
         }
         QQC2.ToolButton {
-            icon.name: "list-add"
-            QQC2.ToolTip.text: "Yeni ajan"
+            text: "+"
+            QQC2.ToolTip.text: "Yeni ajan (ctrl+n)"
             QQC2.ToolTip.visible: hovered
             onClicked: list.newAgentRequested()
         }
+    }
+
+    QQC2.Label {
+        Layout.leftMargin: Kirigami.Units.largeSpacing
+        Layout.bottomMargin: Kirigami.Units.smallSpacing
+        text: list.controller.query === "" ? "AGENTS" : "SONUÇLAR"
+        color: Kirigami.Theme.disabledTextColor
+        font.pointSize: Kirigami.Theme.smallFont.pointSize
     }
 
     SearchResults {
@@ -46,12 +66,6 @@ ColumnLayout {
             id: view
             model: list.controller.agents
             clip: true
-            section.property: "groupLabel"
-            section.delegate: Kirigami.ListSectionHeader {
-                required property string section
-                width: ListView.view.width
-                text: section
-            }
 
             delegate: QQC2.ItemDelegate {
                 id: row
@@ -59,6 +73,7 @@ ColumnLayout {
                 required property string name
                 required property string group
                 required property string cwd
+                required property string age
                 required property bool attachable
 
                 width: ListView.view.width
@@ -71,29 +86,36 @@ ColumnLayout {
                 contentItem: RowLayout {
                     spacing: Kirigami.Units.smallSpacing * 2
 
-                    StatusDot {
-                        group: row.group
+                    QQC2.Label {
+                        text: row.group === "need" ? "!" : row.group === "work" ? "▶" : "✓"
+                        color: row.group === "need" ? Ansi.yellow
+                             : row.group === "work" ? Ansi.blue : Kirigami.Theme.disabledTextColor
+                        font.bold: row.group === "need"
                     }
                     QQC2.Label {
                         Layout.fillWidth: true
                         text: row.name
                         elide: Text.ElideRight
+                        color: row.group === "done" ? Kirigami.Theme.disabledTextColor : Kirigami.Theme.textColor
                     }
-                    Kirigami.Icon {
+                    QQC2.Label {
                         visible: !row.attachable
-                        source: "utilities-terminal"
-                        implicitWidth: Kirigami.Units.iconSizes.small
-                        implicitHeight: implicitWidth
-                        opacity: 0.5
+                        text: "tty"
+                        color: Kirigami.Theme.disabledTextColor
+                        QQC2.ToolTip.text: "Bir terminalde açık"
+                    }
+                    QQC2.Label {
+                        text: row.age
+                        color: Kirigami.Theme.disabledTextColor
                     }
                 }
             }
 
-            Kirigami.PlaceholderMessage {
+            QQC2.Label {
                 anchors.centerIn: parent
-                width: parent.width - Kirigami.Units.gridUnit * 2
                 visible: view.count === 0
-                text: "Henüz ajan yok"
+                text: "henüz ajan yok"
+                color: Kirigami.Theme.disabledTextColor
             }
         }
     }

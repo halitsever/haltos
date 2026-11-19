@@ -15,6 +15,24 @@ Kirigami.ApplicationWindow {
     minimumWidth: Kirigami.Units.gridUnit * 36
     minimumHeight: Kirigami.Units.gridUnit * 22
     visible: !startHidden
+    font: Kirigami.Theme.fixedWidthFont
+
+    function trigger(action: string) {
+        switch (action) {
+        case "interrupt": controller.interrupt(); break
+        case "new": newAgent.open(); break
+        case "search": agentList.focusSearch(); break
+        case "terminal": controller.openTerminal(); break
+        case "prev": controller.step(-1); break
+        case "next": controller.step(1); break
+        }
+    }
+
+    Shortcut { sequence: "Ctrl+N"; onActivated: root.trigger("new") }
+    Shortcut { sequence: "Ctrl+F"; onActivated: root.trigger("search") }
+    Shortcut { sequence: "Ctrl+T"; onActivated: root.trigger("terminal") }
+    Shortcut { sequence: "Alt+Up"; onActivated: root.trigger("prev") }
+    Shortcut { sequence: "Alt+Down"; onActivated: root.trigger("next") }
 
     onActiveChanged: controller.setWindowActive(active)
 
@@ -81,9 +99,12 @@ Kirigami.ApplicationWindow {
             spacing: 0
 
             AgentList {
+                id: agentList
                 controller: root.controller
                 onNewAgentRequested: newAgent.open()
+                onSearchLeft: agentDetail.focusInput()
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 15
+                Layout.maximumWidth: Kirigami.Units.gridUnit * 15
                 Layout.fillHeight: true
             }
 
@@ -92,10 +113,23 @@ Kirigami.ApplicationWindow {
             }
 
             AgentDetail {
+                id: agentDetail
                 controller: root.controller
                 Layout.fillWidth: true
                 Layout.fillHeight: true
             }
+        }
+
+        Kirigami.Separator {
+            Layout.fillWidth: true
+        }
+
+        KeyBar {
+            objectName: "keyBar"
+            Layout.fillWidth: true
+            canInterrupt: root.controller.selected.group === "work" && root.controller.selected.attachable === true
+            canTerminal: root.controller.selected.attachable === true
+            onTriggered: action => root.trigger(action)
         }
     }
 

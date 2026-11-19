@@ -11,6 +11,21 @@ ColumnLayout {
     readonly property var question: controller.question
     readonly property bool hasAgent: agent.key !== undefined
     readonly property bool canAct: hasAgent && agent.attachable
+    readonly property string key: controller.selectedKey
+
+    function focusInput() {
+        input.forceActiveFocus()
+    }
+
+    function esc(s) {
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")
+    }
+
+    function paint(c, s) {
+        return "<font color=\"" + c + "\">" + s + "</font>"
+    }
+
+    onKeyChanged: if (key !== "") focusInput()
 
     spacing: 0
 
@@ -20,49 +35,43 @@ ColumnLayout {
         visible: detail.hasAgent
         spacing: Kirigami.Units.smallSpacing * 2
 
-        Kirigami.Heading {
-            level: 3
+        QQC2.Label {
             text: detail.agent.name ?? ""
+            color: Ansi.green
+            font.bold: true
             elide: Text.ElideRight
             Layout.maximumWidth: implicitWidth
             Layout.fillWidth: true
         }
         QQC2.Label {
             Layout.fillWidth: true
-            text: (detail.agent.cwd ?? "") + (detail.agent.branch ? " · " + detail.agent.branch : "")
+            text: (detail.agent.project ?? "") + (detail.agent.branch ? ":" + detail.agent.branch : "")
+                  + (detail.agent.model ? " · " + detail.agent.model : "")
+            color: Kirigami.Theme.disabledTextColor
             elide: Text.ElideMiddle
-            opacity: 0.6
+            QQC2.ToolTip.text: detail.agent.cwd ?? ""
+            QQC2.ToolTip.visible: tipArea.containsMouse
+            MouseArea {
+                id: tipArea
+                anchors.fill: parent
+                hoverEnabled: true
+                acceptedButtons: Qt.NoButton
+            }
         }
         QQC2.ToolButton {
-            icon.name: "utilities-terminal"
-            text: "Terminal"
-            enabled: detail.canAct
-            onClicked: detail.controller.openTerminal()
-        }
-        QQC2.ToolButton {
-            icon.name: "media-playback-pause"
-            text: "Kes"
-            enabled: detail.canAct && detail.agent.group === "work"
-            QQC2.ToolTip.text: "Şu anki işi yarıda keser, oturum açık kalır."
-            QQC2.ToolTip.visible: hovered
-            onClicked: detail.controller.interrupt()
-        }
-        QQC2.ToolButton {
-            icon.name: "overflow-menu"
+            text: "⋮"
             enabled: detail.canAct
             onClicked: more.popup()
 
             QQC2.Menu {
                 id: more
                 QQC2.MenuItem {
-                    icon.name: "archive-insert"
-                    text: "Arşivle"
+                    text: "arşivle"
                     enabled: detail.agent.group === "done"
                     onTriggered: detail.controller.archive()
                 }
                 QQC2.MenuItem {
-                    icon.name: "process-stop"
-                    text: "Durdur…"
+                    text: "durdur…"
                     onTriggered: confirmStop.open()
                 }
             }
@@ -86,88 +95,125 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: detail.hasAgent
+        QQC2.ScrollBar.horizontal.policy: QQC2.ScrollBar.AlwaysOff
 
         ListView {
             id: feed
             model: detail.controller.feed
             clip: true
-            spacing: Kirigami.Units.smallSpacing * 2
+            spacing: Kirigami.Units.smallSpacing
             topMargin: Kirigami.Units.largeSpacing
             bottomMargin: Kirigami.Units.largeSpacing
+            leftMargin: Kirigami.Units.largeSpacing
+            rightMargin: Kirigami.Units.largeSpacing
             onCountChanged: Qt.callLater(feed.positionViewAtEnd)
 
             delegate: QQC2.Label {
                 required property string kind
                 required property string body
+                required property string name
+                required property int added
+                required property int removed
+                required property bool error
 
-                x: Kirigami.Units.largeSpacing
-                width: ListView.view.width - Kirigami.Units.largeSpacing * 2
+                readonly property bool styled: kind === "prompt" || kind === "tool"
+
+                width: ListView.view.width - ListView.view.leftMargin - ListView.view.rightMargin
+                topPadding: kind === "prompt" ? Kirigami.Units.smallSpacing * 2 : 0
+                leftPadding: kind === "text" || kind === "result" ? Kirigami.Units.gridUnit : 0
                 wrapMode: Text.Wrap
-                textFormat: kind === "text" ? Text.MarkdownText : Text.PlainText
-                text: kind === "prompt" ? "› " + body : body
-                font.weight: kind === "prompt" ? Font.DemiBold : Font.Normal
-                opacity: kind === "tool" ? 0.55 : 1
-                leftPadding: kind === "tool" ? Kirigami.Units.largeSpacing : 0
-                onLinkActivated: link => Qt.openUrlExternally(link)
+                textFormat: styled ? Text.StyledText : Text.PlainText
+                color: kind === "result" ? (error ? Ansi.red : Kirigami.Theme.disabledTextColor)
+                     : kind === "text" ? Kirigami.Theme.disabledTextColor : Kirigami.Theme.textColor
+                text: kind === "prompt" ? detail.paint(Ansi.green, "$") + " " + detail.esc(body)
+                    : kind === "tool" ? detail.paint(Ansi.cyan, "⏺ " + detail.esc(name)) + "(" + detail.esc(body) + ")"
+                                        + (added ? " " + detail.paint(Ansi.green, "+" + added) : "")
+                                        + (removed ? " " + detail.paint(Ansi.red, "-" + removed) : "")
+                    : kind === "result" ? "⎿ " + body
+                    : body
             }
         }
     }
 
-    Kirigami.AbstractCard {
+    ColumnLayout {
         Layout.fillWidth: true
         Layout.margins: Kirigami.Units.largeSpacing
         visible: detail.hasAgent && detail.question.text !== undefined
+        spacing: Kirigami.Units.smallSpacing
 
-        contentItem: ColumnLayout {
-            QQC2.Label {
-                Layout.fillWidth: true
-                text: detail.question.text ?? ""
-                wrapMode: Text.Wrap
-            }
-            Flow {
-                Layout.fillWidth: true
-                spacing: Kirigami.Units.smallSpacing
-                visible: detail.canAct
+        QQC2.Label {
+            Layout.fillWidth: true
+            textFormat: Text.StyledText
+            text: detail.paint(Ansi.yellow, "?") + " " + detail.esc(detail.question.text ?? "")
+            wrapMode: Text.Wrap
+        }
+        Flow {
+            Layout.fillWidth: true
+            spacing: Kirigami.Units.smallSpacing
+            visible: detail.canAct
 
-                Repeater {
-                    model: detail.question.options ?? []
-                    QQC2.Button {
-                        required property string modelData
-                        required property int index
-                        text: modelData
-                        highlighted: index === 0
-                        onClicked: detail.controller.answer(index)
-                    }
+            Repeater {
+                model: detail.question.options ?? []
+                QQC2.Button {
+                    required property string modelData
+                    required property int index
+                    text: "[" + (index + 1) + "] " + modelData
+                    flat: true
+                    highlighted: index === 0
+                    onClicked: detail.controller.answer(index)
                 }
             }
         }
     }
 
-    QQC2.TextArea {
-        id: input
+    Kirigami.Separator {
         Layout.fillWidth: true
-        Layout.margins: Kirigami.Units.largeSpacing
-        Layout.maximumHeight: Kirigami.Units.gridUnit * 8
         visible: detail.hasAgent
-        enabled: detail.canAct
-        wrapMode: TextEdit.Wrap
-        placeholderText: detail.canAct ? "Ajana yaz… Enter gönderir, Shift+Enter yeni satır"
-                                       : "Bu oturum bir terminalde açık, buradan yönetilemez."
-        Keys.onReturnPressed: event => {
-            if (event.modifiers & Qt.ShiftModifier) {
-                event.accepted = false
-                return
+    }
+
+    RowLayout {
+        Layout.fillWidth: true
+        Layout.leftMargin: Kirigami.Units.largeSpacing
+        Layout.rightMargin: Kirigami.Units.largeSpacing
+        visible: detail.hasAgent
+        spacing: Kirigami.Units.smallSpacing
+
+        QQC2.Label {
+            Layout.alignment: Qt.AlignTop
+            Layout.topMargin: input.topPadding
+            text: ">"
+            color: detail.canAct ? Ansi.green : Kirigami.Theme.disabledTextColor
+        }
+        QQC2.TextArea {
+            id: input
+            Layout.fillWidth: true
+            Layout.maximumHeight: Kirigami.Units.gridUnit * 8
+            leftPadding: 0
+            background: null
+            enabled: detail.canAct
+            wrapMode: TextEdit.Wrap
+            placeholderText: detail.canAct ? "ajana yaz… enter gönderir, shift+enter yeni satır"
+                                           : "bu oturum bir terminalde açık, buradan yönetilemez"
+            Keys.onEscapePressed: detail.controller.interrupt()
+            Keys.onReturnPressed: event => {
+                if (event.modifiers & Qt.ShiftModifier) {
+                    event.accepted = false
+                    return
+                }
+                // Keep the text when it could not be delivered, so nothing typed is lost.
+                if (detail.controller.send(input.text))
+                    input.clear()
             }
-            // Keep the text when it could not be delivered, so nothing typed is lost.
-            if (detail.controller.send(input.text))
-                input.clear()
         }
     }
 
-    Kirigami.PlaceholderMessage {
+    QQC2.Label {
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: !detail.hasAgent
-        text: "Bir ajan seç"
+        horizontalAlignment: Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
+        text: "ajan seçilmedi"
+        color: Kirigami.Theme.disabledTextColor
     }
 }
