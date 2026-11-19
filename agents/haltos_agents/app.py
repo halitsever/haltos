@@ -43,13 +43,16 @@ from .claude import (
 from .names import age, recent_dirs, slug
 from .notify import MONITOR_ARGV, Notice, NotifyPolicy, notify_argv, parse_action, parse_notify_id
 from .search import Index
-from .transcript import CANCEL, PROJECTS, find_transcript, last_model, pending_question, read_feed, short_model
+from .transcript import CANCEL, PROJECTS, FeedItem, find_transcript, last_model, pending_question, read_feed, short_model
 
 QML = Path(__file__).resolve().parent.parent / "qml" / "Main.qml"
 LABELS = {"need": "seni bekliyor", "work": "çalışıyor", "done": "bitti"}
 POLL_MS = 2000
 INDEX_MS = 60_000
 BRANCH_TTL = 30.0
+TILE_LINES = 6
+# Tiles are re-read every poll while agents work, so read less of each transcript than the full view.
+TILE_BYTES = 128_000
 INDEX_DB = Path.home() / ".cache" / "haltos-agents" / "index.sqlite"
 
 
@@ -107,6 +110,10 @@ class ListModel(QAbstractListModel):
                 self.endInsertRows()
 
 
+def _item(i: FeedItem) -> dict:
+    return {"kind": i.kind, "body": i.text, "name": i.name, "added": i.added, "removed": i.removed, "error": i.error}
+
+
 class Job(QRunnable):
     def __init__(self, fn, done):
         super().__init__()
@@ -131,7 +138,7 @@ class Controller(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._agents = ListModel(["key", "name", "group", "groupLabel", "state", "cwd", "branch", "attachable", "age"], self)
+        self._agents = ListModel(["key", "name", "group", "groupLabel", "state", "cwd", "branch", "attachable", "age", "project", "tail", "question"], self)
         self._feed = ListModel(["kind", "body", "name", "added", "removed", "error"], self)
         self._results = ListModel(["sessionId", "title", "cwd", "where", "date", "snippet"], self)
         self._query = ""
@@ -155,6 +162,8 @@ class Controller(QObject):
         self._question = None
         self._feed_stamp = None
         self._model = ""
+        self._tiles: dict[str, tuple] = {}
+        self._drafts: dict[str, str] = {}
         self._branches: dict[str, tuple[float, str]] = {}
         self._busy = False
         self.pool = QThreadPool(self)
@@ -214,6 +223,22 @@ class Controller(QObject):
             "attachable": s.attachable,
         }
 
+    @Property(int, notify=changed)
+    def selectedIndex(self):
+        keys = [row["key"] for row in self._agents.rows]
+        return keys.index(self._selected) if self._selected in keys else -1
+
+    @Slot(str, result=str)
+    def draft(self, key):
+        return self._drafts.get(key, "")
+
+    @Slot(str, str)
+    def setDraft(self, key, text):
+        if text:
+            self._drafts[key] = text
+        else:
+            self._drafts.pop(key, None)
+
     @Property("QVariantMap", notify=changed)
     def question(self):
         q = self._question
@@ -242,7 +267,28 @@ class Controller(QObject):
         for cwd in {s.cwd for s in sessions}:
             if now - self._branches.get(cwd, (0, ""))[0] > BRANCH_TTL:
                 self._branches[cwd] = (now, _branch(cwd))
+        self._read_tiles(sessions)
         return sessions
+
+    def _read_tiles(self, sessions: list[Session]) -> None:
+        """Runs on the poll worker; a transcript is only parsed again when it or the status changed."""
+        tiles = {}
+        for s in sessions:
+            path = find_transcript(s.session_id)
+            try:
+                stamp = (path, path.stat().st_mtime, s.status) if path else None
+            except OSError:
+                stamp = None
+            cached = self._tiles.get(s.key)
+            if cached and cached[0] == stamp:
+                tiles[s.key] = cached
+            elif stamp is None:
+                tiles[s.key] = (None, [], {})
+            else:
+                q = pending_question(path, waiting=s.status == "waiting", tail_bytes=TILE_BYTES)
+                question = {} if q is None else {"text": q.text, "options": [label for label, _ in q.options]}
+                tiles[s.key] = (stamp, [_item(i) for i in read_feed(path, TILE_LINES, TILE_BYTES)], question)
+        self._tiles = tiles
 
     @Slot(object, str)
     def _on_polled(self, sessions, error):
@@ -250,6 +296,8 @@ class Controller(QObject):
         self._poll_error = error
         if sessions is not None:
             self.sessions = [s for s in sessions if s.key not in self.hidden]
+            live = {s.key for s in self.sessions}
+            self._drafts = {k: v for k, v in self._drafts.items() if k in live}
             self._prune_attachments()
             order = {g: i for i, g in enumerate(GROUPS)}
             ordered = sorted(self.sessions, key=lambda s: (order[s.group], -s.started_at))
@@ -266,6 +314,7 @@ class Controller(QObject):
         self.changed.emit()
 
     def _row(self, s: Session) -> dict:
+        tile = self._tiles.get(s.key, (None, [], {}))
         return {
             "key": s.key,
             "name": s.name,
@@ -276,6 +325,9 @@ class Controller(QObject):
             "branch": self._branches.get(s.cwd, (0, ""))[1],
             "attachable": s.attachable,
             "age": age(time.time() - s.started_at) if s.group == "work" else s.group,
+            "project": Path(s.cwd).name,
+            "tail": tile[1],
+            "question": tile[2],
         }
 
     def _load_feed(self, force: bool = False) -> None:
@@ -293,10 +345,7 @@ class Controller(QObject):
             self._question = None
             self._model = ""
             return
-        self._feed.replace([
-            {"kind": i.kind, "body": i.text, "name": i.name, "added": i.added, "removed": i.removed, "error": i.error}
-            for i in read_feed(path)
-        ])
+        self._feed.replace([_item(i) for i in read_feed(path)])
         self._model = short_model(last_model(path))
         self._question = pending_question(path, waiting=s.status == "waiting")
 

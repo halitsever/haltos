@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import os
 import random
@@ -220,8 +221,74 @@ class ControllerTest(unittest.TestCase):
             m.replace([{"key": k, "age": str(rnd.randint(0, 2))} for k in ks])
             self.assertEqual([m.data(m.index(i), role) for i in range(m.rowCount())], ks)
 
+    def _transcript(self, *rows):
+        path = os.path.join(tempfile.mkdtemp(), "s.jsonl")
+        with open(path, "w") as f:
+            f.write("".join(json.dumps(r) + "\n" for r in rows))
+        return Path(path)
+
+    def test_tiles_reread_only_on_change(self):
+        path = self._transcript({"type": "user", "message": {"content": [{"type": "text", "text": "fix login"}]}})
+        calls = []
+        orig_find, orig_read = A.find_transcript, A.read_feed
+        A.find_transcript = lambda sid: path
+        A.read_feed = lambda *a, **k: calls.append(1) or orig_read(*a, **k)
+        try:
+            busy = Session("a", "s", "a", "/tmp/kahvefalin", "background", "", "busy", 0.0, True)
+            self.c._read_tiles([busy])
+            self.c._read_tiles([busy])
+            self.assertEqual(len(calls), 1)
+            self.c._read_tiles([dataclasses.replace(busy, status="waiting")])
+            self.assertEqual(len(calls), 2)
+            self.c._read_tiles([busy])
+            self.c._on_polled([busy], "")
+        finally:
+            A.find_transcript, A.read_feed = orig_find, orig_read
+        row = self.c._agents.rows[0]
+        self.assertEqual(row["project"], "kahvefalin")
+        self.assertEqual(row["tail"][-1]["kind"], "prompt")
+        self.assertEqual(row["tail"][-1]["body"], "fix login")
+
+    def test_waiting_tile_has_question(self):
+        path = self._transcript({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "git push"}}]}})
+        orig, A.find_transcript = A.find_transcript, lambda sid: path
+        try:
+            s = Session("a", "s", "a", "/tmp", "background", "", "waiting", 0.0, True)
+            self.c._read_tiles([s])
+            self.c._on_polled([s], "")
+        finally:
+            A.find_transcript = orig
+        self.assertEqual(self.c._agents.rows[0]["question"]["options"], ["İzin ver", "Reddet"])
+
+    def test_tile_without_transcript_is_empty(self):
+        orig = A.find_transcript
+        try:
+            for found in (None, Path("/nonexistent/s.jsonl")):
+                A.find_transcript = lambda sid, found=found: found
+                self.c._read_tiles([session("a")])
+                self.c._on_polled([session("a")], "")
+                row = self.c._agents.rows[0]
+                self.assertEqual((row["tail"], row["question"]), ([], {}))
+        finally:
+            A.find_transcript = orig
+
+    def test_selected_index(self):
+        self.assertEqual(self.c.selectedIndex, -1)
+        self.c._on_polled([session("a"), session("b")], "")
+        self.c.select("b")
+        self.assertEqual(self.c.selectedIndex, 1)
+
+    def test_drafts_kept_per_agent(self):
+        self.c._on_polled([session("a"), session("b")], "")
+        self.c.setDraft("a", "half typed")
+        self.assertEqual((self.c.draft("a"), self.c.draft("b")), ("half typed", ""))
+        self.c._on_polled([session("b")], "")
+        self.assertEqual(self.c.draft("a"), "")
+
     def test_rows_carry_age_and_feed_roles(self):
-        self.assertIn("age", self.c._agents.keys)
+        for role in ("age", "tail", "question", "project"):
+            self.assertIn(role, self.c._agents.keys)
         self.assertEqual(self.c._feed.keys, ["kind", "body", "name", "added", "removed", "error"])
         need = Session("n", "s", "n", "/tmp", "background", "", "waiting", 0.0, True)
         self.assertEqual(self.c._row(need)["age"], "need")
