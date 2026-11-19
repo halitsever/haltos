@@ -384,12 +384,13 @@ class ControllerTest(unittest.TestCase):
         self.c._on_action("signal ... org.freedesktop.Notifications.ActionInvoked (uint32 7, 'default')")
         self.assertEqual((self.c.selectedKey, [c[-1] for c in calls]), ("b", ["b"]))
 
-    def test_launched_agent_opens_in_claude_code(self):
-        calls = self.spawned()
+    def test_launched_agent_is_selected_and_announced(self):
+        ready = []
+        self.c.launchReady.connect(ready.append)
         self.c._on_polled([session("a")], "")
         self.c._want = "b"
         self.c._on_polled([session("a"), session("b")], "")
-        self.assertEqual((self.c.selectedKey, [c[-1] for c in calls]), ("b", ["b"]))
+        self.assertEqual((self.c.selectedKey, ready), ("b", ["b"]))
 
     def test_drafts_kept_per_agent(self):
         self.c._on_polled([session("a"), session("b")], "")
@@ -498,15 +499,19 @@ class QmlCase(unittest.TestCase):
         """Records Konsole launches instead of opening windows."""
         calls = []
 
-        class Proc:
-            def __init__(self, argv, **kw):
-                calls.append(argv[-1])
+        orig = A.subprocess.Popen
 
+        class Proc:
             def poll(self):
                 return None
 
-        orig = A.subprocess.Popen
-        A.subprocess.Popen = Proc
+        def popen(argv, **kw):
+            if argv[0] != "konsole":
+                return orig(argv, **kw)
+            calls.append(argv[-1])
+            return Proc()
+
+        A.subprocess.Popen = popen
         self.addCleanup(setattr, A.subprocess, "Popen", orig)
         return calls
 
@@ -722,6 +727,26 @@ class KeysTest(QmlCase):
         self.letter("x")
         self.trigger("interrupt")
         self.assertEqual(len(self.sent), 2)
+
+    def test_launched_agent_opens_claude_code(self):
+        calls = self.konsoles()
+        self.poll(session("a"))
+        self.c._want = "b"
+        self.poll(session("a"), session("b"))
+        self.assertEqual(calls, ["b"])
+
+    def test_launch_never_steals_focus_from_the_dialog(self):
+        calls = self.konsoles()
+        self.poll(session("a"))
+        self.trigger("new")
+        self.wait()
+        self.c._want = "b"
+        self.poll(session("a"), session("b"))
+        self.assertEqual((calls, self.c.selectedKey), ([], "b"))
+        self.trigger("search")
+        self.c._want = "c"
+        self.poll(session("a"), session("b"), session("c"))
+        self.assertEqual(calls, [])
 
     def test_grid_digit_answers(self):
         self.poll(dataclasses.replace(session("a"), status="waiting"))

@@ -139,6 +139,7 @@ class Controller(QObject):
     found = Signal(object, str)
     sessionsChanged = Signal(list)
     showRequested = Signal()
+    launchReady = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -332,7 +333,7 @@ class Controller(QObject):
         self._load_feed()
         self.changed.emit()
         if launched:
-            self.openTerminal()
+            self.launchReady.emit(launched)
 
     def _row(self, s: Session) -> dict:
         tile = self._tiles.get(s.key, (None, [], {}))

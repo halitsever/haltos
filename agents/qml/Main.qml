@@ -114,6 +114,11 @@ Kirigami.ApplicationWindow {
 
     Connections {
         target: root.controller
+        // A new window would take the keyboard from whatever the user is typing into here.
+        function onLaunchReady(key) {
+            if (!newAgent.visible && !search.activeFocus)
+                root.controller.openTerminal()
+        }
         function onShowRequested() {
             if (!root.visible)
                 root.showMaximized()

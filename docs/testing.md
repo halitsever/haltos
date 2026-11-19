@@ -64,15 +64,14 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 - [ ] VS Code starts from the application menu.
 - [ ] After `claude` is logged in, `claudegrid -l 2x2` opens four Claude Code panes.
 - [ ] HaltOS Agents starts from the application menu with the A icon and sits in the tray. Closing its window keeps the tray icon.
-- [ ] HaltOS Agents is pinned to the task bar and opens maximized. It is dark (HaltMono, JetBrains Mono) even when the desktop uses a light theme.
+- [ ] HaltOS Agents is pinned to the task bar, uses the pixel creature icon and opens maximized. It is dark (HaltMono, JetBrains Mono) even when the desktop uses a light theme.
 - [ ] Agents sit in three sections, "Waiting for you", "Working" and "Done", each with its count. Every tile has the same size, and selecting one only moves the blue border.
-- [ ] In HaltOS Agents, "+ New agent" starts an agent in a trusted repo. Its screen opens once it appears, and its tile shows a spinner in "Working", then moves to "Done" or "Waiting for you".
+- [ ] "+ New agent" asks only for the task and the folder, with name, model and worktree under "More options". The new agent's tile shows a spinner in "Working" and its Claude Code window opens on its own.
 - [ ] The arrow keys, W/A/S/D and h/j/k/l move the selection, and up/down cross sections. `?` shows every key and Esc closes it.
-- [ ] Enter or a click opens the agent screen with the cursor in the `>` box. Typing reaches the agent: `claude attach <id>` in Konsole shows the same prompt. Esc goes back to the grid and keeps the half-typed text.
-- [ ] On an agent waiting with a question, `1`, `2`... answer it, both on the grid and on its screen while the box is empty. With text in the box they are typed.
-- [ ] Ctrl+K or "■ Interrupt" interrupts a working agent, `t` opens it in Konsole, `n` opens the new agent dialog and `/` jumps to search (Esc there goes back).
-- [ ] An agent that ran for over a minute raises a notification whose "Open" button brings the app up on that agent's screen.
-- [ ] A session open in a terminal opens read-only: its box is disabled and Esc goes back.
+- [ ] A click, Enter or `t` on a tile opens that agent in Claude Code itself: a HaltOS themed Konsole without menu or tab bar, titled with the agent's name. Slash commands, Shift+Tab and `@` files work there. Opening it again does not start a second window, and closing it leaves the agent running.
+- [ ] On an agent waiting with a question, `1`, `2`... on the grid answer it. `x` or Ctrl+K interrupts a working agent, `n` opens the new agent dialog and `/` jumps to search (Esc there goes back).
+- [ ] An agent that ran for over a minute raises a notification whose "Open" button opens that agent in Claude Code.
+- [ ] Enter on a session that is already open in a terminal says so instead of opening a second one.
 - [ ] The feed shows `$` prompts, `⏺ Edit(file) +N -M` tool calls with `⎿` results under them, and the header shows `project:branch · model`.
 - [ ] Searching a word from an old session lists it, and clicking the result resumes it as an agent.
 
