@@ -82,6 +82,30 @@ class AttachTest(unittest.TestCase):
         a.close()
         self.assertFalse(a.alive)
 
+    def test_output_reaches_the_listener(self):
+        got = []
+        a = Attachment([sys.executable, "-c", "import os, time; os.write(1, b'hello'); time.sleep(2)"], {})
+        a.listener = got.append
+        a.start()
+        self.addCleanup(a.close)
+        self.assertTrue(wait_until(lambda: b"hello" in b"".join(got)))
+
+    def test_resize_reaches_the_child(self):
+        got = []
+        child = (
+            "import fcntl, struct, termios, time\n"
+            "time.sleep(0.5)\n"
+            "rows, cols = struct.unpack('HHHH', fcntl.ioctl(0, termios.TIOCGWINSZ, bytes(8)))[:2]\n"
+            "print(f'size={rows}x{cols}', flush=True)\n"
+            "time.sleep(1)\n"
+        )
+        a = Attachment([sys.executable, "-c", child], {})
+        a.listener = got.append
+        a.start()
+        self.addCleanup(a.close)
+        a.resize(90, 30)
+        self.assertTrue(wait_until(lambda: b"size=30x90" in b"".join(got)))
+
     def test_attach_argv(self):
         self.assertEqual(attach_argv("3c4701cd"), ["claude", "attach", "3c4701cd"])
 

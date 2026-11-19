@@ -332,7 +332,7 @@ install_system() {
 
     log "installing fastfetch, kvantum and the agents app's Qt modules"
     apt-get install -y -qq fastfetch qt6-style-kvantum python3-pyside6.qtqml python3-pyside6.qtquick \
-        python3-pyside6.qtwidgets qml6-module-org-kde-kirigami qml6-module-qtquick-dialogs libglib2.0-bin >/dev/null
+        python3-pyside6.qtwidgets python3-pyte qml6-module-org-kde-kirigami qml6-module-qtquick-dialogs libglib2.0-bin >/dev/null
     install_vscode
 
     copy_assets /usr/share

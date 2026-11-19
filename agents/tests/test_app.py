@@ -392,6 +392,64 @@ class ControllerTest(unittest.TestCase):
         self.c._on_polled([session("a"), session("b")], "")
         self.assertEqual((self.c.selectedKey, ready), ("b", ["b"]))
 
+    def fake_attachments(self):
+        made = {}
+
+        class Fake:
+            def __init__(self):
+                self.listener, self.sent, self.sizes = None, [], []
+
+            def key(self, data):
+                self.sent.append(data)
+                return True
+
+            def type_paste(self, text):
+                self.sent.append(("paste", text))
+                return True
+
+            def resize(self, cols, rows):
+                self.sizes.append((cols, rows))
+
+        def attachment_for(key):
+            return made.setdefault(key, Fake())
+
+        self.c._attachment_for = attachment_for
+        return made
+
+    @unittest.skipIf(A is not None and A.screen.pyte is None, "pyte not installed")
+    def test_tabs_open_once_switch_and_close(self):
+        made = self.fake_attachments()
+        self.c._on_polled([session("a"), session("b")], "")
+        self.assertTrue(self.c.openTab("b"))
+        self.assertTrue(self.c.openTab("a"))
+        self.assertTrue(self.c.openTab("b"))
+        self.assertEqual([r["key"] for r in self.c.tabs.rows], ["b", "a"])
+        self.assertEqual((self.c.currentTab, self.c.selectedKey), (1, "b"))
+        self.c.showTab(0)
+        self.assertEqual(self.c.currentTab, 0)
+        self.c.closeTab("b")
+        self.assertEqual([r["key"] for r in self.c.tabs.rows], ["a"])
+        self.assertIsNone(made["b"].listener)
+        self.assertFalse(self.c.openTab("missing"))
+
+    @unittest.skipIf(A is not None and A.screen.pyte is None, "pyte not installed")
+    def test_terminal_draws_output_and_sends_keys(self):
+        made = self.fake_attachments()
+        self.c._on_polled([session("a")], "")
+        self.c.openTab("a")
+        term = self.c.terminal("a")
+        made["a"].listener(b"\x1b[32mready")
+        term._refresh()
+        self.assertIn("ready", term.rows.rows[0]["html"])
+        self.assertEqual(term.cursorX, 5)
+        term.key(0x01000013, "", 0)
+        term.paste("hi")
+        self.assertEqual(made["a"].sent, [b"\x1b[A", ("paste", "hi")])
+        term.resize(100, 30)
+        term._refresh()
+        self.assertEqual(made["a"].sizes[-1], (100, 30))
+        self.assertEqual(len(term.rows.rows), 30)
+
     def test_drafts_kept_per_agent(self):
         self.c._on_polled([session("a"), session("b")], "")
         self.c.setDraft("a", "half typed")

@@ -40,6 +40,8 @@ from .claude import (
     start_argv,
     stop,
 )
+from . import screen
+from .keys import encode
 from .layout import grouped, neighbour
 from .layout import sections as group_sections
 from .names import age, recent_dirs, slug
@@ -131,6 +133,82 @@ class Job(QRunnable):
             self.done.emit(None, str(e) or type(e).__name__)
 
 
+class Terminal(QObject):
+    """One agent's Claude Code, drawn from its attachment's output and fed the keys typed in its tab."""
+
+    changed = Signal()
+
+    def __init__(self, attachment, parent=None, cols: int = 120, rows: int = 40):
+        super().__init__(parent)
+        self.screen = screen.Screen(cols, rows)
+        self._rows = ListModel(["key", "html"], self)
+        self._cursor = (0, 0, True)
+        self.attachment = None
+        self.attach(attachment)
+        # Output arrives on the reader thread; the UI picks it up at most every 30 ms.
+        self.timer = QTimer(self, interval=30, timeout=self._refresh)
+        self.timer.start()
+
+    def attach(self, attachment) -> None:
+        if self.attachment is not None:
+            self.attachment.listener = None
+        self.attachment = attachment
+        attachment.listener = self.screen.feed
+        # A size change makes Claude Code redraw everything, so a fresh tab never starts blank.
+        cols, rows = self.screen.cols, self.screen.screen.lines
+        attachment.resize(cols, rows - 1)
+        attachment.resize(cols, rows)
+
+    def _refresh(self) -> None:
+        if not self.screen.take_changed():
+            return
+        self._rows.replace([{"key": str(i), "html": row} for i, row in enumerate(self.screen.rows())])
+        self._cursor = self.screen.cursor()
+        self.changed.emit()
+
+    @Property(QObject, constant=True)
+    def rows(self):
+        return self._rows
+
+    @Property(int, notify=changed)
+    def cursorX(self):
+        return self._cursor[0]
+
+    @Property(int, notify=changed)
+    def cursorY(self):
+        return self._cursor[1]
+
+    @Property(bool, notify=changed)
+    def cursorVisible(self):
+        return self._cursor[2]
+
+    @Slot(int, str, int)
+    def key(self, key, text, mods):
+        data = encode(key, text, mods)
+        if data:
+            self.attachment.key(data)
+
+    @Slot(str)
+    def paste(self, text):
+        self.attachment.type_paste(text)
+
+    @Slot(int, int)
+    def resize(self, cols, rows):
+        if cols < 10 or rows < 3 or (cols, rows) == (self.screen.cols, self.screen.screen.lines):
+            return
+        self.screen.resize(cols, rows)
+        self.attachment.resize(cols, rows)
+
+    @Slot(int)
+    def scroll(self, pages):
+        self.screen.scroll(pages)
+
+    def close(self) -> None:
+        self.timer.stop()
+        if self.attachment is not None:
+            self.attachment.listener = None
+
+
 class Controller(QObject):
     changed = Signal()
     polled = Signal(object, str)
@@ -146,6 +224,9 @@ class Controller(QObject):
         self._agents = ListModel(["key", "name", "group", "groupLabel", "state", "cwd", "branch", "attachable", "age", "project", "tail", "question"], self)
         self._feed = ListModel(["kind", "body", "name", "added", "removed", "error"], self)
         self._results = ListModel(["sessionId", "title", "cwd", "where", "date", "snippet"], self)
+        self._tabs = ListModel(["key", "name", "group"], self)
+        self.terminals: dict[str, Terminal] = {}
+        self._current_tab = 0
         self._query = ""
         self._untrusted = ""
         self._want = ""
@@ -240,6 +321,78 @@ class Controller(QObject):
         groups = [row["group"] for row in self._agents.rows]
         return {g: groups.count(g) for g in ("need", "work", "done")}
 
+    @Property(QObject, constant=True)
+    def tabs(self):
+        return self._tabs
+
+    @Property(int, notify=changed)
+    def currentTab(self):
+        """0 is the grid, n is the n-th agent tab."""
+        return self._current_tab
+
+    def _tab_keys(self) -> list[str]:
+        return [row["key"] for row in self._tabs.rows]
+
+    def _tab_rows(self, keys: list[str]) -> list[dict]:
+        rows = []
+        for key in keys:
+            s = self.session(key)
+            rows.append({"key": key, "name": s.name if s else key, "group": s.group if s else "done"})
+        return rows
+
+    @Slot(str, result=bool)
+    def openTab(self, key):
+        """Opens the agent's Claude Code in a tab, or switches to the tab it already has."""
+        keys = self._tab_keys()
+        if key not in keys:
+            s = self.session(key)
+            if s is None or not s.attachable:
+                return False
+            try:
+                self.terminals[key] = Terminal(self._attachment_for(key), self)
+            except ClaudeError as e:
+                self._action_error = str(e)
+                self.changed.emit()
+                return False
+            keys.append(key)
+            self._tabs.replace(self._tab_rows(keys))
+        self._current_tab = keys.index(key) + 1
+        self.select(key)
+        self.changed.emit()
+        return True
+
+    @Slot(int)
+    def showTab(self, index):
+        keys = self._tab_keys()
+        if 0 <= index <= len(keys):
+            self._current_tab = index
+            if index:
+                self.select(keys[index - 1])
+            self.changed.emit()
+
+    @Slot(str)
+    def closeTab(self, key):
+        """Detaches the tab only; the agent keeps running."""
+        keys = self._tab_keys()
+        if key not in keys:
+            return
+        at = keys.index(key) + 1
+        keys.remove(key)
+        terminal = self.terminals.pop(key)
+        terminal.close()
+        self._tabs.replace(self._tab_rows(keys))
+        if self._current_tab == at:
+            self._current_tab = min(at, len(keys))
+        elif self._current_tab > at:
+            self._current_tab -= 1
+        if self._current_tab:
+            self.select(keys[self._current_tab - 1])
+        self.changed.emit()
+
+    @Slot(str, result=QObject)
+    def terminal(self, key):
+        return self.terminals.get(key)
+
     @Slot(str, result=str)
     def draft(self, key):
         return self._drafts.get(key, "")
@@ -321,6 +474,10 @@ class Controller(QObject):
             order = {g: i for i, g in enumerate(GROUPS)}
             ordered = sorted(self.sessions, key=lambda s: (order[s.group], -s.started_at))
             self._agents.replace([self._row(s) for s in ordered])
+            # A tab whose agent is gone has nothing to attach to any more.
+            for key in [k for k in self._tab_keys() if not self.session(k)]:
+                self.closeTab(key)
+            self._tabs.replace(self._tab_rows(self._tab_keys()))
             if self._want and self.session(self._want):
                 self._selected, self._want = self._want, ""
                 launched = self._selected
@@ -391,20 +548,25 @@ class Controller(QObject):
                 self._action_error = f"Could not attach to {live[key].name}. Try the terminal."
 
     def _attachment(self) -> Attachment | None:
-        """One live `claude attach` per agent, opened the first time the owner acts on it."""
         s = self.session(self._selected)
         if s is None or not s.attachable:
             return None
-        a = self.attachments.get(s.key)
+        return self._attachment_for(s.key)
+
+    def _attachment_for(self, key: str) -> Attachment:
+        """One live `claude attach` per agent, shared by its tab and the grid's actions."""
+        a = self.attachments.get(key)
         if a is None or not a.alive:
             if a is not None:
                 a.close()
-            a = self.attachments[s.key] = Attachment(attach_argv(s.key), clean_env(os.environ))
+            a = self.attachments[key] = Attachment(attach_argv(key), clean_env(os.environ))
             try:
                 a.start()
             except ClaudeError:
-                del self.attachments[s.key]
+                del self.attachments[key]
                 raise
+            if key in self.terminals:
+                self.terminals[key].attach(a)
         return a
 
     def _act(self, fn) -> bool:
