@@ -1,5 +1,7 @@
 """Reads Claude Code session transcripts (JSONL) into a short feed and the open question, if any."""
+import difflib
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -13,6 +15,10 @@ SUMMARY_ARGS = ("command", "file_path", "pattern", "description", "url", "query"
 class FeedItem:
     kind: str
     text: str
+    name: str = ""
+    added: int = 0
+    removed: int = 0
+    error: bool = False
 
 
 @dataclass
@@ -64,9 +70,51 @@ def _input(block) -> dict:
 
 
 def tool_summary(name: str, args: dict) -> str:
-    arg = next((str(args[k]) for k in SUMMARY_ARGS if args.get(k)), "")
+    arg = _arg(args)
     line = f"{name}: {arg}" if arg else name
-    return line if len(line) <= 80 else line[:79] + "…"
+    return _clip(line)
+
+
+def _arg(args: dict) -> str:
+    return next((str(args[k]) for k in SUMMARY_ARGS if args.get(k)), "")
+
+
+def _clip(line: str, width: int = 80) -> str:
+    return line if len(line) <= width else line[: width - 1] + "…"
+
+
+def _lines(value) -> list[str]:
+    return value.splitlines() if isinstance(value, str) else []
+
+
+def _diff(old, new) -> tuple[int, int]:
+    added = removed = 0
+    ops = difflib.SequenceMatcher(None, _lines(old), _lines(new), autojunk=False).get_opcodes()
+    for tag, i1, i2, j1, j2 in ops:
+        if tag != "equal":
+            removed += i2 - i1
+            added += j2 - j1
+    return added, removed
+
+
+def line_counts(name: str, args: dict) -> tuple[int, int]:
+    if name == "Edit":
+        return _diff(args.get("old_string"), args.get("new_string"))
+    if name == "Write":
+        return len(_lines(args.get("content"))), 0
+    if name == "MultiEdit" and isinstance(args.get("edits"), list):
+        pairs = [_diff(e.get("old_string"), e.get("new_string")) for e in args["edits"] if isinstance(e, dict)]
+        return sum(a for a, _ in pairs), sum(r for _, r in pairs)
+    return 0, 0
+
+
+def _result_line(block) -> str:
+    content = block.get("content")
+    if isinstance(content, list):
+        content = "\n".join(_text(b) for b in content if isinstance(b, dict))
+    if not isinstance(content, str):
+        return ""
+    return _clip(next((line.strip() for line in content.splitlines() if line.strip()), ""))
 
 
 def read_feed(path: Path, limit: int = 50, tail_bytes: int = 512_000) -> list[FeedItem]:
@@ -80,11 +128,36 @@ def read_feed(path: Path, limit: int = 50, tail_bytes: int = 512_000) -> list[Fe
                 # Command echoes and injected context arrive as tagged user text.
                 if text and not text.startswith("<"):
                     items.append(FeedItem("prompt", text))
+            elif kind == "user" and t == "tool_result":
+                line = _result_line(b)
+                if line:
+                    items.append(FeedItem("result", line, error=b.get("is_error") is True))
             elif kind == "assistant" and t == "text" and _text(b).strip():
                 items.append(FeedItem("text", _text(b).strip()))
             elif kind == "assistant" and t == "tool_use":
-                items.append(FeedItem("tool", tool_summary(str(b.get("name", "?")), _input(b))))
+                name, args = str(b.get("name", "?")), _input(b)
+                added, removed = line_counts(name, args)
+                # Shown as Name(arg), so the brackets count toward the width.
+                arg = _clip(_arg(args), max(1, 78 - len(name)))
+                items.append(FeedItem("tool", arg, name, added, removed))
     return items[-limit:]
+
+
+def last_model(path: Path, tail_bytes: int = 512_000) -> str:
+    model = ""
+    for row in _rows(path, tail_bytes):
+        message = row.get("message")
+        value = message.get("model") if isinstance(message, dict) else None
+        if isinstance(value, str) and value and not value.startswith("<"):
+            model = value
+    return model
+
+
+def short_model(model: str) -> str:
+    """claude-opus-5-5 reads as opus-5.5, the way Claude Code names it."""
+    m = re.fullmatch(r"(?:claude-)?(.*?)(?:-\d{8})?(\[.*\])?", model)
+    base, tag = m.group(1), m.group(2) or ""
+    return re.sub(r"-(\d+)-(\d+)$", r"-\1.\2", base) + tag
 
 
 def pending_question(path: Path, waiting: bool, tail_bytes: int = 512_000) -> Question | None:
