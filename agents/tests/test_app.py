@@ -22,6 +22,23 @@ except ImportError:  # CI runners have no PySide6; the Qt layer is checked on a 
     A = None
 
 
+# Controllers live for the whole app, and freeing one between Qt tests crashed the run at random.
+KEEP = []
+
+
+def keep(c):
+    KEEP.append(c)
+    return c
+
+
+def wait(ms):
+    loop = QEventLoop()
+    timer = QTimer(loop, singleShot=True, interval=ms)
+    timer.timeout.connect(loop.quit)
+    timer.start()
+    loop.exec()
+
+
 def session(key, sid=None, attachable=True):
     return Session(key, sid or f"sid-{key}", key, "/tmp", "background", "done", "idle", 0.0, attachable)
 
@@ -43,7 +60,7 @@ class ControllerTest(unittest.TestCase):
         cls.app = QApplication.instance() or QApplication(sys.argv)
 
     def setUp(self):
-        self.c = A.Controller()
+        self.c = keep(A.Controller())
         self.started = []
         self.c.pool.start = lambda job: self.started.append(job)
 
@@ -348,7 +365,7 @@ class BannerTest(unittest.TestCase):
         cls.app = QApplication.instance() or QApplication(sys.argv)
 
     def test_error_banner_comes_back_after_dismiss(self):
-        c = A.Controller()
+        c = keep(A.Controller())
         c.pool.start = lambda job: None
         engine = QQmlApplicationEngine()
         engine.rootContext().setContextProperty("agentsController", c)
@@ -363,13 +380,11 @@ class BannerTest(unittest.TestCase):
         c.dismissError()
         c._on_launched(None, "second")
         self.assertEqual(banner.property("text"), "second")
-        loop = QEventLoop()
-        QTimer.singleShot(300, loop.quit)
-        loop.exec()
+        wait(300)
         del root, banner, engine
 
     def test_terminal_ui(self):
-        c = A.Controller()
+        c = keep(A.Controller())
         c.pool.start = lambda job: None
         engine = QQmlApplicationEngine()
         engine.rootContext().setContextProperty("agentsController", c)
@@ -391,9 +406,7 @@ class BannerTest(unittest.TestCase):
         QMetaObject.invokeMethod(root, "trigger", Q_ARG(str, "new"))
         self.assertTrue(root.findChild(QObject, "newAgentDialog").property("visible"))
         self.assertTrue(QFontInfo(root.property("font")).fixedPitch())
-        loop = QEventLoop()
-        QTimer.singleShot(300, loop.quit)
-        loop.exec()
+        wait(300)
         del root, bar, engine
 
 
@@ -404,7 +417,7 @@ class GridTest(unittest.TestCase):
         cls.app = QApplication.instance() or QApplication(sys.argv)
 
     def setUp(self):
-        self.c = A.Controller()
+        self.c = keep(A.Controller())
         self.c.pool.start = lambda job: None
         self.engine = QQmlApplicationEngine()
         self.engine.rootContext().setContextProperty("agentsController", self.c)
@@ -420,9 +433,7 @@ class GridTest(unittest.TestCase):
         del self.keep, self.grid, self.root, self.engine
 
     def wait(self, ms=200):
-        loop = QEventLoop()
-        QTimer.singleShot(ms, loop.quit)
-        loop.exec()
+        wait(ms)
 
     def poll(self, *sessions):
         self.c._on_polled(list(sessions), "")
