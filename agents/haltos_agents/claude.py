@@ -1,6 +1,7 @@
 """Thin wrapper around the `claude` CLI's background session commands."""
 import json
 import os
+import re
 import subprocess
 from dataclasses import dataclass
 from typing import Mapping
@@ -10,6 +11,14 @@ GROUPS = ("need", "work", "done")
 
 class ClaudeError(Exception):
     pass
+
+
+class UntrustedDir(ClaudeError):
+    """`claude --bg` cannot show the trust prompt, so the owner has to accept it once in a terminal."""
+
+    def __init__(self, cwd: str):
+        super().__init__(f"{cwd} klasörüne henüz güvenilmedi.")
+        self.cwd = cwd
 
 
 @dataclass(frozen=True)
@@ -88,9 +97,9 @@ def resume_argv(session_id: str) -> list[str]:
     return ["claude", "--bg", "--resume", session_id]
 
 
-def _call(argv: list[str], run) -> subprocess.CompletedProcess:
+def _call(argv: list[str], run, cwd: str | None = None) -> subprocess.CompletedProcess:
     try:
-        return run(argv, capture_output=True, text=True, env=clean_env(os.environ), timeout=30)
+        return run(argv, capture_output=True, text=True, env=clean_env(os.environ), timeout=30, cwd=cwd)
     except FileNotFoundError as e:
         raise ClaudeError("claude is not installed or not on PATH") from e
     except subprocess.TimeoutExpired as e:
@@ -113,3 +122,17 @@ def stop(key: str, run=subprocess.run) -> None:
 def remove(key: str, run=subprocess.run) -> bool:
     """False when claude refuses, for example while the session still has unsaved work."""
     return _call(["claude", "rm", key], run).returncode == 0
+
+
+def launch(argv: list[str], cwd: str, run=subprocess.run) -> str:
+    """Starts a background session and returns the id `claude attach` takes."""
+    p = _call(argv, run, cwd=cwd)
+    out = (p.stdout or "") + (p.stderr or "")
+    if p.returncode != 0:
+        if "Workspace not trusted" in out:
+            raise UntrustedDir(cwd)
+        raise ClaudeError(out.strip() or f"claude exited with {p.returncode}")
+    found = re.search(r"claude attach (\S+)", out)
+    if not found:
+        raise ClaudeError(out.strip() or "claude --bg printed no session id")
+    return found.group(1)

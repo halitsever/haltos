@@ -8,9 +8,37 @@ ColumnLayout {
 
     required property QtObject controller
 
+    signal newAgentRequested()
+
     spacing: 0
 
+    RowLayout {
+        Layout.fillWidth: true
+        Layout.margins: Kirigami.Units.smallSpacing * 2
+
+        Kirigami.SearchField {
+            Layout.fillWidth: true
+            placeholderText: "Oturumlarda ara…"
+            delaySearch: true
+            onAccepted: list.controller.search(text)
+        }
+        QQC2.ToolButton {
+            icon.name: "list-add"
+            QQC2.ToolTip.text: "Yeni ajan"
+            QQC2.ToolTip.visible: hovered
+            onClicked: list.newAgentRequested()
+        }
+    }
+
+    SearchResults {
+        controller: list.controller
+        visible: list.controller.query !== ""
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+    }
+
     QQC2.ScrollView {
+        visible: list.controller.query === ""
         Layout.fillWidth: true
         Layout.fillHeight: true
 

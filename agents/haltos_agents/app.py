@@ -2,6 +2,7 @@
 import os
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from PySide6.QtCore import (
     QByteArray,
     QModelIndex,
     QObject,
+    QProcess,
     QRunnable,
     Qt,
     QThreadPool,
@@ -25,13 +27,30 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from . import hidden
 from .attach import Attachment, attach_argv
-from .claude import GROUPS, ClaudeError, Session, clean_env, list_sessions, remove, stop
-from .transcript import CANCEL, find_transcript, pending_question, read_feed
+from .claude import (
+    GROUPS,
+    ClaudeError,
+    Session,
+    UntrustedDir,
+    clean_env,
+    launch,
+    list_sessions,
+    remove,
+    resume_argv,
+    start_argv,
+    stop,
+)
+from .names import recent_dirs, slug
+from .notify import MONITOR_ARGV, Notice, NotifyPolicy, notify_argv, parse_action, parse_notify_id
+from .search import Index
+from .transcript import CANCEL, PROJECTS, find_transcript, pending_question, read_feed
 
 QML = Path(__file__).resolve().parent.parent / "qml" / "Main.qml"
 LABELS = {"need": "seni bekliyor", "work": "çalışıyor", "done": "bitti"}
 POLL_MS = 2000
+INDEX_MS = 60_000
 BRANCH_TTL = 30.0
+INDEX_DB = Path.home() / ".cache" / "haltos-agents" / "index.sqlite"
 
 
 class ListModel(QAbstractListModel):
@@ -77,6 +96,8 @@ class Controller(QObject):
     changed = Signal()
     polled = Signal(object, str)
     acted = Signal(object, str)
+    launched = Signal(object, str)
+    found = Signal(object, str)
     sessionsChanged = Signal(list)
     showRequested = Signal()
 
@@ -84,6 +105,18 @@ class Controller(QObject):
         super().__init__(parent)
         self._agents = ListModel(["key", "name", "group", "groupLabel", "state", "cwd", "branch", "attachable"], self)
         self._feed = ListModel(["kind", "body"], self)
+        self._results = ListModel(["sessionId", "title", "cwd", "where", "date", "snippet"], self)
+        self._query = ""
+        self._untrusted = ""
+        self._want = ""
+        self._recent: list[str] = []
+        self.window_active = False
+        self.policy = NotifyPolicy()
+        self.notifiers: set[QProcess] = set()
+        self.notice_keys: dict[int, str] = {}
+        self.monitor: QProcess | None = None
+        self.index: Index | None = None
+        self.index_lock = threading.Lock()
         self.sessions: list[Session] = []
         self.hidden: set[str] = hidden.load()
         self.attachments: dict[str, Attachment] = {}
@@ -96,7 +129,10 @@ class Controller(QObject):
         self.pool = QThreadPool(self)
         self.polled.connect(self._on_polled)
         self.acted.connect(self._on_acted)
+        self.launched.connect(self._on_launched)
+        self.found.connect(self._on_found)
         self.timer = QTimer(self, interval=POLL_MS, timeout=self.refresh)
+        self.index_timer = QTimer(self, interval=INDEX_MS, timeout=self.reindex)
 
     @Property(QObject, constant=True)
     def agents(self):
@@ -106,9 +142,25 @@ class Controller(QObject):
     def feed(self):
         return self._feed
 
+    @Property(QObject, constant=True)
+    def results(self):
+        return self._results
+
     @Property(str, notify=changed)
     def error(self):
         return self._error
+
+    @Property(str, notify=changed)
+    def untrustedDir(self):
+        return self._untrusted
+
+    @Property(str, notify=changed)
+    def query(self):
+        return self._query
+
+    @Property(list, notify=changed)
+    def recentDirs(self):
+        return self._recent
 
     @Property(str, notify=changed)
     def selectedKey(self):
@@ -139,6 +191,9 @@ class Controller(QObject):
     def start(self) -> None:
         self.refresh()
         self.timer.start()
+        self.reindex()
+        self.index_timer.start()
+        self._watch_notifications()
 
     @Slot()
     def refresh(self):
@@ -164,9 +219,14 @@ class Controller(QObject):
             order = {g: i for i, g in enumerate(GROUPS)}
             ordered = sorted(self.sessions, key=lambda s: (order[s.group], -s.started_at))
             self._agents.replace([self._row(s) for s in ordered])
-            if not self.session(self._selected) and ordered:
+            if self._want and self.session(self._want):
+                self._selected, self._want = self._want, ""
+            elif not self.session(self._selected) and ordered:
                 self._selected = ordered[0].key
             self.sessionsChanged.emit(self.sessions)
+            focused = self._selected if self.window_active else None
+            for notice in self.policy.observe(self.sessions, time.time(), focused):
+                self._notify(notice)
         self._load_feed()
         self.changed.emit()
 
@@ -285,8 +345,151 @@ class Controller(QObject):
             self.changed.emit()
         self.refresh()
 
+    def _notify(self, notice: Notice) -> None:
+        proc = QProcess(self)
+        self.notifiers.add(proc)
+
+        def done(*_):
+            nid = parse_notify_id(bytes(proc.readAllStandardOutput()).decode())
+            if nid is not None:
+                self.notice_keys[nid] = notice.key
+            self.notifiers.discard(proc)
+            proc.deleteLater()
+
+        proc.finished.connect(done)
+        argv = notify_argv(notice)
+        proc.start(argv[0], argv[1:])
+
+    def _watch_notifications(self) -> None:
+        """Clicks on our notifications arrive as ActionInvoked signals on the session bus."""
+        self.monitor = QProcess(self)
+        buffer = bytearray()
+
+        def read():
+            buffer.extend(bytes(self.monitor.readAllStandardOutput()))
+            *lines, rest = buffer.split(b"\n")
+            buffer[:] = rest
+            for line in lines:
+                hit = parse_action(line.decode("utf8", "replace"))
+                key = hit and hit[1] == "open" and self.notice_keys.pop(hit[0], None)
+                if key:
+                    self.select(key)
+                    self.showRequested.emit()
+
+        self.monitor.readyReadStandardOutput.connect(read)
+        self.monitor.start(MONITOR_ARGV[0], MONITOR_ARGV[1:])
+
+    @Slot(bool)
+    def setWindowActive(self, active):
+        self.window_active = active
+
+    @Slot()
+    def dismissError(self):
+        self._error = self._untrusted = ""
+        self.changed.emit()
+
+    @Slot()
+    def loadRecentDirs(self):
+        self._recent = recent_dirs()
+        self.changed.emit()
+
+    @Slot(str, result=bool)
+    def isGitRepo(self, path):
+        path = os.path.expanduser(path.strip())
+        if not path or not os.path.isdir(path):
+            return False
+        p = subprocess.run(["git", "-C", path, "rev-parse", "--is-inside-work-tree"], capture_output=True, text=True)
+        return p.stdout.strip() == "true"
+
+    def _launch(self, argv: list[str], cwd: str):
+        def work():
+            try:
+                return launch(argv, cwd)
+            except UntrustedDir as e:
+                return e
+
+        self.pool.start(Job(work, self.launched))
+
+    @Slot(str, str, str, bool, str)
+    def newAgent(self, directory, name, model, worktree, prompt):
+        directory = os.path.expanduser(directory.strip())
+        if not directory or not prompt.strip():
+            return
+        name = name.strip() or slug(prompt, {s.name for s in self.sessions})
+        self._launch(start_argv(name, prompt, model or None, worktree), directory)
+
+    @Slot(str, str)
+    def resume(self, session_id, cwd):
+        self._query = ""
+        self._results.replace([])
+        self._launch(resume_argv(session_id), cwd or str(Path.home()))
+
+    @Slot(object, str)
+    def _on_launched(self, result, error):
+        self._error, self._untrusted = error, ""
+        if isinstance(result, UntrustedDir):
+            self._untrusted = result.cwd
+        elif isinstance(result, str):
+            self._want = result
+        self.changed.emit()
+        self.refresh()
+
+    @Slot()
+    def trustInKonsole(self):
+        """Opens claude once in that folder, where its own trust prompt can be answered."""
+        cwd, self._untrusted = self._untrusted, ""
+        if cwd:
+            subprocess.Popen(
+                ["konsole", "--profile", "HaltOS", "--workdir", cwd, "-e", "claude"],
+                env=clean_env(os.environ),
+                start_new_session=True,
+            )
+        self.changed.emit()
+
+    def _with_index(self, fn):
+        with self.index_lock:
+            if self.index is None:
+                self.index = Index(INDEX_DB)
+            return fn(self.index)
+
+    @Slot()
+    def reindex(self):
+        self.pool.start(Job(lambda: self._with_index(lambda i: i.update(PROJECTS)) and None, self.found))
+
+    @Slot(str)
+    def search(self, query):
+        self._query = query
+        self.changed.emit()
+        if not query.strip():
+            self._results.replace([])
+            return
+        self.pool.start(Job(lambda: (query, self._with_index(lambda i: i.search(query))), self.found))
+
+    @Slot(object, str)
+    def _on_found(self, result, error):
+        if not result or result[0] != self._query:
+            return
+        home = str(Path.home())
+        self._results.replace(
+            [
+                {
+                    "sessionId": h.session_id,
+                    "title": h.title or h.session_id[:8],
+                    "cwd": h.cwd,
+                    "where": h.cwd.replace(home, "~", 1),
+                    "date": time.strftime("%d.%m.%Y %H:%M", time.localtime(h.mtime)),
+                    "snippet": h.snippet,
+                }
+                for h in result[1]
+            ]
+        )
+
     def shutdown(self) -> None:
         self.timer.stop()
+        self.index_timer.stop()
+        if self.monitor is not None:
+            self.monitor.kill()
+            self.monitor.waitForFinished(1000)
         self.pool.waitForDone(5000)
         for a in self.attachments.values():
             a.close()
@@ -347,6 +550,9 @@ def run(args) -> int:
         return 1
     try:
         if args.smoke:
+            # Let async QML items finish so the check also covers them.
+            QTimer.singleShot(300, app.quit)
+            app.exec()
             return 0
         controller.start()
         app.aboutToQuit.connect(controller.shutdown)

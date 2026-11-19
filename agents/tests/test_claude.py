@@ -3,6 +3,8 @@ import unittest
 
 from haltos_agents.claude import (
     ClaudeError,
+    UntrustedDir,
+    launch,
     clean_env,
     group_for,
     list_sessions,
@@ -114,6 +116,32 @@ class CliTest(unittest.TestCase):
             ["claude", "--bg", "--permission-mode", "auto", "--name", "seo-fix", "--model", "opus", "-w", "seo-fix", "fix meta"],
         )
         self.assertEqual(start_argv("x", "p", None, False), ["claude", "--bg", "--permission-mode", "auto", "--name", "x", "p"])
+
+    def test_launch_returns_background_id_and_uses_cwd(self):
+        seen = {}
+
+        def run(argv, **k):
+            seen.update(cwd=k["cwd"], env=k["env"])
+            out = "Started probe\n  claude attach 3c4701cd    open in this terminal\n  claude logs 3c4701cd\n"
+            return subprocess.CompletedProcess(argv, 0, out, "")
+
+        self.assertEqual(launch(["claude", "--bg", "x"], "/w", run=run), "3c4701cd")
+        self.assertEqual(seen["cwd"], "/w")
+        self.assertNotIn("CLAUDECODE", seen["env"])
+
+    def test_launch_untrusted_dir(self):
+        msg = "Workspace not trusted. Run `claude` in /w once and accept the trust prompt, then retry."
+        with self.assertRaises(UntrustedDir) as ctx:
+            launch(["claude", "--bg", "x"], "/w", run=done("", 1, msg))
+        self.assertEqual(ctx.exception.cwd, "/w")
+
+    def test_launch_other_failure(self):
+        with self.assertRaisesRegex(ClaudeError, "bad model"):
+            launch(["claude", "--bg", "x"], "/w", run=done("", 1, "bad model"))
+
+    def test_launch_without_id_in_output(self):
+        with self.assertRaises(ClaudeError):
+            launch(["claude", "--bg", "x"], "/w", run=done("weird"))
 
     def test_resume_argv(self):
         self.assertEqual(resume_argv("abc"), ["claude", "--bg", "--resume", "abc"])

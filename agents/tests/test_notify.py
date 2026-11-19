@@ -1,7 +1,7 @@
 import unittest
 
 from haltos_agents.claude import Session
-from haltos_agents.notify import NotifyPolicy
+from haltos_agents.notify import Notice, NotifyPolicy, gvariant_str, notify_argv, parse_action, parse_notify_id
 
 
 def s(name, state="", status=""):
@@ -57,6 +57,28 @@ class NotifyTest(unittest.TestCase):
         p.observe([s("a", "blocked")], 0, None)
         p.observe([], 1, None)
         self.assertEqual(len(p.observe([s("a", "blocked")], 2, None)), 1)
+
+
+class DbusTest(unittest.TestCase):
+    def test_gvariant_str_escapes_quotes_and_backslashes(self):
+        self.assertEqual(gvariant_str("kahvefalin'in \\ yolu"), "'kahvefalin\\'in \\\\ yolu'")
+
+    def test_notify_argv(self):
+        argv = notify_argv(Notice("k", "seo-fix bitti", "3 dk çalıştı."))
+        self.assertEqual(argv[:8], ["gdbus", "call", "--session", "--dest", "org.freedesktop.Notifications",
+                                    "--object-path", "/org/freedesktop/Notifications",
+                                    "--method"])
+        self.assertEqual(argv[9:], ["'HaltOS Agents'", "0", "'haltos-agents'", "'seo-fix bitti'", "'3 dk çalıştı.'",
+                                    "['open', 'Aç']", "{'desktop-entry': <'haltos-agents'>}", "int32 -1"])
+
+    def test_parse_notify_id(self):
+        self.assertEqual(parse_notify_id("(uint32 7,)\n"), 7)
+        self.assertIsNone(parse_notify_id("Error: GDBus.Error"))
+
+    def test_parse_action(self):
+        line = "/org/freedesktop/Notifications: org.freedesktop.Notifications.ActionInvoked (uint32 12, 'open')"
+        self.assertEqual(parse_action(line), (12, "open"))
+        self.assertIsNone(parse_action("/org/freedesktop/Notifications: org.freedesktop.Notifications.NotificationClosed (uint32 12, uint32 2)"))
 
 
 if __name__ == "__main__":

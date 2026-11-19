@@ -1,4 +1,5 @@
-"""Decides which agent state changes are worth a desktop notification."""
+"""Decides which agent state changes are worth a desktop notification, and builds the D-Bus calls."""
+import re
 from dataclasses import dataclass
 
 from .claude import Session
@@ -39,3 +40,34 @@ class NotifyPolicy:
         for key in set(self.work_since) - set(self.groups):
             del self.work_since[key]
         return notices
+
+
+def gvariant_str(s: str) -> str:
+    """gdbus parses each argument as GVariant text, so strings need quoting."""
+    return "'" + s.replace("\\", "\\\\").replace("'", "\\'") + "'"
+
+
+def notify_argv(notice: Notice) -> list[str]:
+    """gdbus instead of notify-send: libnotify 0.8 refuses actions on Plasma even though Plasma supports them."""
+    return [
+        "gdbus", "call", "--session",
+        "--dest", "org.freedesktop.Notifications",
+        "--object-path", "/org/freedesktop/Notifications",
+        "--method", "org.freedesktop.Notifications.Notify",
+        gvariant_str("HaltOS Agents"), "0", gvariant_str("haltos-agents"),
+        gvariant_str(notice.title), gvariant_str(notice.body),
+        "['open', 'Aç']", "{'desktop-entry': <'haltos-agents'>}", "int32 -1",
+    ]
+
+
+MONITOR_ARGV = ["gdbus", "monitor", "--session", "--dest", "org.freedesktop.Notifications"]
+
+
+def parse_notify_id(out: str) -> int | None:
+    m = re.match(r"\(uint32 (\d+),\)", out.strip())
+    return int(m.group(1)) if m else None
+
+
+def parse_action(line: str) -> tuple[int, str] | None:
+    m = re.search(r"\.ActionInvoked \(uint32 (\d+), '([^']*)'\)", line)
+    return (int(m.group(1)), m.group(2)) if m else None
