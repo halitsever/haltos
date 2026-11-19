@@ -7,9 +7,13 @@ from pathlib import Path
 from haltos_agents.attach import Attachment, attach_argv
 
 RECORDER = """
-import os, sys, tty
+import os, sys, termios, time, tty
 tty.setraw(0)
 out = open(sys.argv[1], "wb")
+time.sleep(float(sys.argv[2]) if len(sys.argv) > 2 else 0)
+# Like claude attach, input typed before the TUI is up is lost.
+termios.tcflush(0, termios.TCIFLUSH)
+os.write(1, b"\\x1b[?2004h")
 while True:
     data = os.read(0, 1024)
     if not data:
@@ -32,8 +36,8 @@ class AttachTest(unittest.TestCase):
     def setUp(self):
         self.out = Path(tempfile.mkdtemp()) / "got.bin"
 
-    def recorder(self):
-        a = Attachment([sys.executable, "-c", RECORDER, str(self.out)], {})
+    def recorder(self, delay=0.0):
+        a = Attachment([sys.executable, "-c", RECORDER, str(self.out), str(delay)], {})
         a.start()
         self.addCleanup(a.close)
         self.assertTrue(wait_until(self.out.exists))
@@ -47,6 +51,12 @@ class AttachTest(unittest.TestCase):
         a = self.recorder()
         a.paste("çalış\nikinci")
         want = b"\x15\x1b[200~" + "çalış\nikinci".encode() + b"\x1b[201~\r"
+        self.assertEqual(self.recorded(len(want)), want)
+
+    def test_paste_before_ready_waits_for_bracketed_paste_mode(self):
+        a = self.recorder(delay=0.5)
+        a.paste("erken")
+        want = b"\x15\x1b[200~erken\x1b[201~\r"
         self.assertEqual(self.recorded(len(want)), want)
 
     def test_key_writes_raw_bytes(self):

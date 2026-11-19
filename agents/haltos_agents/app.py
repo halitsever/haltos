@@ -23,8 +23,10 @@ from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from .claude import GROUPS, ClaudeError, Session, list_sessions
-from .transcript import find_transcript, pending_question, read_feed
+from . import hidden
+from .attach import Attachment, attach_argv
+from .claude import GROUPS, ClaudeError, Session, clean_env, list_sessions, remove, stop
+from .transcript import CANCEL, find_transcript, pending_question, read_feed
 
 QML = Path(__file__).resolve().parent.parent / "qml" / "Main.qml"
 LABELS = {"need": "seni bekliyor", "work": "çalışıyor", "done": "bitti"}
@@ -74,6 +76,7 @@ class Job(QRunnable):
 class Controller(QObject):
     changed = Signal()
     polled = Signal(object, str)
+    acted = Signal(object, str)
     sessionsChanged = Signal(list)
     showRequested = Signal()
 
@@ -82,7 +85,8 @@ class Controller(QObject):
         self._agents = ListModel(["key", "name", "group", "groupLabel", "state", "cwd", "branch", "attachable"], self)
         self._feed = ListModel(["kind", "body"], self)
         self.sessions: list[Session] = []
-        self.hidden: set[str] = set()
+        self.hidden: set[str] = hidden.load()
+        self.attachments: dict[str, Attachment] = {}
         self._error = ""
         self._selected = ""
         self._question = None
@@ -91,6 +95,7 @@ class Controller(QObject):
         self._busy = False
         self.pool = QThreadPool(self)
         self.polled.connect(self._on_polled)
+        self.acted.connect(self._on_acted)
         self.timer = QTimer(self, interval=POLL_MS, timeout=self.refresh)
 
     @Property(QObject, constant=True)
@@ -202,6 +207,90 @@ class Controller(QObject):
         self._load_feed(force=True)
         self.changed.emit()
 
+    def _attachment(self) -> Attachment | None:
+        """One live `claude attach` per agent, opened the first time the owner acts on it."""
+        s = self.session(self._selected)
+        if s is None or not s.attachable:
+            return None
+        a = self.attachments.get(s.key)
+        if a is None or not a.alive:
+            a = self.attachments[s.key] = Attachment(attach_argv(s.key), clean_env(os.environ))
+            a.start()
+        return a
+
+    @Slot(str)
+    def send(self, text):
+        a = self._attachment()
+        if a and text.strip():
+            a.paste(text)
+
+    @Slot(int)
+    def answer(self, index):
+        a, q = self._attachment(), self._question
+        if a and q and 0 <= index < len(q.options):
+            a.key(q.options[index][1])
+
+    @Slot()
+    def interrupt(self):
+        a = self._attachment()
+        if a:
+            a.key(CANCEL)
+
+    @Slot()
+    def kill(self):
+        s = self.session(self._selected)
+        if s and s.attachable:
+            self.pool.start(Job(lambda: stop(s.key), self.acted))
+
+    @Slot()
+    def openTerminal(self):
+        s = self.session(self._selected)
+        if not s or not s.attachable:
+            return
+        try:
+            subprocess.Popen(
+                ["konsole", "--profile", "HaltOS", "-e", *attach_argv(s.key)],
+                env=clean_env(os.environ),
+                cwd=s.cwd or None,
+                start_new_session=True,
+            )
+        except OSError as e:
+            self._error = f"Konsole açılamadı: {e}"
+            self.changed.emit()
+
+    @Slot()
+    def archive(self):
+        s = self.session(self._selected)
+        if not s or s.group != "done":
+            return
+        key = s.key
+
+        def work():
+            # claude rm refuses sessions it cannot drop safely; those are only hidden here.
+            if not (s.attachable and remove(key)):
+                hidden.add(hidden.PATH, key)
+            return key
+
+        self.pool.start(Job(work, self.acted))
+
+    @Slot(object, str)
+    def _on_acted(self, result, error):
+        if isinstance(result, str):
+            self.hidden.add(result)
+            a = self.attachments.pop(result, None)
+            if a:
+                a.close()
+        if error:
+            self._error = error
+            self.changed.emit()
+        self.refresh()
+
+    def shutdown(self) -> None:
+        self.timer.stop()
+        self.pool.waitForDone(5000)
+        for a in self.attachments.values():
+            a.close()
+
 
 def _branch(cwd: str) -> str:
     try:
@@ -260,6 +349,7 @@ def run(args) -> int:
         if args.smoke:
             return 0
         controller.start()
+        app.aboutToQuit.connect(controller.shutdown)
         return app.exec()
     finally:
         # QML must go before the controller it binds to, or teardown prints null errors.

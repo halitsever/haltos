@@ -10,6 +10,8 @@ import threading
 PASTE_START = b"\x1b[200~"
 PASTE_END = b"\x1b[201~"
 CLEAR_LINE = b"\x15"
+# Claude Code turns on bracketed paste once its input box can take text.
+READY = b"\x1b[?2004h"
 
 
 def attach_argv(key: str) -> list[str]:
@@ -22,6 +24,9 @@ class Attachment:
         self.proc: subprocess.Popen | None = None
         self.fd = -1
         self.reader: threading.Thread | None = None
+        self.ready = False
+        self.pending: list[bytes] = []
+        self.lock = threading.Lock()
 
     def start(self) -> None:
         master, slave = os.openpty()
@@ -38,21 +43,43 @@ class Attachment:
 
     def _drain(self) -> None:
         """Claude Code blocks once the PTY buffer fills, so its screen output is read and dropped."""
+        tail = b""
         while self.fd >= 0:
             try:
-                ready, _, _ = select.select([self.fd], [], [], 0.2)
-                if ready and not os.read(self.fd, 65536):
-                    return
+                readable, _, _ = select.select([self.fd], [], [], 0.2)
+                if not readable:
+                    continue
+                data = os.read(self.fd, 65536)
             except (OSError, ValueError):
                 return
+            if not data:
+                return
+            if not self.ready and READY in tail + data:
+                self._flush()
+            tail = data[-len(READY) :]
+
+    def _flush(self) -> None:
+        with self.lock:
+            self.ready = True
+            pending, self.pending = self.pending, []
+        for chunk in pending:
+            self._send(chunk)
 
     @property
     def alive(self) -> bool:
         return self.proc is not None and self.proc.poll() is None
 
     def _write(self, data: bytes) -> None:
+        """Text sent before the session is ready would be dropped by claude attach, so it waits."""
         if not self.alive:
             return
+        with self.lock:
+            if not self.ready:
+                self.pending.append(data)
+                return
+        self._send(data)
+
+    def _send(self, data: bytes) -> None:
         try:
             os.write(self.fd, data)
         except OSError:

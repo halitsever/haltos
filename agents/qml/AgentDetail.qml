@@ -33,6 +33,48 @@ ColumnLayout {
             elide: Text.ElideMiddle
             opacity: 0.6
         }
+        QQC2.ToolButton {
+            icon.name: "utilities-terminal"
+            text: "Terminal"
+            enabled: detail.canAct
+            onClicked: detail.controller.openTerminal()
+        }
+        QQC2.ToolButton {
+            icon.name: "media-playback-pause"
+            text: "Kes"
+            enabled: detail.canAct && detail.agent.group === "work"
+            QQC2.ToolTip.text: "Şu anki işi yarıda keser, oturum açık kalır."
+            QQC2.ToolTip.visible: hovered
+            onClicked: detail.controller.interrupt()
+        }
+        QQC2.ToolButton {
+            icon.name: "overflow-menu"
+            enabled: detail.canAct
+            onClicked: more.popup()
+
+            QQC2.Menu {
+                id: more
+                QQC2.MenuItem {
+                    icon.name: "archive-insert"
+                    text: "Arşivle"
+                    enabled: detail.agent.group === "done"
+                    onTriggered: detail.controller.archive()
+                }
+                QQC2.MenuItem {
+                    icon.name: "process-stop"
+                    text: "Durdur…"
+                    onTriggered: confirmStop.open()
+                }
+            }
+        }
+    }
+
+    Kirigami.PromptDialog {
+        id: confirmStop
+        title: "Ajanı durdur"
+        subtitle: (detail.agent.name ?? "") + " durdurulsun mu? Konuşma silinmez."
+        standardButtons: Kirigami.Dialog.Ok | Kirigami.Dialog.Cancel
+        onAccepted: detail.controller.kill()
     }
 
     Kirigami.Separator {
@@ -98,6 +140,26 @@ ColumnLayout {
                     }
                 }
             }
+        }
+    }
+
+    QQC2.TextArea {
+        id: input
+        Layout.fillWidth: true
+        Layout.margins: Kirigami.Units.largeSpacing
+        Layout.maximumHeight: Kirigami.Units.gridUnit * 8
+        visible: detail.hasAgent
+        enabled: detail.canAct
+        wrapMode: TextEdit.Wrap
+        placeholderText: detail.canAct ? "Ajana yaz… Enter gönderir, Shift+Enter yeni satır"
+                                       : "Bu oturum bir terminalde açık, buradan yönetilemez."
+        Keys.onReturnPressed: event => {
+            if (event.modifiers & Qt.ShiftModifier) {
+                event.accepted = false
+                return
+            }
+            detail.controller.send(input.text)
+            input.clear()
         }
     }
 
