@@ -47,6 +47,7 @@ from .search import Index
 from .transcript import CANCEL, PROJECTS, FeedItem, find_transcript, last_model, pending_question, read_feed, short_model
 
 QML = Path(__file__).resolve().parent.parent / "qml" / "Main.qml"
+SCHEME = Path(__file__).resolve().parent / "HaltMono.colors"
 LABELS = {"need": "seni bekliyor", "work": "çalışıyor", "done": "bitti"}
 POLL_MS = 2000
 INDEX_MS = 60_000
@@ -697,6 +698,8 @@ def _single_instance(app: QApplication, controller: Controller) -> QLocalServer 
 def run(args) -> int:
     os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "org.kde.desktop")
     app = QApplication(sys.argv)
+    # The KDE style draws dialogs and menus from this scheme instead of the desktop's.
+    app.setProperty("KDE_COLOR_SCHEME_PATH", str(SCHEME))
     app.setApplicationName("HaltOS Agents")
     app.setDesktopFileName("haltos-agents")
     app.setWindowIcon(QIcon.fromTheme("haltos-agents", QIcon.fromTheme("utilities-terminal")))

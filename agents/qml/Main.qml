@@ -16,9 +16,40 @@ Kirigami.ApplicationWindow {
     minimumWidth: Kirigami.Units.gridUnit * 36
     minimumHeight: Kirigami.Units.gridUnit * 22
     visible: !startHidden
-    font: Kirigami.Theme.fixedWidthFont
+    color: Ansi.bg
+    font: Qt.fontFamilies().indexOf("JetBrains Mono") >= 0
+          ? Qt.font({ family: "JetBrains Mono", pointSize: Kirigami.Theme.fixedWidthFont.pointSize })
+          : Kirigami.Theme.fixedWidthFont
+
+    // HaltMono whatever the desktop theme is, so the app looks the same in every screenshot.
+    Kirigami.Theme.inherit: false
+    Kirigami.Theme.colorSet: Kirigami.Theme.View
+    Kirigami.Theme.backgroundColor: Ansi.bg
+    Kirigami.Theme.alternateBackgroundColor: Ansi.surface
+    Kirigami.Theme.textColor: Ansi.text
+    Kirigami.Theme.disabledTextColor: Ansi.faint
+    Kirigami.Theme.highlightColor: Ansi.accent
+    Kirigami.Theme.highlightedTextColor: Ansi.text
 
     property bool zoomed: false
+
+    component Counter: QQC2.Label {
+        required property string group
+        required property string label
+        readonly property int count: root.controller.counts[group] ?? 0
+        objectName: "counter:" + group
+        visible: count > 0
+        text: count + " " + label
+        font.pointSize: Kirigami.Theme.smallFont.pointSize
+        leftPadding: Kirigami.Units.smallSpacing * 2
+        rightPadding: Kirigami.Units.smallSpacing * 2
+        topPadding: 1
+        bottomPadding: 1
+        background: Rectangle {
+            radius: height / 2
+            color: Qt.alpha(parent.color, 0.14)
+        }
+    }
 
     function focusInput() {
         if (zoomed)
@@ -127,11 +158,48 @@ Kirigami.ApplicationWindow {
         RowLayout {
             Layout.fillWidth: true
             Layout.margins: Kirigami.Units.smallSpacing * 2
+            spacing: Kirigami.Units.largeSpacing
+
+            RowLayout {
+                objectName: "brand"
+                spacing: Kirigami.Units.smallSpacing * 2
+
+                Image {
+                    source: "haltos-mark.svg"
+                    sourceSize.height: Kirigami.Units.gridUnit
+                    Layout.preferredHeight: Kirigami.Units.gridUnit
+                    Layout.preferredWidth: Kirigami.Units.gridUnit
+                }
+                QQC2.Label {
+                    text: "agents"
+                    font.bold: true
+                }
+            }
+
+            Counter {
+                group: "need"
+                label: "seni bekliyor"
+                color: Ansi.yellow
+            }
+            Counter {
+                group: "work"
+                label: "çalışıyor"
+                color: Ansi.accent
+            }
+            Counter {
+                group: "done"
+                label: "bitti"
+                color: Ansi.faint
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
 
             Kirigami.SearchField {
                 id: search
                 objectName: "searchField"
-                Layout.fillWidth: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 16
                 placeholderText: "oturumlarda ara…"
                 delaySearch: true
                 onAccepted: root.controller.search(text)
@@ -150,8 +218,10 @@ Kirigami.ApplicationWindow {
             }
         }
 
-        Kirigami.Separator {
+        Rectangle {
             Layout.fillWidth: true
+            implicitHeight: 1
+            color: Ansi.rule
         }
 
         SearchResults {
@@ -181,8 +251,10 @@ Kirigami.ApplicationWindow {
             Layout.fillHeight: true
         }
 
-        Kirigami.Separator {
+        Rectangle {
             Layout.fillWidth: true
+            implicitHeight: 1
+            color: Ansi.rule
         }
 
         KeyBar {

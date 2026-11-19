@@ -10,7 +10,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
     from PySide6.QtCore import Q_ARG, QEventLoop, QMetaObject, QObject, Qt, QTimer
-    from PySide6.QtGui import QFontInfo
+    from PySide6.QtGui import QColor, QFontDatabase, QFontInfo
     from PySide6.QtQml import QQmlApplicationEngine
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtWidgets import QApplication
@@ -411,7 +411,7 @@ class BannerTest(unittest.TestCase):
 
 
 @unittest.skipIf(A is None, "PySide6 not installed")
-class GridTest(unittest.TestCase):
+class QmlCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication(sys.argv)
@@ -441,6 +441,32 @@ class GridTest(unittest.TestCase):
 
     def trigger(self, action):
         QMetaObject.invokeMethod(self.root, "trigger", Q_ARG(str, action))
+
+    def item(self, name):
+        return self.root.findChild(QQuickItem, name)
+
+
+@unittest.skipIf(A is None, "PySide6 not installed")
+class ThemeTest(QmlCase):
+    def test_window_is_haltmono(self):
+        self.assertEqual(self.root.property("color"), QColor("#09090b"))
+        if "JetBrains Mono" in QFontDatabase.families():
+            self.assertEqual(self.root.property("font").family(), "JetBrains Mono")
+
+    def test_counters(self):
+        need = dataclasses.replace(session("a"), status="waiting")
+        work = [dataclasses.replace(session(k), status="busy", state="") for k in "bc"]
+        self.poll(need, *work)
+        self.assertEqual(self.item("counter:need").property("text"), "1 seni bekliyor")
+        self.assertEqual(self.item("counter:work").property("text"), "2 çalışıyor")
+        self.assertFalse(self.item("counter:done").property("visible"))
+        self.assertFalse(self.item("emptyState").property("visible"))
+        self.poll()
+        self.assertTrue(self.item("emptyState").property("visible"))
+
+
+@unittest.skipIf(A is None, "PySide6 not installed")
+class GridTest(QmlCase):
 
     def tile(self, key):
         items = self.grid.property("contentItem").childItems()

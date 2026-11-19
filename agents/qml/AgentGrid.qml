@@ -51,11 +51,28 @@ Item {
         }
     }
 
-    QQC2.Label {
+    Column {
+        objectName: "emptyState"
         anchors.centerIn: parent
         visible: grid.count === 0
-        text: "henüz ajan yok · ctrl+n yeni"
-        color: Kirigami.Theme.disabledTextColor
+        spacing: Kirigami.Units.largeSpacing
+
+        Image {
+            anchors.horizontalCenter: parent.horizontalCenter
+            source: "haltos-mark.svg"
+            sourceSize.height: 64
+            opacity: 0.85
+        }
+        QQC2.Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "henüz ajan yok"
+        }
+        QQC2.Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: Ansi.paint(Ansi.accent, "n") + " yeni ajan"
+            textFormat: Text.StyledText
+            color: Ansi.faint
+        }
     }
 
     Kirigami.PromptDialog {
