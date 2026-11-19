@@ -10,7 +10,14 @@ Item {
 
     signal zoomRequested()
 
+    // currentIndex follows the user, never the controller: the view hands focus to a new current item,
+    // so binding it to the selection would let a poll pull focus.
     function focusSelected() {
+        const i = root.controller.selectedIndex
+        if (i < 0)
+            return
+        grid.currentIndex = i
+        grid.positionViewAtIndex(i, GridView.Contain)
         if (grid.currentItem)
             grid.currentItem.focusInput()
     }
@@ -27,21 +34,20 @@ Item {
         clip: true
         cellWidth: Math.floor(width / columns)
         cellHeight: Kirigami.Units.gridUnit * 10
-        currentIndex: root.controller.selectedIndex
         keyNavigationEnabled: false
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
-        onCurrentIndexChanged: {
-            if (currentIndex >= 0)
-                positionViewAtIndex(currentIndex, GridView.Contain)
-        }
 
         QQC2.ScrollBar.vertical: QQC2.ScrollBar {}
 
         delegate: AgentTile {
             controller: root.controller
             onZoomRequested: root.zoomRequested()
-            onStopRequested: confirmStop.open()
+            onStopRequested: {
+                confirmStop.target = agentKey
+                confirmStop.targetName = name
+                confirmStop.open()
+            }
         }
     }
 
@@ -54,9 +60,18 @@ Item {
 
     Kirigami.PromptDialog {
         id: confirmStop
+        objectName: "stopDialog"
+
+        // The selection can change while the dialog is open, so it stops the agent it asked about.
+        property string target
+        property string targetName
+
         title: "Ajanı durdur"
-        subtitle: (root.controller.selected.name ?? "") + " durdurulsun mu? Konuşma silinmez."
+        subtitle: targetName + " durdurulsun mu? Konuşma silinmez."
         standardButtons: Kirigami.Dialog.Ok | Kirigami.Dialog.Cancel
-        onAccepted: root.controller.kill()
+        onAccepted: {
+            root.controller.select(target)
+            root.controller.kill()
+        }
     }
 }

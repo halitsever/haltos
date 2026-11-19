@@ -17,6 +17,7 @@ FocusScope {
     required property bool attachable
     required property var tail
     required property var question
+    required property int index
 
     readonly property string agentKey: key
     readonly property bool selected: key === controller.selectedKey
@@ -37,15 +38,23 @@ FocusScope {
         fn()
     }
 
-    function choose(index: int) {
-        act(() => controller.answer(index))
+    function choose(option: int) {
+        act(() => controller.answer(option))
+    }
+
+    function loadDraft() {
+        const text = controller.draft(key)
+        if (input.text !== text) {
+            input.text = text
+            input.cursorPosition = input.length
+        }
     }
 
     Connections {
         target: tile.GridView.view
         function onVisibleChanged() {
             if (tile.GridView.view.visible)
-                input.text = tile.controller.draft(tile.key)
+                tile.loadDraft()
         }
     }
 
@@ -221,10 +230,14 @@ FocusScope {
                     enabled: tile.attachable
                     wrapMode: TextEdit.Wrap
                     placeholderText: tile.attachable ? "" : "bu oturum bir terminalde açık"
-                    Component.onCompleted: text = tile.controller.draft(tile.key)
+                    Component.onCompleted: tile.loadDraft()
                     onTextChanged: tile.controller.setDraft(tile.key, text)
                     onActiveFocusChanged: {
-                        if (activeFocus && !tile.selected)
+                        if (!activeFocus)
+                            return
+                        // Keep the view's current item on the focused tile, so its own moves never hand focus elsewhere.
+                        tile.GridView.view.currentIndex = tile.index
+                        if (!tile.selected)
                             tile.controller.select(tile.key)
                     }
                     Keys.onEscapePressed: tile.act(() => tile.controller.interrupt())

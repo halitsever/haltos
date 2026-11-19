@@ -164,6 +164,7 @@ class Controller(QObject):
         self._feed_stamp = None
         self._model = ""
         self._tiles: dict[str, tuple] = {}
+        self._windows: dict[str, int] = {}
         self._drafts: dict[str, str] = {}
         self._branches: dict[str, tuple[float, str]] = {}
         self._busy = False
@@ -287,10 +288,13 @@ class Controller(QObject):
             elif stamp is None:
                 tiles[s.key] = (None, [], {})
             else:
-                for size in TILE_BYTES:
+                # Start from the window that was enough last time, so a busy agent does not climb every poll.
+                start = self._windows.get(s.key, TILE_BYTES[0])
+                for size in [b for b in TILE_BYTES if b >= start]:
                     items = read_feed(path, TILE_LINES, size)
                     if len(items) >= TILE_LINES or size >= st.st_size:
                         break
+                self._windows[s.key] = size
                 q = pending_question(path, waiting=s.status == "waiting", tail_bytes=size)
                 question = {} if q is None else {"text": q.text, "options": [label for label, _ in q.options]}
                 tiles[s.key] = (stamp, [_item(i) for i in items], question)
@@ -302,8 +306,6 @@ class Controller(QObject):
         self._poll_error = error
         if sessions is not None:
             self.sessions = [s for s in sessions if s.key not in self.hidden]
-            live = {s.key for s in self.sessions}
-            self._drafts = {k: v for k, v in self._drafts.items() if k in live}
             self._prune_attachments()
             order = {g: i for i, g in enumerate(GROUPS)}
             ordered = sorted(self.sessions, key=lambda s: (order[s.group], -s.started_at))
@@ -426,6 +428,14 @@ class Controller(QObject):
             return
         here = keys.index(self._selected) if self._selected in keys else 0
         self.select(keys[max(0, min(len(keys) - 1, here + delta))])
+
+    @Slot(int)
+    def moveRow(self, delta):
+        """Grid row moves leave the selection alone at the edges instead of sliding sideways."""
+        keys = [row["key"] for row in self._agents.rows]
+        here = keys.index(self._selected) if self._selected in keys else 0
+        if 0 <= here + delta < len(keys):
+            self.select(keys[here + delta])
 
     @Slot()
     def kill(self):

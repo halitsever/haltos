@@ -250,6 +250,24 @@ class ControllerTest(unittest.TestCase):
         self.assertEqual(row["tail"][-1]["kind"], "prompt")
         self.assertEqual(row["tail"][-1]["body"], "fix login")
 
+    def test_tile_remembers_the_window_that_worked(self):
+        path = self._transcript(
+            {"type": "user", "message": {"content": [{"type": "text", "text": "fix login"}]}},
+            {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "t", "content": "x" * 300_000}]}},
+        )
+        calls = []
+        orig_find, orig_read = A.find_transcript, A.read_feed
+        A.find_transcript = lambda sid: path
+        A.read_feed = lambda *a, **k: calls.append(a[2]) or orig_read(*a, **k)
+        try:
+            self.c._read_tiles([session("a")])
+            calls.clear()
+            os.utime(path, (1, 1))
+            self.c._read_tiles([session("a")])
+        finally:
+            A.find_transcript, A.read_feed = orig_find, orig_read
+        self.assertEqual(calls, [512_000])
+
     def test_tile_reads_past_a_huge_last_row(self):
         path = self._transcript(
             {"type": "user", "message": {"content": [{"type": "text", "text": "fix login"}]}},
@@ -297,8 +315,8 @@ class ControllerTest(unittest.TestCase):
         self.c._on_polled([session("a"), session("b")], "")
         self.c.setDraft("a", "half typed")
         self.assertEqual((self.c.draft("a"), self.c.draft("b")), ("half typed", ""))
-        self.c._on_polled([session("b")], "")
-        self.assertEqual(self.c.draft("a"), "")
+        self.c._on_polled([], "")
+        self.assertEqual(self.c.draft("a"), "half typed")
 
     def test_rows_carry_age_and_feed_roles(self):
         for role in ("age", "tail", "question", "project"):
@@ -511,6 +529,63 @@ class GridTest(unittest.TestCase):
         self.assertEqual(self.c.selectedIndex, 1)
         self.trigger("up")
         self.assertEqual(self.c.selectedIndex, 0)
+
+    def test_launched_agent_does_not_take_focus(self):
+        self.poll(session("a"), session("b"))
+        self.c.select("a")
+        field = self.tile_input("a")
+        field.forceActiveFocus()
+        field.setProperty("text", "typing")
+        self.c._want = "c"
+        self.poll(session("a"), session("b"), session("c"))
+        self.assertEqual(self.c.selectedKey, "c")
+        self.assertTrue(field.hasActiveFocus())
+
+    def test_zoom_keeps_cursor_at_end(self):
+        self.poll(session("a"))
+        field = self.tile_input("a")
+        field.forceActiveFocus()
+        field.setProperty("text", "fix the")
+        self.trigger("zoom")
+        self.wait()
+        full = self.root.findChild(QQuickItem, "agentInput")
+        self.assertEqual(full.property("cursorPosition"), 7)
+        full.setProperty("text", "fix the tests")
+        self.trigger("zoom")
+        self.wait()
+        self.assertEqual(field.property("cursorPosition"), 13)
+
+    def test_row_moves_stay_in_their_column(self):
+        self.poll(*(session(k) for k in "abcde"))
+        cols = self.grid.property("columns")
+        self.assertGreaterEqual(cols, 2)
+        self.c.select("b")
+        self.trigger("up")
+        self.assertEqual(self.c.selectedKey, "b")
+        last = self.c._agents.rows[-1]["key"]
+        self.c.select(self.c._agents.rows[len(self.c._agents.rows) - 2]["key"])
+        here = self.c.selectedIndex
+        self.trigger("down")
+        self.assertEqual(self.c.selectedIndex, here if here + cols > 4 else here + cols)
+        self.assertNotEqual(self.c.selectedKey, last if here + cols > 4 else None)
+
+    def test_stop_dialog_stops_the_agent_it_asked_about(self):
+        stopped = []
+        orig = A.stop
+        A.stop = lambda key: stopped.append(key)
+        self.c.pool.start = lambda job: job.run()
+        try:
+            self.poll(session("a"), session("b"))
+            self.c.select("a")
+            QMetaObject.invokeMethod(self.tile("a"), "stopRequested")
+            self.wait()
+            dialog = self.root.findChild(QObject, "stopDialog")
+            self.c.select("b")
+            QMetaObject.invokeMethod(dialog, "accept")
+            self.wait()
+        finally:
+            A.stop = orig
+        self.assertEqual(stopped, ["a"])
 
     def test_narrow_window_has_one_column(self):
         self.root.setProperty("width", self.root.property("minimumWidth"))

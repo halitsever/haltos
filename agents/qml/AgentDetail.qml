@@ -20,10 +20,18 @@ ColumnLayout {
 
     // The tile and this view edit the same per-agent draft, so reload it whenever either side may have changed it.
     readonly property string key: controller.selectedKey
-    onKeyChanged: input.text = controller.draft(key)
+    onKeyChanged: loadDraft()
     onVisibleChanged: {
         if (visible)
-            input.text = controller.draft(key)
+            loadDraft()
+    }
+
+    function loadDraft() {
+        const text = controller.draft(key)
+        if (input.text !== text) {
+            input.text = text
+            input.cursorPosition = input.length
+        }
     }
 
     spacing: 0
@@ -79,7 +87,10 @@ ColumnLayout {
                 }
                 QQC2.MenuItem {
                     text: "durdur…"
-                    onTriggered: confirmStop.open()
+                    onTriggered: {
+                        confirmStop.target = detail.agent.key
+                        confirmStop.open()
+                    }
                 }
             }
         }
@@ -87,10 +98,17 @@ ColumnLayout {
 
     Kirigami.PromptDialog {
         id: confirmStop
+
+        // The selection can change while the dialog is open, so it stops the agent it asked about.
+        property string target
+
         title: "Ajanı durdur"
         subtitle: (detail.agent.name ?? "") + " durdurulsun mu? Konuşma silinmez."
         standardButtons: Kirigami.Dialog.Ok | Kirigami.Dialog.Cancel
-        onAccepted: detail.controller.kill()
+        onAccepted: {
+            detail.controller.select(target)
+            detail.controller.kill()
+        }
     }
 
     Kirigami.Separator {
