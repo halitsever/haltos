@@ -148,3 +148,32 @@ An embedded terminal (Qt 6 QMLTermWidget built and shipped from CI, or xterm.js 
 - Module layout, the polling interval, the FTS schema and the transcript parsing details.
 - Agent naming rules, layout spacing and empty states.
 - Test strategy. The repo has no Python tests yet. Unit tests for state mapping, transcript parsing, search and the `claude agents --json` parser are expected.
+
+## Probe results (2026-11-19, Claude Code 2.1.326)
+
+Probed against throwaway background sessions in a scratch git repo.
+
+**`claude agents --json` fields**
+- Background sessions have `id`, `sessionId`, `name`, `cwd`, `kind: "background"`, `startedAt` (ms) and `state`. They also have `pid` and `status` while their process runs.
+- Interactive sessions have `pid` and `status`, with no `id` and no `state`.
+- `state` values: `working`, `blocked`, `done`. Claude Code classifies the turn. A reply that asks the user something ("Hi! What can I help you with?") ends `blocked`. A completed task ends `done`. A finished background session whose process is gone keeps its last `state`.
+- `status` values: `busy`, `idle`, `waiting`. `waiting` means a permission prompt or a question is open on screen.
+- So the spec's `busy` and `idle` exist only as `status`. Grouping uses: `status: waiting` or `state: blocked` → seni bekliyor; `state: working` or `status: busy` → çalışıyor; `state: done` or `status: idle` → bitti.
+
+**Starting**
+- `claude --bg` refuses a directory that has not been trusted yet: `Workspace not trusted. Run claude in <dir> once and accept the trust prompt, then retry.` (exit code non-zero). The app must surface this and offer to open `claude` in Konsole there so the owner can accept the prompt.
+- Transcripts live under `~/.claude/projects/<encoded cwd>/<sessionId>.jsonl`. The encoding is lossy (`/home/halit/.cache` → `-home-halit--cache`), so locating by globbing for the sessionId is the right call.
+
+**Writing into `claude attach` on a PTY**
+- `\x1b[200~<text>\x1b[201~\r` delivers the text as one prompt, multi-line included. Slash commands work the same way (`/cost` opened its dialog).
+- `\x1b` interrupts a running turn. Claude Code may put the interrupted prompt back into the input box, so the app sends `\x15` (Ctrl+U) before each paste to start from an empty input.
+- Two attaches at once coexist: a second `claude attach` received the same live output while the first stayed attached. The app can keep its PTY open while Konsole is attached.
+
+**Prompt keys**
+
+| Prompt | Approve / pick | Deny / cancel |
+|---|---|---|
+| Permission prompt (`status: waiting`, pending `tool_use` in transcript) | `1` (Yes) | `\x1b` (Esc) |
+| AskUserQuestion with one question | `<N>` picks option N at once, no Enter needed | `\x1b` |
+
+The AskUserQuestion `tool_use` input carries `questions[].question` and `questions[].options[].label`, so the question card can be built from the transcript. Questions with more than one entry in `questions` get no quick answers, only "Terminali aç".
