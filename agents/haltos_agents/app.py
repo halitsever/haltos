@@ -88,8 +88,9 @@ class Job(QRunnable):
     def run(self):
         try:
             self.done.emit(self.fn(), "")
-        except ClaudeError as e:
-            self.done.emit(None, str(e))
+        except Exception as e:  # noqa: BLE001
+            # Anything uncaught here would leave the poller marked busy forever.
+            self.done.emit(None, str(e) or type(e).__name__)
 
 
 class Controller(QObject):
@@ -120,7 +121,9 @@ class Controller(QObject):
         self.sessions: list[Session] = []
         self.hidden: set[str] = hidden.load()
         self.attachments: dict[str, Attachment] = {}
-        self._error = ""
+        self._poll_error = ""
+        self._action_error = ""
+        self._last_launch: tuple[list[str], str] | None = None
         self._selected = ""
         self._question = None
         self._feed_stamp = None
@@ -148,7 +151,8 @@ class Controller(QObject):
 
     @Property(str, notify=changed)
     def error(self):
-        return self._error
+        """Action errors stay until dismissed; poll errors clear on the next good poll."""
+        return self._action_error or self._poll_error
 
     @Property(str, notify=changed)
     def untrustedDir(self):
@@ -213,9 +217,10 @@ class Controller(QObject):
     @Slot(object, str)
     def _on_polled(self, sessions, error):
         self._busy = False
-        self._error = error
+        self._poll_error = error
         if sessions is not None:
             self.sessions = [s for s in sessions if s.key not in self.hidden]
+            self._prune_attachments()
             order = {g: i for i, g in enumerate(GROUPS)}
             ordered = sorted(self.sessions, key=lambda s: (order[s.group], -s.started_at))
             self._agents.replace([self._row(s) for s in ordered])
@@ -267,6 +272,17 @@ class Controller(QObject):
         self._load_feed(force=True)
         self.changed.emit()
 
+    def _prune_attachments(self) -> None:
+        """Each attachment is a node process, so ones for gone or unreachable sessions are closed."""
+        live = {s.key: s for s in self.sessions}
+        for key, a in list(self.attachments.items()):
+            if key in live and not a.failed:
+                continue
+            a.close()
+            del self.attachments[key]
+            if a.failed and key in live:
+                self._action_error = f"{live[key].name} oturumuna bağlanılamadı. Terminal ile dene."
+
     def _attachment(self) -> Attachment | None:
         """One live `claude attach` per agent, opened the first time the owner acts on it."""
         s = self.session(self._selected)
@@ -274,27 +290,40 @@ class Controller(QObject):
             return None
         a = self.attachments.get(s.key)
         if a is None or not a.alive:
+            if a is not None:
+                a.close()
             a = self.attachments[s.key] = Attachment(attach_argv(s.key), clean_env(os.environ))
-            a.start()
+            try:
+                a.start()
+            except ClaudeError:
+                del self.attachments[s.key]
+                raise
         return a
 
-    @Slot(str)
+    def _act(self, fn) -> bool:
+        try:
+            a = self._attachment()
+        except ClaudeError as e:
+            a, self._action_error = None, str(e)
+        ok = bool(a) and fn(a)
+        if not ok:
+            self._action_error = self._action_error or "Ajana yazılamadı. Terminal ile dene."
+            self.changed.emit()
+        return ok
+
+    @Slot(str, result=bool)
     def send(self, text):
-        a = self._attachment()
-        if a and text.strip():
-            a.paste(text)
+        return bool(text.strip()) and self._act(lambda a: a.paste(text))
 
     @Slot(int)
     def answer(self, index):
-        a, q = self._attachment(), self._question
-        if a and q and 0 <= index < len(q.options):
-            a.key(q.options[index][1])
+        q = self._question
+        if q and 0 <= index < len(q.options):
+            self._act(lambda a: a.key(q.options[index][1]))
 
     @Slot()
     def interrupt(self):
-        a = self._attachment()
-        if a:
-            a.key(CANCEL)
+        self._act(lambda a: a.key(CANCEL))
 
     @Slot()
     def kill(self):
@@ -315,7 +344,7 @@ class Controller(QObject):
                 start_new_session=True,
             )
         except OSError as e:
-            self._error = f"Konsole açılamadı: {e}"
+            self._action_error = f"Konsole açılamadı: {e}"
             self.changed.emit()
 
     @Slot()
@@ -341,7 +370,7 @@ class Controller(QObject):
             if a:
                 a.close()
         if error:
-            self._error = error
+            self._action_error = error
             self.changed.emit()
         self.refresh()
 
@@ -385,7 +414,13 @@ class Controller(QObject):
 
     @Slot()
     def dismissError(self):
-        self._error = self._untrusted = ""
+        self._action_error = self._poll_error = ""
+        self.changed.emit()
+
+    @Slot()
+    def dismissUntrusted(self):
+        self._untrusted = ""
+        self._last_launch = None
         self.changed.emit()
 
     @Slot()
@@ -402,6 +437,8 @@ class Controller(QObject):
         return p.stdout.strip() == "true"
 
     def _launch(self, argv: list[str], cwd: str):
+        self._last_launch = (argv, cwd)
+
         def work():
             try:
                 return launch(argv, cwd)
@@ -422,22 +459,37 @@ class Controller(QObject):
     def resume(self, session_id, cwd):
         self._query = ""
         self._results.replace([])
+        live = next((s for s in self.sessions if s.session_id == session_id), None)
+        if live:
+            # Resuming a running session would start a second copy of the same conversation.
+            self._selected = ""
+            self.select(live.key)
+            return
         self._launch(resume_argv(session_id), cwd or str(Path.home()))
+
+    @Slot()
+    def retryLaunch(self):
+        """Runs the launch the trust prompt blocked, so the owner does not retype the task."""
+        last, self._untrusted = self._last_launch, ""
+        if last:
+            self._launch(*last)
+        self.changed.emit()
 
     @Slot(object, str)
     def _on_launched(self, result, error):
-        self._error, self._untrusted = error, ""
+        if error:
+            self._action_error = error
         if isinstance(result, UntrustedDir):
             self._untrusted = result.cwd
         elif isinstance(result, str):
-            self._want = result
+            self._want, self._untrusted = result, ""
         self.changed.emit()
         self.refresh()
 
     @Slot()
     def trustInKonsole(self):
         """Opens claude once in that folder, where its own trust prompt can be answered."""
-        cwd, self._untrusted = self._untrusted, ""
+        cwd = self._untrusted
         if cwd:
             subprocess.Popen(
                 ["konsole", "--profile", "HaltOS", "--workdir", cwd, "-e", "claude"],

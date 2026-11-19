@@ -48,10 +48,19 @@ def _rows(path: Path, tail_bytes: int):
 
 
 def _blocks(row):
-    content = (row.get("message") or {}).get("content")
+    message = row.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
     if isinstance(content, str):
         return [{"type": "text", "text": content}]
-    return content if isinstance(content, list) else []
+    return [b for b in content if isinstance(b, dict)] if isinstance(content, list) else []
+
+
+def _text(block) -> str:
+    return block.get("text") if isinstance(block.get("text"), str) else ""
+
+
+def _input(block) -> dict:
+    return block.get("input") if isinstance(block.get("input"), dict) else {}
 
 
 def tool_summary(name: str, args: dict) -> str:
@@ -67,14 +76,14 @@ def read_feed(path: Path, limit: int = 50, tail_bytes: int = 512_000) -> list[Fe
         for b in _blocks(row):
             t = b.get("type")
             if kind == "user" and t == "text":
-                text = b.get("text", "").strip()
+                text = _text(b).strip()
                 # Command echoes and injected context arrive as tagged user text.
                 if text and not text.startswith("<"):
                     items.append(FeedItem("prompt", text))
-            elif kind == "assistant" and t == "text" and b.get("text", "").strip():
-                items.append(FeedItem("text", b["text"].strip()))
+            elif kind == "assistant" and t == "text" and _text(b).strip():
+                items.append(FeedItem("text", _text(b).strip()))
             elif kind == "assistant" and t == "tool_use":
-                items.append(FeedItem("tool", tool_summary(b.get("name", "?"), b.get("input") or {})))
+                items.append(FeedItem("tool", tool_summary(str(b.get("name", "?")), _input(b))))
     return items[-limit:]
 
 
@@ -90,15 +99,15 @@ def pending_question(path: Path, waiting: bool, tail_bytes: int = 512_000) -> Qu
     if not open_calls:
         return None
     call = list(open_calls.values())[-1]
-    args = call.get("input") or {}
+    args = _input(call)
     if call.get("name") == "AskUserQuestion":
-        questions = args.get("questions") or [{}]
+        questions = [q for q in args.get("questions") or [] if isinstance(q, dict)] or [{}]
         first = questions[0]
         options = []
         if len(questions) == 1:
-            labels = [o.get("label", "") for o in first.get("options", [])]
+            labels = [str(o.get("label", "")) for o in first.get("options") or [] if isinstance(o, dict)]
             options = [(label, str(i).encode()) for i, label in enumerate(labels, 1) if i <= 9]
-        return Question(first.get("question", ""), options)
+        return Question(str(first.get("question", "")), options)
     if not waiting:
         return None
-    return Question(tool_summary(call.get("name", "?"), args), [("İzin ver", APPROVE), ("Reddet", CANCEL)])
+    return Question(tool_summary(str(call.get("name", "?")), args), [("İzin ver", APPROVE), ("Reddet", CANCEL)])

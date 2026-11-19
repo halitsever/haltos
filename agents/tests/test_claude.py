@@ -1,4 +1,5 @@
 import subprocess
+import tempfile
 import unittest
 
 from haltos_agents.claude import (
@@ -125,27 +126,51 @@ class CliTest(unittest.TestCase):
             out = "Started probe\n  claude attach 3c4701cd    open in this terminal\n  claude logs 3c4701cd\n"
             return subprocess.CompletedProcess(argv, 0, out, "")
 
-        self.assertEqual(launch(["claude", "--bg", "x"], "/w", run=run), "3c4701cd")
-        self.assertEqual(seen["cwd"], "/w")
+        cwd = tempfile.mkdtemp()
+        self.assertEqual(launch(["claude", "--bg", "x"], cwd, run=run), "3c4701cd")
+        self.assertEqual(seen["cwd"], cwd)
         self.assertNotIn("CLAUDECODE", seen["env"])
 
     def test_launch_untrusted_dir(self):
-        msg = "Workspace not trusted. Run `claude` in /w once and accept the trust prompt, then retry."
+        cwd = tempfile.mkdtemp()
+        msg = f"Workspace not trusted. Run `claude` in {cwd} once and accept the trust prompt, then retry."
         with self.assertRaises(UntrustedDir) as ctx:
-            launch(["claude", "--bg", "x"], "/w", run=done("", 1, msg))
-        self.assertEqual(ctx.exception.cwd, "/w")
+            launch(["claude", "--bg", "x"], cwd, run=done("", 1, msg))
+        self.assertEqual(ctx.exception.cwd, cwd)
 
     def test_launch_other_failure(self):
         with self.assertRaisesRegex(ClaudeError, "bad model"):
-            launch(["claude", "--bg", "x"], "/w", run=done("", 1, "bad model"))
+            launch(["claude", "--bg", "x"], tempfile.mkdtemp(), run=done("", 1, "bad model"))
 
     def test_launch_without_id_in_output(self):
         with self.assertRaises(ClaudeError):
-            launch(["claude", "--bg", "x"], "/w", run=done("weird"))
+            launch(["claude", "--bg", "x"], tempfile.mkdtemp(), run=done("weird"))
 
     def test_resume_argv(self):
         self.assertEqual(resume_argv("abc"), ["claude", "--bg", "--resume", "abc"])
 
+
+class RobustnessTest(unittest.TestCase):
+    def test_odd_field_types_are_coerced(self):
+        row = '{"id":"a1","kind":"background","sessionId":"s-1","startedAt":"1794845326807","cwd":null,"name":null,"state":7}'
+        s = parse_agents(f"[{row}]")[0]
+        self.assertEqual((s.cwd, s.name, s.state), ("", "s-1", "7"))
+        self.assertAlmostEqual(s.started_at, 1794845326.807)
+
+    def test_unparseable_row_is_skipped_not_fatal(self):
+        bad = '{"id":"b","kind":"background","sessionId":{"x":1},"startedAt":"soon"}'
+        self.assertEqual([s.key for s in parse_agents(f"[{bad}, {IA}]")], ["pid:4634"])
+
+    def test_non_executable_claude_raises_claude_error(self):
+        def run(*a, **k):
+            raise PermissionError("claude")
+
+        with self.assertRaises(ClaudeError):
+            list_sessions(run=run)
+
+    def test_launch_missing_directory_names_it(self):
+        with self.assertRaisesRegex(ClaudeError, "/nope/missing"):
+            launch(["claude", "--bg", "x"], "/nope/missing", run=done("claude attach x1"))
 
 if __name__ == "__main__":
     unittest.main()

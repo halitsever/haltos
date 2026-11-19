@@ -1,3 +1,4 @@
+import os
 import sys
 import tempfile
 import time
@@ -5,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from haltos_agents.attach import Attachment, attach_argv
+from haltos_agents.claude import ClaudeError
 
 RECORDER = """
 import os, sys, termios, time, tty
@@ -83,6 +85,33 @@ class AttachTest(unittest.TestCase):
     def test_attach_argv(self):
         self.assertEqual(attach_argv("3c4701cd"), ["claude", "attach", "3c4701cd"])
 
+
+class AttachFailureTest(unittest.TestCase):
+    def fds(self):
+        return len(os.listdir("/proc/self/fd"))
+
+    def test_missing_binary_raises_and_leaks_no_fds(self):
+        before = self.fds()
+        a = Attachment(["/nonexistent/claude-binary"], {})
+        with self.assertRaises(ClaudeError):
+            a.start()
+        self.assertEqual(self.fds(), before)
+
+    def test_never_ready_times_out_and_drops_text(self):
+        a = Attachment(["sleep", "30"], {}, ready_timeout=0.5)
+        a.start()
+        self.addCleanup(a.close)
+        self.assertTrue(a.paste("kaybolmasın"))
+        self.assertTrue(wait_until(lambda: a.failed, 3))
+        self.assertEqual(a.pending, [])
+        self.assertIs(a.paste("tekrar"), False)
+
+    def test_paste_on_dead_child_returns_false(self):
+        a = Attachment(["true"], {})
+        a.start()
+        wait_until(lambda: not a.alive)
+        self.assertIs(a.paste("x"), False)
+        a.close()
 
 if __name__ == "__main__":
     unittest.main()

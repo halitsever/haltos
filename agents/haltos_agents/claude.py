@@ -60,23 +60,30 @@ def parse_agents(text: str) -> list[Session]:
         raise ClaudeError("claude agents did not return a list")
     sessions = []
     for r in rows:
-        if not isinstance(r, dict) or not r.get("sessionId"):
+        try:
+            sessions.append(_session(r))
+        except (TypeError, ValueError, KeyError):
+            # One odd row from a newer CLI must not hide every other agent.
             continue
-        background = r.get("kind") == "background" and bool(r.get("id"))
-        sessions.append(
-            Session(
-                key=r["id"] if background else f"pid:{r.get('pid')}",
-                session_id=r["sessionId"],
-                name=r.get("name") or r["sessionId"][:8],
-                cwd=r.get("cwd", ""),
-                kind=r.get("kind", ""),
-                state=r.get("state") or "",
-                status=r.get("status") or "",
-                started_at=(r.get("startedAt") or 0) / 1000,
-                attachable=background,
-            )
-        )
     return sessions
+
+
+def _session(r: dict) -> Session:
+    sid = r.get("sessionId")
+    if not isinstance(sid, str) or not sid:
+        raise ValueError("no session id")
+    background = r.get("kind") == "background" and bool(r.get("id"))
+    return Session(
+        key=str(r["id"]) if background else f"pid:{r.get('pid')}",
+        session_id=sid,
+        name=str(r.get("name") or sid[:8]),
+        cwd=str(r.get("cwd") or ""),
+        kind=str(r.get("kind") or ""),
+        state=str(r.get("state") or ""),
+        status=str(r.get("status") or ""),
+        started_at=float(r.get("startedAt") or 0) / 1000,
+        attachable=background,
+    )
 
 
 def clean_env(environ: Mapping[str, str]) -> dict[str, str]:
@@ -102,6 +109,8 @@ def _call(argv: list[str], run, cwd: str | None = None) -> subprocess.CompletedP
         return run(argv, capture_output=True, text=True, env=clean_env(os.environ), timeout=30, cwd=cwd)
     except FileNotFoundError as e:
         raise ClaudeError("claude is not installed or not on PATH") from e
+    except OSError as e:
+        raise ClaudeError(f"claude could not be started: {e}") from e
     except subprocess.TimeoutExpired as e:
         raise ClaudeError(f"{' '.join(argv[:2])} timed out") from e
 
@@ -126,6 +135,8 @@ def remove(key: str, run=subprocess.run) -> bool:
 
 def launch(argv: list[str], cwd: str, run=subprocess.run) -> str:
     """Starts a background session and returns the id `claude attach` takes."""
+    if not os.path.isdir(cwd):
+        raise ClaudeError(f"{cwd} klasörü yok.")
     p = _call(argv, run, cwd=cwd)
     out = (p.stdout or "") + (p.stderr or "")
     if p.returncode != 0:

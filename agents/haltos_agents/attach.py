@@ -6,6 +6,9 @@ import struct
 import subprocess
 import termios
 import threading
+import time
+
+from .claude import ClaudeError
 
 PASTE_START = b"\x1b[200~"
 PASTE_END = b"\x1b[201~"
@@ -19,8 +22,9 @@ def attach_argv(key: str) -> list[str]:
 
 
 class Attachment:
-    def __init__(self, argv: list[str], env: dict[str, str], cols: int = 120, rows: int = 40):
-        self.argv, self.env, self.size = argv, env, (rows, cols)
+    def __init__(self, argv: list[str], env: dict[str, str], cols: int = 120, rows: int = 40, ready_timeout: float = 15.0):
+        self.argv, self.env, self.size, self.ready_timeout = argv, env, (rows, cols), ready_timeout
+        self.failed = False
         self.proc: subprocess.Popen | None = None
         self.fd = -1
         self.reader: threading.Thread | None = None
@@ -33,10 +37,16 @@ class Attachment:
         fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", *self.size, 0, 0))
         env = dict(self.env, TERM=self.env.get("TERM", "xterm-256color"))
         # Popen instead of pty.fork: forking a threaded Qt process can deadlock in the child.
-        self.proc = subprocess.Popen(
-            self.argv, stdin=slave, stdout=slave, stderr=slave, env=env, start_new_session=True, close_fds=True
-        )
-        os.close(slave)
+        try:
+            self.proc = subprocess.Popen(
+                self.argv, stdin=slave, stdout=slave, stderr=slave, env=env, start_new_session=True, close_fds=True
+            )
+        except OSError as e:
+            os.close(master)
+            raise ClaudeError(f"{self.argv[0]} could not be started: {e}") from e
+        finally:
+            os.close(slave)
+        self.started = time.monotonic()
         self.fd = master
         self.reader = threading.Thread(target=self._drain, daemon=True)
         self.reader.start()
@@ -48,6 +58,9 @@ class Attachment:
             try:
                 readable, _, _ = select.select([self.fd], [], [], 0.2)
                 if not readable:
+                    if not self.ready and time.monotonic() - self.started > self.ready_timeout:
+                        with self.lock:
+                            self.failed, self.pending = True, []
                     continue
                 data = os.read(self.fd, 65536)
             except (OSError, ValueError):
@@ -69,28 +82,29 @@ class Attachment:
     def alive(self) -> bool:
         return self.proc is not None and self.proc.poll() is None
 
-    def _write(self, data: bytes) -> None:
+    def _write(self, data: bytes) -> bool:
         """Text sent before the session is ready would be dropped by claude attach, so it waits."""
-        if not self.alive:
-            return
+        if not self.alive or self.failed:
+            return False
         with self.lock:
             if not self.ready:
                 self.pending.append(data)
-                return
-        self._send(data)
+                return True
+        return self._send(data)
 
-    def _send(self, data: bytes) -> None:
+    def _send(self, data: bytes) -> bool:
         try:
             os.write(self.fd, data)
+            return True
         except OSError:
-            pass
+            return False
 
-    def paste(self, text: str) -> None:
+    def paste(self, text: str) -> bool:
         """Ctrl+U first, since an interrupted prompt can come back into Claude Code's input box."""
-        self._write(CLEAR_LINE + PASTE_START + text.encode("utf8") + PASTE_END + b"\r")
+        return self._write(CLEAR_LINE + PASTE_START + text.encode("utf8") + PASTE_END + b"\r")
 
-    def key(self, data: bytes) -> None:
-        self._write(data)
+    def key(self, data: bytes) -> bool:
+        return self._write(data)
 
     def close(self) -> None:
         if self.proc is not None and self.proc.poll() is None:

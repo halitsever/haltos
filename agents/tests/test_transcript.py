@@ -112,5 +112,21 @@ class TranscriptTest(unittest.TestCase):
         self.assertIsNone(pending_question(self.tmp / "gone.jsonl", waiting=True))
 
 
+class OddShapesTest(unittest.TestCase):
+    def test_odd_shapes_do_not_raise(self):
+        tmp = Path(tempfile.mkdtemp())
+        rows = [
+            {"type": "assistant", "message": {"content": ["str", None, 3]}},
+            {"type": "assistant", "message": "plain"},
+            {"type": "assistant", "message": {"content": [{"type": "text", "text": None}]}},
+            {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "t", "name": "Bash", "input": "x"}]}},
+            {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "q", "name": "AskUserQuestion", "input": {"questions": ["x"]}}]}},
+            user("still here"),
+        ]
+        p = tmp / "odd.jsonl"
+        p.write_text("".join(json.dumps(r) + "\n" for r in rows))
+        self.assertEqual(read_feed(p)[-1].text, "still here")
+        pending_question(p, waiting=True)
+
 if __name__ == "__main__":
     unittest.main()

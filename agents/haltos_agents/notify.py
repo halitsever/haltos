@@ -56,7 +56,7 @@ def notify_argv(notice: Notice) -> list[str]:
         "--method", "org.freedesktop.Notifications.Notify",
         gvariant_str("HaltOS Agents"), "0", gvariant_str("haltos-agents"),
         gvariant_str(notice.title), gvariant_str(notice.body),
-        "['open', 'Aç']", "{'desktop-entry': <'haltos-agents'>}", "int32 -1",
+        "['default', 'Aç', 'open', 'Aç']", "{'desktop-entry': <'haltos-agents'>}", "int32 -1",
     ]
 
 
@@ -70,4 +70,7 @@ def parse_notify_id(out: str) -> int | None:
 
 def parse_action(line: str) -> tuple[int, str] | None:
     m = re.search(r"\.ActionInvoked \(uint32 (\d+), '([^']*)'\)", line)
-    return (int(m.group(1)), m.group(2)) if m else None
+    if not m:
+        return None
+    # Plasma sends "default" for a click on the notification body.
+    return int(m.group(1)), "open" if m.group(2) == "default" else m.group(2)

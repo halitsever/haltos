@@ -158,8 +158,9 @@ ColumnLayout {
                 event.accepted = false
                 return
             }
-            detail.controller.send(input.text)
-            input.clear()
+            // Keep the text when it could not be delivered, so nothing typed is lost.
+            if (detail.controller.send(input.text))
+                input.clear()
         }
     }
 

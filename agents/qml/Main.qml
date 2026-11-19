@@ -39,19 +39,24 @@ Kirigami.ApplicationWindow {
         spacing: 0
 
         Kirigami.InlineMessage {
+            objectName: "errorMessage"
             Layout.fillWidth: true
             visible: root.controller.error !== ""
             type: Kirigami.MessageType.Error
             text: root.controller.error
-            showCloseButton: true
-            onVisibleChanged: if (!visible) root.controller.dismissError()
+            // The built-in close button overwrites the visible binding, so later errors would stay hidden.
+            showCloseButton: false
+            actions: Kirigami.Action {
+                text: "Kapat"
+                onTriggered: root.controller.dismissError()
+            }
         }
 
         Kirigami.InlineMessage {
             Layout.fillWidth: true
             visible: root.controller.untrustedDir !== ""
             type: Kirigami.MessageType.Warning
-            text: root.controller.untrustedDir + " klasörüne henüz güvenilmedi. Claude Code'u orada bir kez açıp güven sorusunu onayla, sonra ajanı yeniden başlat."
+            text: root.controller.untrustedDir + " klasörüne henüz güvenilmedi. Konsole'da Claude Code'un güven sorusunu onayla, sonra yeniden başlat."
             actions: [
                 Kirigami.Action {
                     text: "Konsole'da aç"
@@ -59,8 +64,13 @@ Kirigami.ApplicationWindow {
                     onTriggered: root.controller.trustInKonsole()
                 },
                 Kirigami.Action {
-                    text: "Kapat"
-                    onTriggered: root.controller.dismissError()
+                    text: "Yeniden başlat"
+                    icon.name: "media-playback-start"
+                    onTriggered: root.controller.retryLaunch()
+                },
+                Kirigami.Action {
+                    text: "Vazgeç"
+                    onTriggered: root.controller.dismissUntrusted()
                 }
             ]
         }

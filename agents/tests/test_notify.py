@@ -69,7 +69,7 @@ class DbusTest(unittest.TestCase):
                                     "--object-path", "/org/freedesktop/Notifications",
                                     "--method"])
         self.assertEqual(argv[9:], ["'HaltOS Agents'", "0", "'haltos-agents'", "'seo-fix bitti'", "'3 dk çalıştı.'",
-                                    "['open', 'Aç']", "{'desktop-entry': <'haltos-agents'>}", "int32 -1"])
+                                    "['default', 'Aç', 'open', 'Aç']", "{'desktop-entry': <'haltos-agents'>}", "int32 -1"])
 
     def test_parse_notify_id(self):
         self.assertEqual(parse_notify_id("(uint32 7,)\n"), 7)
@@ -80,6 +80,12 @@ class DbusTest(unittest.TestCase):
         self.assertEqual(parse_action(line), (12, "open"))
         self.assertIsNone(parse_action("/org/freedesktop/Notifications: org.freedesktop.Notifications.NotificationClosed (uint32 12, uint32 2)"))
 
+
+class BodyClickTest(unittest.TestCase):
+    def test_body_click_counts_as_open(self):
+        self.assertIn("'default', 'Aç'", notify_argv(Notice("k", "t", "b"))[14])
+        line = "/org/freedesktop/Notifications: org.freedesktop.Notifications.ActionInvoked (uint32 3, 'default')"
+        self.assertEqual(parse_action(line), (3, "open"))
 
 if __name__ == "__main__":
     unittest.main()
