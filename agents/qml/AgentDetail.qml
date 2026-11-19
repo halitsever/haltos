@@ -11,15 +11,19 @@ ColumnLayout {
     readonly property var question: controller.question
     readonly property bool hasAgent: agent.key !== undefined
     readonly property bool canAct: hasAgent && agent.attachable
+    readonly property bool asking: question.text !== undefined
+    readonly property string draftText: input.text
+    readonly property color tone: agent.group === "need" ? Ansi.yellow : agent.group === "work" ? Ansi.accent : Ansi.faint
 
     signal back()
     signal escaped()
+    signal answered(int index)
 
     function focusInput() {
         input.forceActiveFocus()
     }
 
-    // The tile and this view edit the same per-agent draft, so reload it whenever either side may have changed it.
+    // The draft belongs to the agent, so it is reloaded whenever this screen shows another one.
     readonly property string key: controller.selectedKey
     onKeyChanged: loadDraft()
     onVisibleChanged: {
@@ -43,16 +47,18 @@ ColumnLayout {
         visible: detail.hasAgent
         spacing: Kirigami.Units.smallSpacing * 2
 
-        QQC2.ToolButton {
+        QQC2.Button {
             objectName: "backButton"
-            text: "← grid"
-            flat: true
+            text: "← Back"
             focusPolicy: Qt.NoFocus
             onClicked: detail.back()
         }
         QQC2.Label {
+            text: "●"
+            color: detail.tone
+        }
+        QQC2.Label {
             text: detail.agent.name ?? ""
-            color: Ansi.green
             font.bold: true
             elide: Text.ElideRight
             Layout.maximumWidth: implicitWidth
@@ -62,16 +68,15 @@ ColumnLayout {
             Layout.fillWidth: true
             text: (detail.agent.project ?? "") + (detail.agent.branch ? ":" + detail.agent.branch : "")
                   + (detail.agent.model ? " · " + detail.agent.model : "")
-            color: Kirigami.Theme.disabledTextColor
+            color: Ansi.faint
             elide: Text.ElideMiddle
-            QQC2.ToolTip.text: detail.agent.cwd ?? ""
-            QQC2.ToolTip.visible: tipArea.containsMouse
-            MouseArea {
-                id: tipArea
-                anchors.fill: parent
-                hoverEnabled: true
-                acceptedButtons: Qt.NoButton
-            }
+        }
+        QQC2.Button {
+            objectName: "interruptButton"
+            visible: detail.canAct && detail.agent.group === "work"
+            text: "■ Interrupt"
+            focusPolicy: Qt.NoFocus
+            onClicked: detail.controller.interrupt()
         }
         QQC2.ToolButton {
             text: "⋮"
@@ -81,6 +86,10 @@ ColumnLayout {
 
             QQC2.Menu {
                 id: more
+                QQC2.MenuItem {
+                    text: "open in terminal"
+                    onTriggered: detail.controller.openTerminal()
+                }
                 QQC2.MenuItem {
                     text: "archive"
                     enabled: detail.agent.group === "done"
@@ -112,14 +121,17 @@ ColumnLayout {
         }
     }
 
-    Kirigami.Separator {
+    Rectangle {
         Layout.fillWidth: true
+        implicitHeight: 1
+        color: Ansi.rule
         visible: detail.hasAgent
     }
 
     QQC2.ScrollView {
         Layout.fillWidth: true
         Layout.fillHeight: true
+        clip: true
         visible: detail.hasAgent
         QQC2.ScrollBar.horizontal.policy: QQC2.ScrollBar.AlwaysOff
 
@@ -130,9 +142,13 @@ ColumnLayout {
             spacing: Kirigami.Units.smallSpacing
             topMargin: Kirigami.Units.largeSpacing
             bottomMargin: Kirigami.Units.largeSpacing
-            leftMargin: Kirigami.Units.largeSpacing
-            rightMargin: Kirigami.Units.largeSpacing
-            onCountChanged: Qt.callLater(feed.positionViewAtEnd)
+            leftMargin: Kirigami.Units.gridUnit
+            rightMargin: Kirigami.Units.gridUnit
+            // Wrapped rows settle their height late, so the view stays pinned to the end until the user scrolls up.
+            property bool stick: true
+            onMovementEnded: stick = atYEnd
+            onContentHeightChanged: if (stick) Qt.callLater(feed.positionViewAtEnd)
+            onCountChanged: if (stick) Qt.callLater(feed.positionViewAtEnd)
 
             delegate: QQC2.Label {
                 required property string kind
@@ -149,9 +165,9 @@ ColumnLayout {
                 leftPadding: kind === "text" || kind === "result" ? Kirigami.Units.gridUnit : 0
                 wrapMode: Text.Wrap
                 textFormat: styled ? Text.StyledText : Text.PlainText
-                color: kind === "result" ? (error ? Ansi.red : Kirigami.Theme.disabledTextColor)
-                     : kind === "text" ? Kirigami.Theme.disabledTextColor : Kirigami.Theme.textColor
-                text: kind === "prompt" ? Ansi.paint(Ansi.green, "$") + " " + Ansi.esc(body)
+                color: kind === "result" ? (error ? Ansi.red : Ansi.faint)
+                     : kind === "text" ? Ansi.faint : Ansi.text
+                text: kind === "prompt" ? Ansi.paint(Ansi.green, "&gt;") + " " + Ansi.esc(body)
                     : kind === "tool" ? Ansi.paint(Ansi.cyan, "⏺ " + Ansi.esc(name)) + "(" + Ansi.esc(body) + ")"
                                         + (added ? " " + Ansi.paint(Ansi.green, "+" + added) : "")
                                         + (removed ? " " + Ansi.paint(Ansi.red, "-" + removed) : "")
@@ -161,77 +177,110 @@ ColumnLayout {
         }
     }
 
-    ColumnLayout {
+    Rectangle {
         Layout.fillWidth: true
-        Layout.margins: Kirigami.Units.largeSpacing
-        visible: detail.hasAgent && detail.question.text !== undefined
-        spacing: Kirigami.Units.smallSpacing
+        Layout.leftMargin: Kirigami.Units.largeSpacing
+        Layout.rightMargin: Kirigami.Units.largeSpacing
+        Layout.bottomMargin: Kirigami.Units.smallSpacing
+        visible: detail.hasAgent && detail.asking
+        implicitHeight: questionBox.implicitHeight + Kirigami.Units.largeSpacing * 2
+        radius: 8
+        color: "transparent"
+        border.width: 1
+        border.color: Qt.alpha(Ansi.yellow, 0.35)
 
-        QQC2.Label {
-            Layout.fillWidth: true
-            textFormat: Text.StyledText
-            text: Ansi.paint(Ansi.yellow, "?") + " " + Ansi.esc(detail.question.text ?? "")
-            wrapMode: Text.Wrap
-        }
-        Flow {
-            Layout.fillWidth: true
+        ColumnLayout {
+            id: questionBox
+            anchors.fill: parent
+            anchors.margins: Kirigami.Units.largeSpacing
             spacing: Kirigami.Units.smallSpacing
-            visible: detail.canAct
 
-            Repeater {
-                model: detail.question.options ?? []
-                QQC2.Button {
-                    required property string modelData
-                    required property int index
-                    text: "[" + (index + 1) + "] " + modelData
-                    flat: true
-                    focusPolicy: Qt.NoFocus
-                    highlighted: index === 0
-                    onClicked: detail.controller.answer(index)
+            QQC2.Label {
+                Layout.fillWidth: true
+                textFormat: Text.StyledText
+                text: Ansi.paint(Ansi.yellow, "?") + " " + Ansi.esc(detail.question.text ?? "")
+                wrapMode: Text.Wrap
+            }
+            Flow {
+                Layout.fillWidth: true
+                spacing: Kirigami.Units.smallSpacing
+                visible: detail.canAct
+
+                Repeater {
+                    model: detail.question.options ?? []
+                    QQC2.Button {
+                        required property string modelData
+                        required property int index
+                        text: (index + 1) + " " + modelData
+                        highlighted: index === 0
+                        focusPolicy: Qt.NoFocus
+                        onClicked: detail.answered(index)
+                    }
                 }
             }
         }
     }
 
-    Kirigami.Separator {
-        Layout.fillWidth: true
-        visible: detail.hasAgent
-    }
-
-    RowLayout {
+    // Bordered like Claude Code's prompt box.
+    Rectangle {
         Layout.fillWidth: true
         Layout.leftMargin: Kirigami.Units.largeSpacing
         Layout.rightMargin: Kirigami.Units.largeSpacing
+        Layout.bottomMargin: Kirigami.Units.largeSpacing
         visible: detail.hasAgent
-        spacing: Kirigami.Units.smallSpacing
+        implicitHeight: promptRow.implicitHeight + Kirigami.Units.smallSpacing * 2
+        Layout.topMargin: Kirigami.Units.smallSpacing
+        radius: 8
+        color: "transparent"
+        border.width: 1
+        border.color: input.activeFocus ? Ansi.faint : Ansi.rule
 
-        QQC2.Label {
-            Layout.alignment: Qt.AlignTop
-            Layout.topMargin: input.topPadding
-            text: ">"
-            color: detail.canAct ? Ansi.green : Kirigami.Theme.disabledTextColor
-        }
-        QQC2.TextArea {
-            id: input
-            objectName: "agentInput"
-            Layout.fillWidth: true
-            Layout.maximumHeight: Kirigami.Units.gridUnit * 8
-            leftPadding: 0
-            background: null
-            enabled: detail.canAct
-            wrapMode: TextEdit.Wrap
-            placeholderText: detail.canAct ? "write to the agent… enter sends, shift+enter adds a line"
-                                           : "this session is open in a terminal and cannot be driven from here"
-            onTextChanged: detail.controller.setDraft(detail.key, text)
-            Keys.onEscapePressed: detail.escaped()
-            Keys.onReturnPressed: event => {
-                if (event.modifiers & Qt.ShiftModifier) {
-                    event.accepted = false
-                    return
+        RowLayout {
+            id: promptRow
+            anchors.fill: parent
+            anchors.margins: Kirigami.Units.smallSpacing
+            anchors.leftMargin: Kirigami.Units.largeSpacing
+            anchors.rightMargin: Kirigami.Units.largeSpacing
+            spacing: Kirigami.Units.smallSpacing
+
+            QQC2.Label {
+                Layout.alignment: Qt.AlignTop
+                Layout.topMargin: input.topPadding
+                topPadding: 0
+                text: ">"
+                color: detail.canAct ? Ansi.text : Ansi.faint
+            }
+            QQC2.TextArea {
+                id: input
+                objectName: "agentInput"
+                Layout.fillWidth: true
+                Layout.maximumHeight: Kirigami.Units.gridUnit * 8
+                leftPadding: 0
+                background: null
+                enabled: detail.canAct
+                wrapMode: TextEdit.Wrap
+                placeholderText: detail.canAct ? "Message " + (detail.agent.name ?? "") + "…"
+                                               : "This session is open in a terminal"
+                onTextChanged: detail.controller.setDraft(detail.key, text)
+                Keys.onEscapePressed: detail.escaped()
+                Keys.onPressed: event => {
+                    // Like Claude Code: a digit answers the question, unless a reply is being typed.
+                    const t = event.text
+                    if (text === "" && detail.asking && t.length === 1 && t >= "1" && t <= "9"
+                            && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier))) {
+                        event.accepted = true
+                        detail.answered(Number(t) - 1)
+                    }
                 }
-                // Keep the text when it could not be delivered, so nothing typed is lost.
-                if (detail.controller.send(input.text))
-                    input.clear()
+                Keys.onReturnPressed: event => {
+                    if (event.modifiers & Qt.ShiftModifier) {
+                        event.accepted = false
+                        return
+                    }
+                    // Keep the text when it could not be delivered, so nothing typed is lost.
+                    if (detail.controller.send(input.text))
+                        input.clear()
+                }
             }
         }
     }
@@ -242,7 +291,7 @@ ColumnLayout {
         visible: !detail.hasAgent
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
-        text: "no agent selected"
-        color: Kirigami.Theme.disabledTextColor
+        text: "No agent selected"
+        color: Ansi.faint
     }
 }

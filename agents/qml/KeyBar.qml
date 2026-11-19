@@ -9,47 +9,24 @@ RowLayout {
     property bool canInterrupt: false
     property bool canTerminal: false
     property bool agentOpen: false
-    property bool typing: false
 
     signal triggered(string action)
 
     spacing: 0
-
-    QQC2.Label {
-        objectName: "modeBadge"
-        Layout.leftMargin: Kirigami.Units.smallSpacing * 2
-        Layout.rightMargin: Kirigami.Units.smallSpacing
-        text: bar.typing ? "TYPE" : "NAV"
-        color: Ansi.bg
-        font.bold: true
-        font.pointSize: Kirigami.Theme.smallFont.pointSize
-        leftPadding: Kirigami.Units.smallSpacing * 2
-        rightPadding: Kirigami.Units.smallSpacing * 2
-        background: Rectangle {
-            radius: 3
-            color: bar.typing ? Ansi.green : Ansi.accent
-        }
-    }
+    Layout.leftMargin: Kirigami.Units.smallSpacing
 
     Repeater {
-        model: bar.typing ? [
+        model: bar.agentOpen ? [
             { key: "enter", label: "send" },
-            { key: "shift+enter", label: "newline" },
-            { key: "esc", label: "nav" }
-        ] : bar.agentOpen ? [
-            { key: "a d", label: "prev/next", action: "next" },
-            { key: "enter", label: "type", action: "type" },
-            { key: "1-9", label: "answer" },
-            { key: "esc", label: "grid", action: "zoom" },
-            { key: "x", label: "interrupt", action: "interrupt" },
-            { key: "t", label: "terminal", action: "terminal" }
+            { key: "shift+enter", label: "new line" },
+            { key: "1 2", label: "answer" },
+            { key: "ctrl+k", label: "interrupt", action: "interrupt" },
+            { key: "esc", label: "back", action: "back" }
         ] : [
-            { key: "wasd", label: "move" },
-            { key: "enter", label: "type", action: "type" },
-            { key: "1-9", label: "answer" },
-            { key: "o", label: "zoom", action: "zoom" },
-            { key: "x", label: "interrupt", action: "interrupt" },
-            { key: "n", label: "new", action: "new" },
+            { key: "←↑↓→", label: "select" },
+            { key: "enter", label: "open", action: "open" },
+            { key: "1 2", label: "answer" },
+            { key: "n", label: "new agent", action: "new" },
             { key: "/", label: "search", action: "search" },
             { key: "?", label: "keys", action: "help" }
         ]

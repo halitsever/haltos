@@ -436,12 +436,10 @@ class BannerTest(unittest.TestCase):
         # Repeater items hang off the item tree, not the QObject tree.
         keys = {b.objectName(): b.property("hint") for b in bar.childItems() if b.objectName().startswith("key:")}
         self.assertEqual(keys, {
-            "key:wasd": "wasd move",
-            "key:type": "enter type",
-            "key:1-9": "1-9 answer",
-            "key:zoom": "o zoom",
-            "key:interrupt": "x interrupt",
-            "key:new": "n new",
+            "key:←↑↓→": "←↑↓→ select",
+            "key:open": "enter open",
+            "key:1 2": "1 2 answer",
+            "key:new": "n new agent",
             "key:search": "/ search",
             "key:help": "? keys",
         })
@@ -646,9 +644,9 @@ class KeysTest(QmlCase):
         self.c._act = lambda fn: fn(Agent(self.sent)) or True
         self.wait()
 
-    def press(self, key, text=""):
+    def press(self, key, text="", mods=Qt.NoModifier):
         for kind in (QEvent.KeyPress, QEvent.KeyRelease):
-            QGuiApplication.sendEvent(self.root, QKeyEvent(kind, key, Qt.NoModifier, text))
+            QGuiApplication.sendEvent(self.root, QKeyEvent(kind, key, mods, text))
         self.wait(80)
 
     def letter(self, ch):
@@ -657,28 +655,76 @@ class KeysTest(QmlCase):
     def navigating(self):
         return self.item("navigator").hasActiveFocus()
 
-    def test_starts_in_nav(self):
+    def field(self):
+        return self.item("agentInput")
+
+    def opened(self):
+        return self.root.property("agentOpen")
+
+    def question(self):
+        self.c._question = Question("q", [("Yes", b"y"), ("No", b"n")])
+        self.c.changed.emit()
+
+    def test_starts_on_grid(self):
         self.poll(session("a"))
         self.assertTrue(self.navigating())
-        self.assertFalse(self.root.property("typing"))
-        self.assertEqual(self.item("modeBadge").property("text"), "NAV")
+        self.assertFalse(self.opened())
 
-    def test_number_answers(self):
+    def test_arrows_and_wasd_move(self):
+        need = dataclasses.replace(session("a"), status="waiting")
+        work = dataclasses.replace(session("b"), status="busy", state="")
+        self.poll(need, work, session("c"))
+        self.letter("s")
+        self.assertEqual(self.c.selectedKey, "b")
+        self.press(Qt.Key_Down)
+        self.assertEqual(self.c.selectedKey, "c")
+        self.letter("w")
+        self.assertEqual(self.c.selectedKey, "b")
+        self.letter("a")
+        self.assertEqual(self.c.selectedKey, "a")
+        self.press(Qt.Key_Right)
+        self.assertEqual(self.c.selectedKey, "b")
+
+    def test_enter_opens_and_esc_returns(self):
+        self.poll(session("a"), session("b"))
+        self.press(Qt.Key_Return, "\r")
+        self.assertTrue(self.opened())
+        self.assertTrue(self.field().hasActiveFocus())
+        self.letter("h")
+        self.letter("i")
+        self.assertEqual(self.field().property("text"), "hi")
+        self.press(Qt.Key_Escape)
+        self.assertFalse(self.opened())
+        self.assertTrue(self.navigating())
+        self.assertEqual(self.c.draft("a"), "hi")
+
+    def test_digits_answer_only_when_input_empty(self):
         self.poll(dataclasses.replace(session("a"), status="waiting"))
-        self.c._question = Question("q", [("Yes", b"y"), ("No", b"n")])
+        self.press(Qt.Key_Return, "\r")
+        self.question()
         self.press(Qt.Key_2, "2")
         self.assertEqual(self.sent, [b"n"])
+        self.letter("x")
+        self.press(Qt.Key_2, "2")
+        self.assertEqual(self.field().property("text"), "x2")
+        self.assertEqual(self.sent, [b"n"])
 
-    def test_x_interrupts_esc_does_not(self):
-        self.poll(dataclasses.replace(session("a"), status="busy"))
+    def test_grid_digit_answers(self):
+        self.poll(dataclasses.replace(session("a"), status="waiting"))
+        self.question()
+        self.press(Qt.Key_1, "1")
+        self.assertEqual(self.sent, [b"y"])
+
+    def test_ctrl_k_interrupts_and_esc_does_not(self):
+        self.poll(dataclasses.replace(session("a"), status="busy", state=""))
         self.press(Qt.Key_Return, "\r")
         self.press(Qt.Key_Escape)
         self.assertEqual(self.sent, [])
-        self.letter("x")
+        self.trigger("interrupt")
         self.assertEqual(len(self.sent), 1)
 
     def test_letters_go_to_search_and_dialog(self):
-        self.poll(dataclasses.replace(session("a"), status="busy"))
+        self.poll(dataclasses.replace(session("a"), status="busy", state=""))
         self.trigger("search")
         self.letter("x")
         self.assertEqual(self.item("searchField").property("text"), "x")
@@ -689,30 +735,41 @@ class KeysTest(QmlCase):
         self.assertFalse(self.navigating())
         self.assertEqual(self.sent, [])
 
-    def test_help_overlay(self):
-        self.poll(session("a"))
-        self.press(Qt.Key_Question, "?")
-        self.assertTrue(self.item("helpOverlay").property("visible"))
-        self.press(Qt.Key_Escape)
-        self.assertFalse(self.item("helpOverlay").property("visible"))
-
-    def test_selection_change_while_typing_goes_to_nav(self):
+    def test_open_agent_vanishing_goes_back(self):
         self.poll(session("a"), session("b"))
         self.press(Qt.Key_Return, "\r")
-        self.c.select("b")
-        self.wait()
-        self.assertTrue(self.navigating())
-        self.letter("d")
-        self.assertEqual(self.c.draft("a"), "")
-
-    def test_zoomed_agent_vanishing_goes_to_nav(self):
-        self.poll(session("a"), session("b"))
-        self.letter("o")
-        self.press(Qt.Key_Return, "\r")
-        self.assertTrue(self.item("agentInput").hasActiveFocus())
+        self.letter("h")
+        self.letter("i")
         self.poll(session("b"))
         self.wait()
+        self.assertFalse(self.opened())
         self.assertTrue(self.navigating())
+        self.assertEqual(self.c.draft("a"), "hi")
+
+    def test_alt_arrows_step_on_agent_screen(self):
+        self.poll(session("a"), session("b"))
+        self.press(Qt.Key_Return, "\r")
+        self.trigger("next")
+        self.wait()
+        self.assertTrue(self.opened())
+        self.assertEqual(self.c.selectedKey, "b")
+        self.assertTrue(self.field().hasActiveFocus())
+
+    def test_notification_opens_agent(self):
+        self.poll(session("a"), session("b"))
+        self.c.select("b")
+        self.c.agentRequested.emit("b")
+        self.wait()
+        self.assertTrue(self.opened())
+        self.assertTrue(self.field().hasActiveFocus())
+
+    def test_tty_agent_opens_read_only(self):
+        self.poll(session("a", attachable=False))
+        self.press(Qt.Key_Return, "\r")
+        self.assertTrue(self.opened())
+        self.assertFalse(self.field().property("enabled"))
+        self.press(Qt.Key_Escape)
+        self.assertFalse(self.opened())
 
     def test_poll_keeps_user_scroll(self):
         self.root.setProperty("height", 600)
@@ -732,16 +789,17 @@ class KeysTest(QmlCase):
         self.wait()
         self.press(Qt.Key_Return, "\r")
         self.letter("d")
-        self.assertTrue(self.navigating())
+        self.assertFalse(self.opened())
         self.assertEqual(self.c.selectedKey, "a")
         self.press(Qt.Key_Escape)
         self.assertEqual(self.c.query, "")
 
-    def test_tty_enter_stays_nav(self):
-        self.poll(session("a", attachable=False))
-        self.press(Qt.Key_Return, "\r")
-        self.assertTrue(self.navigating())
-
+    def test_help_overlay(self):
+        self.poll(session("a"))
+        self.press(Qt.Key_Question, "?")
+        self.assertTrue(self.item("helpOverlay").property("visible"))
+        self.press(Qt.Key_Escape)
+        self.assertFalse(self.item("helpOverlay").property("visible"))
 
 if __name__ == "__main__":
     unittest.main()

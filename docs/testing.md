@@ -64,16 +64,15 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 - [ ] VS Code starts from the application menu.
 - [ ] After `claude` is logged in, `claudegrid -l 2x2` opens four Claude Code panes.
 - [ ] HaltOS Agents starts from the application menu with the A icon and sits in the tray. Closing its window keeps the tray icon.
-- [ ] HaltOS Agents is dark (HaltMono, JetBrains Mono) even when the desktop uses a light theme, and the top bar counts waiting, working and done agents.
-- [ ] In HaltOS Agents, "+" starts an agent in a trusted repo. Its tile appears with a spinner, then turns to `✓` or `!`, and the `!` tile's left rail pulses once.
-- [ ] The selected agent fills the large spotlight tile and the rest sit around it as small tiles. Moving the selection slides the tiles into their new places.
-- [ ] The app opens in NAV (badge bottom left). W/A/S/D, the arrow keys and h/j/k/l move the spotlight, `?` shows every key and Esc closes it.
-- [ ] Enter switches to TYPE and typing reaches the spotlight agent: `claude attach <id>` in Konsole shows the same prompt. Esc goes back to NAV and keeps the half-typed text, with the cursor at its end when the agent is selected again.
-- [ ] On an agent waiting with a question, `1`, `2`... in NAV answer it. `x` interrupts a working agent, `t` opens it in Konsole, `n` opens the new agent dialog and `/` jumps to search (Esc there goes back to NAV).
-- [ ] An agent that ran for over a minute raises a notification whose "Open" button brings the app up on that agent, in NAV.
-- [ ] Ctrl+N, Ctrl+F, Ctrl+T and Ctrl+O work while typing, and Alt+arrows move the spotlight without leaving TYPE. Each key bar entry with an action does the same when clicked.
-- [ ] `o` (or Ctrl+O) opens the selected agent in the full view, `a`/`d` step through agents there and Esc goes back. Half-typed text follows the agent between its tile and the full view.
-- [ ] A new agent started while typing into another one waits to take the spotlight until you stop typing.
+- [ ] HaltOS Agents is pinned to the task bar and opens maximized. It is dark (HaltMono, JetBrains Mono) even when the desktop uses a light theme.
+- [ ] Agents sit in three sections, "Waiting for you", "Working" and "Done", each with its count. Every tile has the same size, and selecting one only moves the blue border.
+- [ ] In HaltOS Agents, "+ New agent" starts an agent in a trusted repo. Its screen opens once it appears, and its tile shows a spinner in "Working", then moves to "Done" or "Waiting for you".
+- [ ] The arrow keys, W/A/S/D and h/j/k/l move the selection, and up/down cross sections. `?` shows every key and Esc closes it.
+- [ ] Enter or a click opens the agent screen with the cursor in the `>` box. Typing reaches the agent: `claude attach <id>` in Konsole shows the same prompt. Esc goes back to the grid and keeps the half-typed text.
+- [ ] On an agent waiting with a question, `1`, `2`... answer it, both on the grid and on its screen while the box is empty. With text in the box they are typed.
+- [ ] Ctrl+K or "■ Interrupt" interrupts a working agent, `t` opens it in Konsole, `n` opens the new agent dialog and `/` jumps to search (Esc there goes back).
+- [ ] An agent that ran for over a minute raises a notification whose "Open" button brings the app up on that agent's screen.
+- [ ] A session open in a terminal opens read-only: its box is disabled and Esc goes back.
 - [ ] The feed shows `$` prompts, `⏺ Edit(file) +N -M` tool calls with `⎿` results under them, and the header shows `project:branch · model`.
 - [ ] Searching a word from an old session lists it, and clicking the result resumes it as an agent.
 

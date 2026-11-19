@@ -31,57 +31,50 @@ Kirigami.ApplicationWindow {
     Kirigami.Theme.highlightColor: Ansi.accent
     Kirigami.Theme.highlightedTextColor: Ansi.text
 
+    // Two screens and no hidden modes: the grid takes letter keys, the agent screen always types.
     property bool agentOpen: false
+    property bool moving: false
 
-    // NAV and TYPE are not stored: the app is typing exactly when a text field has focus.
-    readonly property bool typing: activeFocusItem !== null && activeFocusItem.cursorPosition !== undefined
-    onTypingChanged: controller.setTyping(typing)
-
-    // The agent the focused input was typing to. A selection that moves away from it under the
-    // input (a click, a poll, a agentOpen agent leaving) drops to NAV so keys never reach another agent.
-    property string typingKey: ""
+    readonly property bool searching: controller.query !== ""
     readonly property string selectedKey: controller.selectedKey
-    onSelectedKeyChanged: {
-        if (inputFocused() && typingKey !== selectedKey)
-            navigate()
-    }
 
-    function inputFocused(): bool {
-        const name = activeFocusItem ? activeFocusItem.objectName : ""
-        return name === "tileInput" || name === "agentInput"
+    // An open agent screen follows only the user's own moves. If the agent changes under it
+    // (it ended, it was archived), go back so a draft never reaches another agent.
+    onSelectedKeyChanged: {
+        if (agentOpen && !moving)
+            back()
     }
 
     function navigate() {
         navigator.forceActiveFocus()
     }
 
-    function focusInput() {
-        if (agentOpen)
+    function focusScreen() {
+        if (agentOpen && controller.selected.attachable === true)
             agentDetail.focusInput()
         else
             navigate()
     }
 
-    function type() {
-        if (controller.selected.attachable !== true) {
-            ttyHint.show("this session is open in a terminal", 2000)
-            return
-        }
-        focusInput()
+    function openAgent() {
+        agentOpen = true
+        focusScreen()
     }
 
-    // Moves keep the mode: typing stays in the new spotlight's input, navigating stays on the navigator.
+    function back() {
+        agentOpen = false
+        navigate()
+    }
+
     function move(fn) {
-        const typingHere = inputFocused()
+        moving = true
         fn()
-        if (typingHere)
-            focusInput()
+        moving = false
+        focusScreen()
     }
-
-    readonly property bool searching: controller.query !== ""
 
     function trigger(action: string) {
-        // With search results on screen the grid is hidden, so keys aimed at it wait.
+        // With search results on screen the agents are hidden, so keys aimed at them wait.
         if (searching && !["new", "search", "help", "escape"].includes(action))
             return
         if (action.startsWith("answer:")) {
@@ -93,58 +86,62 @@ Kirigami.ApplicationWindow {
         case "new": newAgent.open(); break
         case "search": search.forceActiveFocus(); search.selectAll(); break
         case "terminal": controller.openTerminal(); break
-        case "type": type(); break
-        case "open": if (!agentOpen) trigger("zoom"); break
+        case "open": if (controller.selectedIndex >= 0) openAgent(); break
+        case "back": back(); break
         case "help": help.open = !help.open; break
         case "prev": move(() => controller.step(-1)); break
         case "next": move(() => controller.step(1)); break
         case "up":
         case "down":
             move(() => agentOpen ? controller.step(action === "up" ? -1 : 1)
-                              : controller.go(action, agentGrid.columns))
+                                 : controller.go(action, agentGrid.columns))
             break
-        case "zoom": {
-            const typingHere = inputFocused()
-            agentOpen = !agentOpen
-            typingHere || agentOpen ? focusInput() : navigate()
-            break
-        }
         case "escape":
-            if (help.open) {
+            if (help.open)
                 help.open = false
-            } else if (searching) {
-                search.clear()
-                controller.search("")
-            } else if (agentOpen) {
-                trigger("zoom")
-            }
+            else if (searching)
+                clearSearch()
+            else if (agentOpen)
+                back()
             break
         }
+    }
+
+    function clearSearch() {
+        search.clear()
+        controller.search("")
+        focusScreen()
     }
 
     Shortcut { sequence: "Ctrl+N"; onActivated: root.trigger("new") }
     Shortcut { sequence: "Ctrl+F"; onActivated: root.trigger("search") }
     Shortcut { sequence: "Ctrl+T"; onActivated: root.trigger("terminal") }
-    Shortcut { sequence: "Ctrl+O"; onActivated: root.trigger("zoom") }
+    Shortcut { sequence: "Ctrl+K"; onActivated: root.trigger("interrupt") }
     Shortcut { sequence: "Alt+Left"; onActivated: root.trigger("prev") }
     Shortcut { sequence: "Alt+Right"; onActivated: root.trigger("next") }
     Shortcut { sequence: "Alt+Up"; onActivated: root.trigger("up") }
     Shortcut { sequence: "Alt+Down"; onActivated: root.trigger("down") }
 
-    // Kirigami's page stack asks for focus too, so NAV claims it once everything is built.
-    Component.onCompleted: navigate()
+    // A launched agent waits only while the user has text in another agent's input.
+    readonly property bool drafting: agentOpen && agentDetail.draftText !== ""
+    onDraftingChanged: controller.setTyping(drafting)
 
-    // A spotlight that disappears takes its focused input with it and focus drops to the window's root item.
+    // Kirigami's page stack asks for focus too, so the grid claims it once everything is built.
+    Component.onCompleted: {
+        navigate()
+        if (!startHidden)
+            showMaximized()
+    }
+
+    // Focus that drops to nothing or the window's root item goes back to the current screen.
     function focusLost(): bool {
         return !activeFocusItem || activeFocusItem.parent === null
     }
     onActiveFocusItemChanged: {
-        if (inputFocused())
-            typingKey = controller.selectedKey
         if (active && focusLost())
             Qt.callLater(() => {
                 if (root.focusLost())
-                    root.navigate()
+                    root.focusScreen()
             })
     }
 
@@ -157,13 +154,25 @@ Kirigami.ApplicationWindow {
         }
     }
 
+    function present() {
+        if (!visible)
+            showMaximized()
+        raise()
+        requestActivate()
+    }
+
     Connections {
         target: root.controller
         function onShowRequested() {
-            root.show()
-            root.raise()
-            root.requestActivate()
-            root.navigate()
+            root.present()
+            root.focusScreen()
+        }
+        function onAgentRequested(key) {
+            root.present()
+            root.moving = true
+            root.controller.select(key)
+            root.moving = false
+            root.openAgent()
         }
     }
 
@@ -241,9 +250,7 @@ Kirigami.ApplicationWindow {
                 delaySearch: true
                 onAccepted: root.controller.search(text)
                 Keys.onEscapePressed: {
-                    search.clear()
-                    root.controller.search("")
-                    root.navigate()
+                    root.clearSearch()
                 }
             }
             QQC2.Button {
@@ -265,7 +272,7 @@ Kirigami.ApplicationWindow {
 
         SearchResults {
             controller: root.controller
-            onPicked: root.navigate()
+            onPicked: root.focusScreen()
             visible: root.controller.query !== ""
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -286,8 +293,9 @@ Kirigami.ApplicationWindow {
             objectName: "agentDetail"
             controller: root.controller
             visible: root.controller.query === "" && root.agentOpen
-            onBack: root.trigger("zoom")
-            onEscaped: root.navigate()
+            onBack: root.back()
+            onEscaped: root.back()
+            onAnswered: index => root.controller.answer(index)
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
@@ -302,7 +310,6 @@ Kirigami.ApplicationWindow {
             objectName: "keyBar"
             Layout.fillWidth: true
             agentOpen: root.agentOpen
-            typing: root.typing
             canInterrupt: root.controller.selected.group === "work" && root.controller.selected.attachable === true
             canTerminal: root.controller.selected.attachable === true
             onTriggered: action => root.trigger(action)
@@ -313,10 +320,11 @@ Kirigami.ApplicationWindow {
         id: newAgent
         objectName: "newAgentDialog"
         controller: root.controller
-        onClosed: root.navigate()
+        onClosed: root.focusScreen()
     }
 
-    // Letter keys are commands only here; text fields never pass them on.
+    // Holds focus on the grid, and on the agent screen of a session that cannot take input.
+    // Text fields never pass letters on, so here they are always commands.
     Item {
         id: navigator
         objectName: "navigator"
@@ -327,19 +335,19 @@ Kirigami.ApplicationWindow {
                 return
             const k = event.key
             const t = event.text.toLowerCase()
-            const action = k === Qt.Key_Left || t === "a" || t === "h" ? "prev"
+            const action = k === Qt.Key_Escape ? "escape"
+                : t === "?" ? "help"
+                : help.open || root.agentOpen ? ""
+                : k === Qt.Key_Left || t === "a" || t === "h" ? "prev"
                 : k === Qt.Key_Right || t === "d" || t === "l" ? "next"
                 : k === Qt.Key_Up || t === "w" || t === "k" ? "up"
                 : k === Qt.Key_Down || t === "s" || t === "j" ? "down"
-                : k === Qt.Key_Return || k === Qt.Key_Enter || t === "i" ? "type"
+                : k === Qt.Key_Return || k === Qt.Key_Enter || k === Qt.Key_Space ? "open"
                 : t.length === 1 && t >= "1" && t <= "9" ? "answer:" + (Number(t) - 1)
-                : t === "o" || k === Qt.Key_Space ? "zoom"
                 : t === "x" ? "interrupt"
                 : t === "n" ? "new"
                 : t === "/" ? "search"
                 : t === "t" ? "terminal"
-                : t === "?" ? "help"
-                : k === Qt.Key_Escape ? "escape"
                 : ""
             if (!action)
                 return
@@ -352,12 +360,5 @@ Kirigami.ApplicationWindow {
         id: help
         objectName: "helpOverlay"
         anchors.fill: parent
-    }
-
-    QQC2.ToolTip {
-        id: ttyHint
-        objectName: "ttyHint"
-        x: (root.width - width) / 2
-        y: root.height - height - Kirigami.Units.gridUnit * 3
     }
 }

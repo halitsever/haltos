@@ -38,25 +38,23 @@ Rectangle {
             // Rows alternate key and meaning, filling the two grid columns.
             Repeater {
                 model: [
-                    { title: "NAV", rows: [
-                        "w a s d · arrows · h j k l", "move between agents",
-                        "enter · i", "type to the spotlight agent",
-                        "1-9", "answer its question",
-                        "o · space", "zoom in and out",
-                        "x", "interrupt it",
-                        "n", "new agent",
-                        "/", "search sessions",
-                        "t", "open it in a terminal",
-                        "esc", "close this, leave zoom"
+                    { title: "GRID", rows: [
+                        "←↑↓→ · w a s d · h j k l", "select an agent",
+                        "enter · click", "open it",
+                        "1 2 …", "answer its question",
+                        "x · ctrl+k", "interrupt it",
+                        "n · ctrl+n", "new agent",
+                        "/ · ctrl+f", "search old sessions",
+                        "t · ctrl+t", "open it in a terminal",
+                        "?", "these keys"
                     ] },
-                    { title: "TYPE", rows: [
+                    { title: "AGENT", rows: [
                         "enter", "send",
                         "shift+enter", "new line",
-                        "esc", "back to NAV, the draft stays",
-                        "alt+arrows", "move and keep typing"
-                    ] },
-                    { title: "ANYWHERE", rows: [
-                        "ctrl+n · ctrl+f · ctrl+t · ctrl+o", "new, search, terminal, zoom"
+                        "1 2 …", "answer, while the box is empty",
+                        "ctrl+k", "interrupt",
+                        "alt+← →", "previous or next agent",
+                        "esc", "back to the grid, the draft stays"
                     ] }
                 ]
 
@@ -66,7 +64,7 @@ Rectangle {
 
                     QQC2.Label {
                         text: modelData.title
-                        color: modelData.title === "TYPE" ? Ansi.green : Ansi.accent
+                        color: Ansi.accent
                         font.bold: true
                     }
                     GridLayout {
