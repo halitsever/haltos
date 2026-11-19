@@ -34,11 +34,17 @@ Item {
         readonly property int count: tiles.count
         property var rects: []
         property int frame: 0
+        property string revealed: ""
 
         // Packing lives in Python, so QML re-reads it whenever the rows, the selection or the size change.
+        // It scrolls only when the spotlight itself moved, so a poll never undoes the user's scrolling.
         function relayout() {
             rects = root.controller.pack(columns, bigRows)
-            Qt.callLater(reveal)
+            const spot = JSON.stringify([root.controller.selectedKey, rects[root.controller.selectedIndex]])
+            if (spot !== revealed) {
+                revealed = spot
+                Qt.callLater(reveal)
+            }
         }
 
         function reveal() {

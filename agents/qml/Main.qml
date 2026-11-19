@@ -55,6 +55,15 @@ Kirigami.ApplicationWindow {
     readonly property bool typing: activeFocusItem !== null && activeFocusItem.cursorPosition !== undefined
     onTypingChanged: controller.setTyping(typing)
 
+    // The agent the focused input was typing to. A selection that moves away from it under the
+    // input (a click, a poll, a zoomed agent leaving) drops to NAV so keys never reach another agent.
+    property string typingKey: ""
+    readonly property string selectedKey: controller.selectedKey
+    onSelectedKeyChanged: {
+        if (inputFocused() && typingKey !== selectedKey)
+            navigate()
+    }
+
     function inputFocused(): bool {
         const name = activeFocusItem ? activeFocusItem.objectName : ""
         return name === "tileInput" || name === "agentInput"
@@ -87,7 +96,12 @@ Kirigami.ApplicationWindow {
             focusInput()
     }
 
+    readonly property bool searching: controller.query !== ""
+
     function trigger(action: string) {
+        // With search results on screen the grid is hidden, so keys aimed at it wait.
+        if (searching && !["new", "search", "help", "escape"].includes(action))
+            return
         if (action.startsWith("answer:")) {
             controller.answer(Number(action.slice(7)))
             return
@@ -113,10 +127,14 @@ Kirigami.ApplicationWindow {
             break
         }
         case "escape":
-            if (help.open)
+            if (help.open) {
                 help.open = false
-            else if (zoomed)
+            } else if (searching) {
+                search.clear()
+                controller.search("")
+            } else if (zoomed) {
                 trigger("zoom")
+            }
             break
         }
     }
@@ -138,6 +156,8 @@ Kirigami.ApplicationWindow {
         return !activeFocusItem || activeFocusItem.parent === null
     }
     onActiveFocusItemChanged: {
+        if (inputFocused())
+            typingKey = controller.selectedKey
         if (active && focusLost())
             Qt.callLater(() => {
                 if (root.focusLost())

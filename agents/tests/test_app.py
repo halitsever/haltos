@@ -343,6 +343,17 @@ class ControllerTest(unittest.TestCase):
         self.assertEqual(self.c.selectedKey, "c")
         self.assertFalse(hasattr(self.c, "moveRow"))
 
+    def test_released_hold_loads_the_new_agent(self):
+        loaded = []
+        self.c._load_feed = lambda force=False: loaded.append(self.c._selected)
+        self.c._on_polled([session("a")], "")
+        self.c.setTyping(True)
+        self.c._want = "b"
+        self.c._on_polled([session("a"), session("b")], "")
+        loaded.clear()
+        self.c.setTyping(False)
+        self.assertEqual((self.c.selectedKey, loaded), ("b", ["b"]))
+
     def test_drafts_kept_per_agent(self):
         self.c._on_polled([session("a"), session("b")], "")
         self.c.setDraft("a", "half typed")
@@ -792,6 +803,54 @@ class KeysTest(QmlCase):
         self.assertTrue(self.item("helpOverlay").property("visible"))
         self.press(Qt.Key_Escape)
         self.assertFalse(self.item("helpOverlay").property("visible"))
+
+    def test_selection_change_while_typing_goes_to_nav(self):
+        self.poll(session("a"), session("b"))
+        self.press(Qt.Key_Return, "\r")
+        self.c.select("b")
+        self.wait()
+        self.assertTrue(self.navigating())
+        self.letter("d")
+        self.assertEqual(self.c.draft("a"), "")
+
+    def test_alt_move_while_typing_stays_in_type(self):
+        self.poll(session("a"), session("b"))
+        self.press(Qt.Key_Return, "\r")
+        self.trigger("next")
+        self.wait()
+        self.assertTrue(self.tile_input("b").hasActiveFocus())
+
+    def test_zoomed_agent_vanishing_goes_to_nav(self):
+        self.poll(session("a"), session("b"))
+        self.letter("o")
+        self.press(Qt.Key_Return, "\r")
+        self.assertTrue(self.item("agentInput").hasActiveFocus())
+        self.poll(session("b"))
+        self.wait()
+        self.assertTrue(self.navigating())
+
+    def test_poll_keeps_user_scroll(self):
+        self.root.setProperty("height", 600)
+        sessions = [session(f"s{i:02}") for i in range(30)]
+        self.poll(*sessions)
+        self.wait(400)
+        grid = self.item("agentGrid")
+        grid.setProperty("contentY", 400)
+        self.poll(*sessions)
+        self.wait(300)
+        self.assertEqual(grid.property("contentY"), 400)
+
+    def test_keys_wait_while_results_show(self):
+        self.poll(session("a"), session("b"))
+        self.c._query = "x"
+        self.c.changed.emit()
+        self.wait()
+        self.press(Qt.Key_Return, "\r")
+        self.letter("d")
+        self.assertTrue(self.navigating())
+        self.assertEqual(self.c.selectedKey, "a")
+        self.press(Qt.Key_Escape)
+        self.assertEqual(self.c.query, "")
 
     def test_tty_enter_stays_nav(self):
         self.poll(session("a", attachable=False))

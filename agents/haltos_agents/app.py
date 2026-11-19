@@ -243,8 +243,8 @@ class Controller(QObject):
         """A launched agent takes the spotlight only once the user stops typing into another one."""
         self._typing = typing
         if not typing and self._want and self.session(self._want):
-            self._selected, self._want = self._want, ""
-            self.changed.emit()
+            want, self._want = self._want, ""
+            self.select(want)
 
     @Slot(str, result=str)
     def draft(self, key):
