@@ -75,16 +75,36 @@ class ListModel(QAbstractListModel):
     def replace(self, rows: list[dict]) -> None:
         if rows == self.rows:
             return
-        if [r.get("key") for r in rows] == [r.get("key") for r in self.rows] and rows and "key" in rows[0]:
-            # Same rows in the same order: update in place so the view keeps its scroll position.
-            old, self.rows = self.rows, rows
-            for i, (a, b) in enumerate(zip(old, rows)):
-                if a != b:
-                    self.dataChanged.emit(self.index(i), self.index(i))
+        if all("key" in r for r in rows + self.rows) and self.rows:
+            self._sync(rows)
             return
         self.beginResetModel()
         self.rows = rows
         self.endResetModel()
+
+    def _sync(self, rows: list[dict]) -> None:
+        """Move, insert and remove rows so views keep their delegates, focus and scroll position."""
+        want = {r["key"] for r in rows}
+        for i in reversed(range(len(self.rows))):
+            if self.rows[i]["key"] not in want:
+                self.beginRemoveRows(QModelIndex(), i, i)
+                del self.rows[i]
+                self.endRemoveRows()
+        for i, row in enumerate(rows):
+            have = [r["key"] for r in self.rows]
+            if row["key"] in have[i:]:
+                j = have.index(row["key"], i)
+                if j != i:
+                    self.beginMoveRows(QModelIndex(), j, j, QModelIndex(), i)
+                    self.rows.insert(i, self.rows.pop(j))
+                    self.endMoveRows()
+                if self.rows[i] != row:
+                    self.rows[i] = row
+                    self.dataChanged.emit(self.index(i), self.index(i))
+            else:
+                self.beginInsertRows(QModelIndex(), i, i)
+                self.rows.insert(i, row)
+                self.endInsertRows()
 
 
 class Job(QRunnable):

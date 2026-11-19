@@ -1,4 +1,6 @@
+import json
 import os
+import random
 import sys
 import tempfile
 import unittest
@@ -6,7 +8,7 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
-    from PySide6.QtCore import Q_ARG, QEventLoop, QMetaObject, QObject, QTimer
+    from PySide6.QtCore import Q_ARG, QEventLoop, QMetaObject, QObject, Qt, QTimer
     from PySide6.QtGui import QFontInfo
     from PySide6.QtQml import QQmlApplicationEngine
     from PySide6.QtQuick import QQuickItem
@@ -188,7 +190,35 @@ class ControllerTest(unittest.TestCase):
         self.assertEqual(len(resets), 1)
         self.assertEqual(self.c._agents.rows[0]["age"], "2m")
         self.c._agents.replace([{"key": "b", "age": "3m"}])
-        self.assertEqual(len(resets), 2)
+        self.assertEqual(len(resets), 1)
+        self.assertEqual(self.c._agents.rows, [{"key": "b", "age": "3m"}])
+
+    def test_reorder_moves_rows_without_reset(self):
+        m = self.c._agents
+        resets, moves, ins, rem = [], [], [], []
+        m.modelReset.connect(lambda: resets.append(1))
+        m.rowsMoved.connect(lambda *a: moves.append(1))
+        m.rowsInserted.connect(lambda *a: ins.append(1))
+        m.rowsRemoved.connect(lambda *a: rem.append(1))
+
+        def rows(ks):
+            return [{"key": k, "age": k} for k in ks]
+
+        m.replace(rows("abc"))
+        m.replace(rows("cab"))
+        m.replace(rows("ac"))
+        m.replace(rows("dac"))
+        self.assertEqual([r["key"] for r in m.rows], list("dac"))
+        self.assertTrue(moves and ins and rem)
+        self.assertLessEqual(len(resets), 1)
+
+    def test_keyed_diff_matches_target(self):
+        m, rnd = self.c._agents, random.Random(7)
+        role = Qt.UserRole + m.keys.index("key")
+        for _ in range(200):
+            ks = rnd.sample("abcdefgh", rnd.randint(0, 8))
+            m.replace([{"key": k, "age": str(rnd.randint(0, 2))} for k in ks])
+            self.assertEqual([m.data(m.index(i), role) for i in range(m.rowCount())], ks)
 
     def test_rows_carry_age_and_feed_roles(self):
         self.assertIn("age", self.c._agents.keys)
