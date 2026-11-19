@@ -63,8 +63,15 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 - [ ] About This System (kinfocenter) shows the HaltOS name and logo.
 - [ ] VS Code starts from the application menu.
 - [ ] After `claude` is logged in, `claudegrid -l 2x2` opens four Claude Code panes.
+- [ ] HaltOS Agents starts from the application menu with the A icon and sits in the tray. Closing its window keeps the tray icon.
+- [ ] In HaltOS Agents, "+" starts an agent in a trusted repo. It appears under "çalışıyor", then under "bitti" or "seni bekliyor".
+- [ ] Typing in the agent's input box reaches the session: `claude attach <id>` in Konsole shows the same prompt.
+- [ ] "Terminal" opens the agent in Konsole, "Kes" interrupts a running turn, and an agent that ran for over a minute raises a "bitti" notification whose "Aç" button opens the app on that agent.
+- [ ] Searching a word from an old session lists it, and clicking the result resumes it as an agent.
 
 ## 5. Second login
+
+- [ ] HaltOS Agents is back in the tray without being opened by hand.
 
 - [ ] Log out and back in. The bar, wallpaper and theme are unchanged.
 

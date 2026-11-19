@@ -11,6 +11,9 @@ CI (`.github/workflows/ci.yml`) runs these, in this order:
 - With Pillow and `fonts-jetbrains-mono` installed: `python tools/build-assets.py`, `python tools/build-kvantum.py`, `python tools/build-plasma-theme.py`
 - `git diff --exit-code -- kvantum/ plasma/desktoptheme/ site/index.html`: the generated files must be committed exactly as the generators write them
 - The look-and-feel and wallpaper `metadata.json` files must parse as JSON, and the Kvantum and logo SVGs as XML
+- `python3 -m unittest discover -s agents/tests -t agents`: unit tests for the agents app's Qt-free core
+
+Locally, `QT_QPA_PLATFORM=offscreen agents/haltos-agents --smoke` loads the agents window once and must print nothing.
 
 The install itself is tested only by hand, on a fresh Ubuntu 25.04+ server, following `docs/testing.md`.
 
@@ -25,6 +28,7 @@ The install itself is tested only by hand, on a fresh Ubuntu 25.04+ server, foll
 - Pushing a `v*` tag publishes a GitHub Release. The workflow fails when the tag does not match `VERSION`, and it takes the notes from the matching `CHANGELOG.md` section.
 - The site has no build step. The Pages workflow copies `docs/screenshots/*.png` into `site/assets/screens/` at deploy time, so that folder is absent in the repo.
 - `marketing/motion/out/` is ignored. It holds recordings saved by `marketing/motion/serve.py`.
+- `agents/` is the HaltOS Agents app: a Kirigami front end (PySide6 from apt, never pip) to Claude Code's background sessions (`claude --bg`, `claude agents --json`, `claude attach`). Only `app.py` and `qml/` import Qt, so the rest stays testable without it. Every `claude` it starts gets `clean_env()`, because inherited session variables turn transcript saving off. `install.sh user` copies it per account with a menu entry and a tray autostart.
 
 ## Conventions
 
