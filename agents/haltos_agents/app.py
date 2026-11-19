@@ -168,6 +168,7 @@ class Controller(QObject):
         self._tiles: dict[str, tuple] = {}
         self._windows: dict[str, int] = {}
         self._drafts: dict[str, str] = {}
+        self._typing = False
         self._branches: dict[str, tuple[float, str]] = {}
         self._busy = False
         self.pool = QThreadPool(self)
@@ -236,6 +237,14 @@ class Controller(QObject):
     def counts(self):
         groups = [row["group"] for row in self._agents.rows]
         return {g: groups.count(g) for g in ("need", "work", "done")}
+
+    @Slot(bool)
+    def setTyping(self, typing):
+        """A launched agent takes the spotlight only once the user stops typing into another one."""
+        self._typing = typing
+        if not typing and self._want and self.session(self._want):
+            self._selected, self._want = self._want, ""
+            self.changed.emit()
 
     @Slot(str, result=str)
     def draft(self, key):
@@ -317,7 +326,7 @@ class Controller(QObject):
             order = {g: i for i, g in enumerate(GROUPS)}
             ordered = sorted(self.sessions, key=lambda s: (order[s.group], -s.started_at))
             self._agents.replace([self._row(s) for s in ordered])
-            if self._want and self.session(self._want):
+            if self._want and self.session(self._want) and not self._typing:
                 self._selected, self._want = self._want, ""
             elif not self.session(self._selected) and ordered:
                 self._selected = ordered[0].key

@@ -7,46 +7,106 @@ Item {
 
     required property QtObject controller
     readonly property alias columns: grid.columns
+    readonly property alias bigRows: grid.bigRows
 
     signal zoomRequested()
 
-    // currentIndex follows the user, never the controller: the view hands focus to a new current item,
-    // so binding it to the selection would let a poll pull focus.
-    function focusSelected() {
-        const i = root.controller.selectedIndex
-        if (i < 0)
-            return
-        grid.currentIndex = i
-        grid.positionViewAtIndex(i, GridView.Contain)
-        if (grid.currentItem)
-            grid.currentItem.focusInput()
+    function spotlight(): Item {
+        return tiles.itemAt(root.controller.selectedIndex)
     }
 
-    GridView {
+    function focusSelected() {
+        grid.reveal()
+        const tile = spotlight()
+        if (tile)
+            tile.focusInput()
+    }
+
+    Flickable {
         id: grid
         objectName: "agentGrid"
 
-        readonly property int columns: Math.max(1, Math.floor(width / (Kirigami.Units.gridUnit * 22)))
+        readonly property int columns: Math.max(1, Math.floor(width / (Kirigami.Units.gridUnit * 16)))
+        readonly property real cellWidth: Math.floor(width / columns)
+        readonly property real cellHeight: Kirigami.Units.gridUnit * 6
+        readonly property int bigRows: Math.max(2, Math.round(height / 2 / cellHeight))
+        readonly property int count: tiles.count
+        property var rects: []
+        property int frame: 0
+
+        // Packing lives in Python, so QML re-reads it whenever the rows, the selection or the size change.
+        function relayout() {
+            rects = root.controller.pack(columns, bigRows)
+            Qt.callLater(reveal)
+        }
+
+        function reveal() {
+            const r = rects[root.controller.selectedIndex]
+            if (!r)
+                return
+            const top = r[1] * cellHeight
+            const bottom = top + r[3] * cellHeight
+            if (top < contentY)
+                contentY = top
+            else if (bottom > contentY + height)
+                contentY = Math.min(bottom, contentHeight) - height
+        }
 
         anchors.fill: parent
         anchors.margins: Kirigami.Units.smallSpacing
-        model: root.controller.agents
         clip: true
-        cellWidth: Math.floor(width / columns)
-        cellHeight: Kirigami.Units.gridUnit * 10
-        keyNavigationEnabled: false
+        contentWidth: width
+        contentHeight: rects.reduce((end, r) => Math.max(end, (r[1] + r[3]) * cellHeight), 0)
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
 
         QQC2.ScrollBar.vertical: QQC2.ScrollBar {}
 
-        delegate: AgentTile {
-            controller: root.controller
-            onZoomRequested: root.zoomRequested()
-            onStopRequested: {
-                confirmStop.target = agentKey
-                confirmStop.targetName = name
-                confirmStop.open()
+        onColumnsChanged: relayout()
+        onBigRowsChanged: relayout()
+        Component.onCompleted: relayout()
+
+        Connections {
+            target: root.controller
+            function onChanged() {
+                grid.relayout()
+            }
+        }
+
+        Timer {
+            objectName: "spinner"
+            interval: 90
+            repeat: true
+            running: grid.visible && (root.controller.counts.work ?? 0) > 0
+            onTriggered: grid.frame++
+        }
+
+        Repeater {
+            id: tiles
+            model: root.controller.agents
+
+            delegate: AgentTile {
+                readonly property var rect: grid.rects[index] ?? [0, 0, 1, 1]
+
+                controller: root.controller
+                big: agentKey === root.controller.selectedKey
+                frame: grid.frame
+                x: rect[0] * grid.cellWidth
+                y: rect[1] * grid.cellHeight
+                width: rect[2] * grid.cellWidth
+                height: rect[3] * grid.cellHeight
+
+                Behavior on x { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
+                Behavior on y { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
+                Behavior on width { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
+                Behavior on height { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
+
+                onZoomRequested: root.zoomRequested()
+                onStopRequested: {
+                    confirmStop.target = agentKey
+                    confirmStop.targetName = name
+                    confirmStop.open()
+                }
             }
         }
     }

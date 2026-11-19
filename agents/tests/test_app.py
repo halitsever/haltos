@@ -569,7 +569,7 @@ class GridTest(QmlCase):
         self.trigger("up")
         self.assertEqual(self.c.selectedIndex, 0)
 
-    def test_launched_agent_does_not_take_focus(self):
+    def test_launched_agent_waits_while_typing(self):
         self.poll(session("a"), session("b"))
         self.c.select("a")
         field = self.tile_input("a")
@@ -577,8 +577,11 @@ class GridTest(QmlCase):
         field.setProperty("text", "typing")
         self.c._want = "c"
         self.poll(session("a"), session("b"), session("c"))
-        self.assertEqual(self.c.selectedKey, "c")
+        self.assertEqual(self.c.selectedKey, "a")
         self.assertTrue(field.hasActiveFocus())
+        self.root.findChild(QQuickItem, "searchField").forceActiveFocus()
+        self.wait()
+        self.assertEqual(self.c.selectedKey, "c")
 
     def test_zoom_keeps_cursor_at_end(self):
         self.poll(session("a"))
@@ -612,10 +615,73 @@ class GridTest(QmlCase):
             A.stop = orig
         self.assertEqual(stopped, ["a"])
 
-    def test_narrow_window_has_one_column(self):
-        self.root.setProperty("width", self.root.property("minimumWidth"))
+    def big(self, key):
+        return self.tile(key).property("big")
+
+    def test_spotlight_follows_selection(self):
+        self.poll(session("a"), session("b"), session("c"))
+        self.assertEqual([self.big(k) for k in "abc"], [True, False, False])
+        self.c.select("c")
         self.wait()
-        self.assertEqual(self.grid.property("columns"), 1)
+        self.assertEqual([self.big(k) for k in "abc"], [False, False, True])
+
+    def test_tiles_sit_where_pack_says(self):
+        self.poll(*(session(k) for k in "abcde"))
+        self.c.select("b")
+        self.wait(600)
+        cw, ch = self.grid.property("cellWidth"), self.grid.property("cellHeight")
+        rects = self.c.pack(self.grid.property("columns"), self.grid.property("bigRows"))
+        for key, (col, row, w, h) in zip("abcde", rects):
+            tile = self.tile(key)
+            self.assertEqual((tile.x(), tile.y(), tile.width(), tile.height()), (col * cw, row * ch, w * cw, h * ch), key)
+
+    def test_only_spotlight_has_input(self):
+        self.poll(session("a"), session("b"))
+        self.assertTrue(self.tile_input("a").isVisible())
+        self.assertFalse(self.tile_input("b").isVisible())
+
+    def test_draft_follows_spotlight(self):
+        self.poll(session("a"), session("b"))
+        field = self.tile_input("a")
+        field.setProperty("text", "half done")
+        self.c.select("b")
+        self.wait()
+        self.c.select("a")
+        self.wait()
+        self.assertEqual(field.property("text"), "half done")
+        self.assertEqual(field.property("cursorPosition"), 9)
+
+    def test_poll_reorder_keeps_spotlight(self):
+        self.poll(session("a"), session("b"))
+        self.c.select("b")
+        self.poll(session("a"), dataclasses.replace(session("b"), status="waiting"))
+        self.assertEqual([r["key"] for r in self.c._agents.rows], ["b", "a"])
+        self.assertEqual(self.c.selectedKey, "b")
+        self.assertTrue(self.big("b"))
+
+    def test_spotlight_scrolled_into_view(self):
+        self.root.setProperty("height", 600)
+        self.poll(*(session(f"s{i:02}") for i in range(30)))
+        self.c.select("s29")
+        self.wait(600)
+        tile, top = self.tile("s29"), self.grid.property("contentY")
+        self.assertGreaterEqual(tile.y(), top)
+        self.assertLessEqual(tile.y() + tile.height(), top + self.grid.height())
+
+    def test_narrow_window_spotlight_spans_it(self):
+        self.root.setProperty("width", self.root.property("minimumWidth"))
+        self.poll(session("a"), session("b"))
+        self.wait(600)
+        self.assertEqual(self.grid.property("columns"), 2)
+        self.assertEqual(self.tile("a").width(), 2 * self.grid.property("cellWidth"))
+        self.assertLessEqual(self.grid.property("contentWidth"), self.grid.width())
+
+    def test_spinner_only_while_working(self):
+        spinner = self.root.findChild(QObject, "spinner")
+        self.poll(session("a"))
+        self.assertFalse(spinner.property("running"))
+        self.poll(dataclasses.replace(session("a"), status="busy"))
+        self.assertTrue(spinner.property("running"))
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 
-// A focus scope, so when the view hands focus to the current tile it lands in the input.
+// A focus scope, so focus handed to the tile lands in its input.
 FocusScope {
     id: tile
     objectName: "agentTile"
@@ -19,10 +19,13 @@ FocusScope {
     required property var question
     required property int index
 
+    property bool big: false
+    property int frame: 0
+
     readonly property string agentKey: key
     readonly property bool selected: key === controller.selectedKey
-    readonly property color line: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g,
-                                          Kirigami.Theme.textColor.b, 0.18)
+    readonly property bool asking: question.text !== undefined
+    readonly property color rail: group === "need" ? Ansi.yellow : group === "work" ? Ansi.accent : Ansi.rule
 
     signal zoomRequested()
     signal stopRequested()
@@ -50,38 +53,64 @@ FocusScope {
         }
     }
 
-    Connections {
-        target: tile.GridView.view
-        function onVisibleChanged() {
-            if (tile.GridView.view.visible)
-                tile.loadDraft()
-        }
+    onBigChanged: {
+        if (!big)
+            return
+        loadDraft()
+        input.cursorPosition = input.length
+    }
+    onVisibleChanged: if (visible && big) loadDraft()
+
+    property string lastGroup: group
+    onGroupChanged: {
+        if (group === "need" && lastGroup !== "need")
+            pulse.restart()
+        lastGroup = group
     }
 
-    width: GridView.view.cellWidth
-    height: GridView.view.cellHeight
-
-    Rectangle {
+    Kirigami.ShadowedRectangle {
         id: frame
         anchors.fill: parent
         anchors.margins: Kirigami.Units.smallSpacing
-        color: "transparent"
+        radius: 4
+        color: tile.big ? Ansi.surface : Qt.alpha(Ansi.surface, 0.55)
         border.width: 1
-        border.color: tile.selected ? Ansi.blue : tile.line
-        opacity: tile.group === "done" && !tile.selected ? 0.55 : 1
+        border.color: tile.big ? Ansi.accent : Ansi.rule
+        shadow.size: tile.big ? Kirigami.Units.gridUnit : 0
+        shadow.color: Qt.alpha(Ansi.accent, 0.35)
+        opacity: tile.group === "done" && !tile.big ? 0.55 : 1
+
+        Behavior on shadow.size { NumberAnimation { duration: Kirigami.Units.longDuration } }
 
         MouseArea {
             anchors.fill: parent
-            onClicked: {
-                tile.act(() => {})
-                tile.focusInput()
-            }
+            onClicked: tile.act(() => {})
             onDoubleClicked: tile.zoomRequested()
+        }
+
+        Rectangle {
+            id: railBar
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.margins: 1
+            width: 3
+            radius: 1
+            color: tile.rail
+
+            SequentialAnimation {
+                id: pulse
+                NumberAnimation { target: railBar; property: "opacity"; to: 0.3; duration: Kirigami.Units.longDuration }
+                NumberAnimation { target: railBar; property: "opacity"; to: 1; duration: Kirigami.Units.longDuration }
+            }
         }
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 1
+            anchors.leftMargin: 4
+            anchors.topMargin: 1
+            anchors.rightMargin: 1
+            anchors.bottomMargin: 1
             spacing: 0
 
             RowLayout {
@@ -90,31 +119,32 @@ FocusScope {
                 spacing: Kirigami.Units.smallSpacing * 2
 
                 QQC2.Label {
-                    text: tile.group === "need" ? "!" : tile.group === "work" ? "▶" : "✓"
-                    color: tile.group === "need" ? Ansi.yellow
-                         : tile.group === "work" ? Ansi.blue : Kirigami.Theme.disabledTextColor
+                    text: tile.group === "need" ? "!" : tile.group === "work" ? "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"[tile.frame % 10] : "✓"
+                    color: tile.rail === Ansi.rule ? Ansi.faint : tile.rail
                     font.bold: tile.group === "need"
                 }
                 QQC2.Label {
                     text: tile.name
+                    font.bold: tile.big
                     elide: Text.ElideRight
                     Layout.maximumWidth: implicitWidth
                     Layout.fillWidth: true
                 }
                 QQC2.Label {
+                    id: projectLabel
                     text: tile.project
-                    color: Kirigami.Theme.disabledTextColor
+                    color: Ansi.faint
                     elide: Text.ElideRight
                     Layout.fillWidth: true
                 }
                 QQC2.Label {
                     visible: !tile.attachable
                     text: "tty"
-                    color: Kirigami.Theme.disabledTextColor
+                    color: Ansi.faint
                 }
                 QQC2.Label {
                     text: tile.age
-                    color: Kirigami.Theme.disabledTextColor
+                    color: Ansi.faint
                 }
                 QQC2.ToolButton {
                     text: "⋮"
@@ -143,59 +173,72 @@ FocusScope {
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: 1
-                color: tile.line
+                color: Ansi.rule
             }
 
             Item {
+                id: body
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                clip: true
 
-                // Bottom-aligned so the newest lines stay visible and older ones fall off the top.
-                Column {
+                readonly property int step: Math.round(projectLabel.fontInfo.pixelSize * 1.45) + 2
+
+                // Whole lines only, so a small tile never shows half a row at the top.
+                Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
-                    anchors.margins: Kirigami.Units.smallSpacing * 2
-                    spacing: 2
+                    anchors.bottomMargin: Kirigami.Units.smallSpacing
+                    height: Math.floor((body.height - Kirigami.Units.smallSpacing * 2) / body.step) * body.step
+                    clip: true
 
-                    Repeater {
-                        model: tile.tail
+                    // Bottom-aligned so the newest lines stay visible and older ones fall off the top.
+                    Column {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.leftMargin: Kirigami.Units.smallSpacing * 2
+                        anchors.rightMargin: Kirigami.Units.smallSpacing * 2
+                        spacing: 2
+
+                        Repeater {
+                            model: tile.tail
+                            QQC2.Label {
+                                required property var modelData
+                                width: parent.width
+                                textFormat: Text.StyledText
+                                elide: Text.ElideRight
+                                maximumLineCount: 1
+                                // Glyphs like ⎿ come from a fallback font with a taller line; keep rows even.
+                                height: Math.round(fontInfo.pixelSize * 1.45)
+                                verticalAlignment: Text.AlignVCenter
+                                text: Ansi.line(modelData, Ansi.faint)
+                            }
+                        }
                         QQC2.Label {
-                            required property var modelData
                             width: parent.width
+                            visible: tile.asking
                             textFormat: Text.StyledText
                             elide: Text.ElideRight
                             maximumLineCount: 1
-                            // Glyphs like ⎿ come from a fallback font with a taller line; keep rows even.
-                            height: Math.round(fontInfo.pixelSize * 1.45)
-                            verticalAlignment: Text.AlignVCenter
-                            text: Ansi.line(modelData, Kirigami.Theme.disabledTextColor)
+                            text: Ansi.paint(Ansi.yellow, "?") + " " + Ansi.esc(tile.question.text ?? "")
                         }
-                    }
-                    QQC2.Label {
-                        width: parent.width
-                        visible: tile.question.text !== undefined
-                        textFormat: Text.StyledText
-                        elide: Text.ElideRight
-                        maximumLineCount: 1
-                        text: Ansi.paint(Ansi.yellow, "?") + " " + Ansi.esc(tile.question.text ?? "")
-                    }
-                    Flow {
-                        width: parent.width
-                        visible: tile.question.text !== undefined && tile.attachable
-                        spacing: Kirigami.Units.smallSpacing
+                        Flow {
+                            width: parent.width
+                            visible: tile.big && tile.asking && tile.attachable
+                            spacing: Kirigami.Units.smallSpacing
 
-                        Repeater {
-                            model: tile.question.options ?? []
-                            QQC2.Button {
-                                required property string modelData
-                                required property int index
-                                text: "[" + (index + 1) + "] " + modelData
-                                flat: true
-                                focusPolicy: Qt.NoFocus
-                                highlighted: index === 0
-                                onClicked: tile.choose(index)
+                            Repeater {
+                                model: tile.question.options ?? []
+                                QQC2.Button {
+                                    required property string modelData
+                                    required property int index
+                                    text: (index + 1) + " " + modelData
+                                    flat: index !== 0
+                                    focusPolicy: Qt.NoFocus
+                                    highlighted: index === 0
+                                    onClicked: tile.choose(index)
+                                }
                             }
                         }
                     }
@@ -203,12 +246,14 @@ FocusScope {
             }
 
             Rectangle {
+                visible: tile.big
                 Layout.fillWidth: true
                 implicitHeight: 1
-                color: tile.line
+                color: Ansi.rule
             }
 
             RowLayout {
+                visible: tile.big
                 Layout.fillWidth: true
                 Layout.leftMargin: Kirigami.Units.smallSpacing * 2
                 spacing: Kirigami.Units.smallSpacing
@@ -217,7 +262,7 @@ FocusScope {
                     Layout.alignment: Qt.AlignTop
                     Layout.topMargin: input.topPadding
                     text: ">"
-                    color: tile.attachable ? Ansi.green : Kirigami.Theme.disabledTextColor
+                    color: tile.attachable ? Ansi.green : Ansi.faint
                 }
                 QQC2.TextArea {
                     id: input
@@ -233,11 +278,8 @@ FocusScope {
                     Component.onCompleted: tile.loadDraft()
                     onTextChanged: tile.controller.setDraft(tile.key, text)
                     onActiveFocusChanged: {
-                        if (!activeFocus)
-                            return
-                        // Keep the view's current item on the focused tile, so its own moves never hand focus elsewhere.
-                        tile.GridView.view.currentIndex = tile.index
-                        if (!tile.selected)
+                        tile.controller.setTyping(activeFocus)
+                        if (activeFocus && !tile.selected)
                             tile.controller.select(tile.key)
                     }
                     Keys.onEscapePressed: tile.act(() => tile.controller.interrupt())
