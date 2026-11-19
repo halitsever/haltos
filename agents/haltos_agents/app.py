@@ -40,7 +40,8 @@ from .claude import (
     start_argv,
     stop,
 )
-from .layout import neighbour, pack
+from .layout import grouped, neighbour
+from .layout import sections as group_sections
 from .names import age, recent_dirs, slug
 from .notify import MONITOR_ARGV, Notice, NotifyPolicy, notify_argv, parse_action, parse_notify_id
 from .search import Index
@@ -138,6 +139,7 @@ class Controller(QObject):
     found = Signal(object, str)
     sessionsChanged = Signal(list)
     showRequested = Signal()
+    agentRequested = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -240,7 +242,7 @@ class Controller(QObject):
 
     @Slot(bool)
     def setTyping(self, typing):
-        """A launched agent takes the spotlight only once the user stops typing into another one."""
+        """A launched agent waits while the user has text in another agent's input, then is only selected."""
         self._typing = typing
         if not typing and self._want and self.session(self._want):
             want, self._want = self._want, ""
@@ -318,6 +320,7 @@ class Controller(QObject):
 
     @Slot(object, str)
     def _on_polled(self, sessions, error):
+        launched = ""
         self._busy = False
         self._poll_error = error
         if sessions is not None:
@@ -328,6 +331,7 @@ class Controller(QObject):
             self._agents.replace([self._row(s) for s in ordered])
             if self._want and self.session(self._want) and not self._typing:
                 self._selected, self._want = self._want, ""
+                launched = self._selected
             elif not self.session(self._selected) and ordered:
                 self._selected = ordered[0].key
             self.sessionsChanged.emit(self.sessions)
@@ -336,6 +340,8 @@ class Controller(QObject):
                 self._notify(notice)
         self._load_feed()
         self.changed.emit()
+        if launched:
+            self.agentRequested.emit(launched)
 
     def _row(self, s: Session) -> dict:
         tile = self._tiles.get(s.key, (None, [], {}))
@@ -445,19 +451,26 @@ class Controller(QObject):
         here = keys.index(self._selected) if self._selected in keys else 0
         self.select(keys[max(0, min(len(keys) - 1, here + delta))])
 
-    @Slot(str, int, int)
-    def go(self, direction, columns, bigRows):
+    @Slot(str, int)
+    def go(self, direction, columns):
         if direction in ("left", "right"):
             self.step(-1 if direction == "left" else 1)
             return
         keys = [row["key"] for row in self._agents.rows]
         if self._selected in keys:
             here = keys.index(self._selected)
-            self.select(keys[neighbour(pack(len(keys), here, columns, bigRows), here, direction)])
+            self.select(keys[neighbour(grouped(self._groups(), columns), here, direction)])
 
-    @Slot(int, int, result=list)
-    def pack(self, columns, bigRows):
-        return [list(r) for r in pack(len(self._agents.rows), self.selectedIndex, columns, bigRows)]
+    def _groups(self) -> list[str]:
+        return [row["group"] for row in self._agents.rows]
+
+    @Slot(int, result=list)
+    def tiles(self, columns):
+        return [[col, row] for col, row, _, _ in grouped(self._groups(), columns)]
+
+    @Slot(int, result=list)
+    def sections(self, columns):
+        return [list(s) for s in group_sections(self._groups(), columns)]
 
     @Slot()
     def kill(self):
@@ -523,6 +536,13 @@ class Controller(QObject):
         argv = notify_argv(notice)
         proc.start(argv[0], argv[1:])
 
+    def _on_action(self, line: str) -> None:
+        hit = parse_action(line)
+        key = hit and hit[1] == "open" and self.notice_keys.pop(hit[0], None)
+        if key:
+            self.select(key)
+            self.agentRequested.emit(key)
+
     def _watch_notifications(self) -> None:
         """Clicks on our notifications arrive as ActionInvoked signals on the session bus."""
         self.monitor = QProcess(self)
@@ -533,11 +553,7 @@ class Controller(QObject):
             *lines, rest = buffer.split(b"\n")
             buffer[:] = rest
             for line in lines:
-                hit = parse_action(line.decode("utf8", "replace"))
-                key = hit and hit[1] == "open" and self.notice_keys.pop(hit[0], None)
-                if key:
-                    self.select(key)
-                    self.showRequested.emit()
+                self._on_action(line.decode("utf8", "replace"))
 
         self.monitor.readyReadStandardOutput.connect(read)
         self.monitor.start(MONITOR_ARGV[0], MONITOR_ARGV[1:])

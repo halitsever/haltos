@@ -118,7 +118,7 @@ Kirigami.ApplicationWindow {
         case "up":
         case "down":
             move(() => zoomed ? controller.step(action === "up" ? -1 : 1)
-                              : controller.go(action, agentGrid.columns, agentGrid.bigRows))
+                              : controller.go(action, agentGrid.columns))
             break
         case "zoom": {
             const typingHere = inputFocused()

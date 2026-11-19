@@ -1,24 +1,30 @@
-"""Spotlight grid geometry, kept free of Qt so it is tested everywhere."""
+"""Grid geometry, kept free of Qt so it is tested everywhere."""
 
 Rect = tuple[int, int, int, int]
 
 
-def pack(n: int, sel: int, cols: int, big_rows: int) -> list[Rect]:
-    """(col, row, w, h) per tile in order; each tile takes the first free block, row by row."""
-    taken: set[tuple[int, int]] = set()
-    rects = []
-    for i in range(n):
-        w, h = (min(2, cols), max(2, big_rows)) if i == sel else (1, 1)
-        row = 0
-        while True:
-            col = next((c for c in range(cols - w + 1)
-                        if not any((c + x, row + y) in taken for x in range(w) for y in range(h))), None)
-            if col is not None:
-                break
-            row += 1
-        taken.update((col + x, row + y) for x in range(w) for y in range(h))
-        rects.append((col, row, w, h))
+def grouped(groups: list[str], cols: int) -> list[Rect]:
+    """(col, row, 1, 1) per tile, filled row by row, each group starting on a fresh row."""
+    rects: list[Rect] = []
+    col, row = 0, -1
+    for i, group in enumerate(groups):
+        if i == 0 or group != groups[i - 1] or col == cols:
+            col, row = 0, row + 1
+        rects.append((col, row, 1, 1))
+        col += 1
     return rects
+
+
+def sections(groups: list[str], cols: int) -> list[tuple[str, int, int]]:
+    """(group, count, first row) per group, in order."""
+    rects = grouped(groups, cols)
+    found: list[tuple[str, int, int]] = []
+    for group, rect in zip(groups, rects):
+        if found and found[-1][0] == group:
+            found[-1] = (group, found[-1][1] + 1, found[-1][2])
+        else:
+            found.append((group, 1, rect[1]))
+    return found
 
 
 def neighbour(rects: list[Rect], here: int, direction: str) -> int:

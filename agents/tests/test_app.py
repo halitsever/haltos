@@ -17,7 +17,7 @@ try:
 
     from haltos_agents import app as A
     from haltos_agents.claude import ClaudeError, Session, UntrustedDir
-    from haltos_agents.layout import neighbour, pack
+    from haltos_agents.layout import grouped, neighbour
     from haltos_agents.transcript import Question
 except ImportError:  # CI runners have no PySide6; the Qt layer is checked on a desktop.
     A = None
@@ -334,14 +334,42 @@ class ControllerTest(unittest.TestCase):
         work = dataclasses.replace(session("b"), status="busy", state="")
         self.c._on_polled([need, work, session("c"), session("d")], "")
         self.assertEqual(self.c.counts, {"need": 1, "work": 1, "done": 2})
+        self.assertEqual(self.c.sections(3), [["need", 1, 0], ["work", 1, 1], ["done", 2, 2]])
+        self.assertEqual(self.c.tiles(3), [[0, 0], [0, 1], [0, 2], [1, 2]])
         self.c.select("a")
-        self.c.go("down", 3, 2)
-        self.assertEqual(self.c.selectedKey, "d")
-        self.c.go("right", 3, 2)
-        self.assertEqual(self.c.selectedKey, "d")
-        self.c.go("left", 3, 2)
+        self.c.go("down", 3)
+        self.assertEqual(self.c.selectedKey, "b")
+        self.c.go("down", 3)
         self.assertEqual(self.c.selectedKey, "c")
-        self.assertFalse(hasattr(self.c, "moveRow"))
+        self.c.go("up", 3)
+        self.assertEqual(self.c.selectedKey, "b")
+        self.c.select("c")
+        self.c.go("right", 3)
+        self.assertEqual(self.c.selectedKey, "d")
+        self.assertFalse(hasattr(self.c, "pack"))
+
+    def test_notification_click_requests_the_agent(self):
+        shown, opened = [], []
+        self.c.showRequested.connect(lambda: shown.append(1))
+        self.c.agentRequested.connect(opened.append)
+        self.c._on_polled([session("a"), session("b")], "")
+        self.c.notice_keys[7] = "b"
+        self.c._on_action("signal ... org.freedesktop.Notifications.ActionInvoked (uint32 7, 'default')")
+        self.assertEqual((opened, shown, self.c.selectedKey), (["b"], [], "b"))
+
+    def test_launched_agent_opens_unless_typing(self):
+        opened = []
+        self.c.agentRequested.connect(opened.append)
+        self.c._on_polled([session("a")], "")
+        self.c._want = "b"
+        self.c._on_polled([session("a"), session("b")], "")
+        self.assertEqual((self.c.selectedKey, opened), ("b", ["b"]))
+        self.c.setTyping(True)
+        self.c._want = "c"
+        self.c._on_polled([session("a"), session("b"), session("c")], "")
+        self.assertEqual(self.c.selectedKey, "b")
+        self.c.setTyping(False)
+        self.assertEqual((self.c.selectedKey, opened), ("c", ["b"]))
 
     def test_released_hold_loads_the_new_agent(self):
         loaded = []
@@ -636,16 +664,6 @@ class GridTest(QmlCase):
         self.wait()
         self.assertEqual([self.big(k) for k in "abc"], [False, False, True])
 
-    def test_tiles_sit_where_pack_says(self):
-        self.poll(*(session(k) for k in "abcde"))
-        self.c.select("b")
-        self.wait(600)
-        cw, ch = self.grid.property("cellWidth"), self.grid.property("cellHeight")
-        rects = self.c.pack(self.grid.property("columns"), self.grid.property("bigRows"))
-        for key, (col, row, w, h) in zip("abcde", rects):
-            tile = self.tile(key)
-            self.assertEqual((tile.x(), tile.y(), tile.width(), tile.height()), (col * cw, row * ch, w * cw, h * ch), key)
-
     def test_only_spotlight_has_input(self):
         self.poll(session("a"), session("b"))
         self.assertTrue(self.tile_input("a").isVisible())
@@ -678,14 +696,6 @@ class GridTest(QmlCase):
         tile, top = self.tile("s29"), self.grid.property("contentY")
         self.assertGreaterEqual(tile.y(), top)
         self.assertLessEqual(tile.y() + tile.height(), top + self.grid.height())
-
-    def test_narrow_window_spotlight_spans_it(self):
-        self.root.setProperty("width", self.root.property("minimumWidth"))
-        self.poll(session("a"), session("b"))
-        self.wait(600)
-        self.assertEqual(self.grid.property("columns"), 2)
-        self.assertEqual(self.tile("a").width(), 2 * self.grid.property("cellWidth"))
-        self.assertLessEqual(self.grid.property("contentWidth"), self.grid.width())
 
     def test_spinner_only_while_working(self):
         spinner = self.root.findChild(QObject, "spinner")
@@ -728,17 +738,6 @@ class KeysTest(QmlCase):
         self.assertTrue(self.navigating())
         self.assertFalse(self.root.property("typing"))
         self.assertEqual(self.item("modeBadge").property("text"), "NAV")
-
-    def test_wasd_moves_spotlight(self):
-        self.poll(session("a"), session("b"), session("c"))
-        self.letter("d")
-        self.assertEqual(self.c.selectedKey, "b")
-        self.letter("a")
-        self.assertEqual(self.c.selectedKey, "a")
-        grid = self.item("agentGrid")
-        below = neighbour(pack(3, 0, grid.property("columns"), grid.property("bigRows")), 0, "down")
-        self.letter("s")
-        self.assertEqual(self.c.selectedKey, "abc"[below])
 
     def test_enter_types_and_esc_returns(self):
         self.poll(session("a"), session("b"))

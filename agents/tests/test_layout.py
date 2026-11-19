@@ -1,39 +1,33 @@
 import unittest
 
-from haltos_agents.layout import neighbour, pack
+from haltos_agents.layout import grouped, neighbour, sections
 
 
-class PackTest(unittest.TestCase):
-    def test_spotlight_takes_two_by_two_at_its_turn(self):
-        self.assertEqual(pack(5, 1, 3, 2), [(0, 0, 1, 1), (1, 0, 2, 2), (0, 1, 1, 1), (0, 2, 1, 1), (1, 2, 1, 1)])
+class GroupedTest(unittest.TestCase):
+    groups = ["need", "need", "work", "done", "done", "done"]
 
-    def test_spotlight_after_a_full_row(self):
-        self.assertEqual(pack(4, 3, 3, 2), [(0, 0, 1, 1), (1, 0, 1, 1), (2, 0, 1, 1), (0, 1, 2, 2)])
+    def test_each_group_starts_a_row(self):
+        self.assertEqual(grouped(self.groups, 2), [(0, 0, 1, 1), (1, 0, 1, 1), (0, 1, 1, 1), (0, 2, 1, 1), (1, 2, 1, 1), (0, 3, 1, 1)])
 
-    def test_two_columns_spotlight_spans_both(self):
-        self.assertEqual(pack(3, 0, 2, 3), [(0, 0, 2, 3), (0, 3, 1, 1), (1, 3, 1, 1)])
+    def test_sections_count_and_first_row(self):
+        self.assertEqual(sections(self.groups, 2), [("need", 2, 0), ("work", 1, 1), ("done", 3, 2)])
 
-    def test_one_column(self):
-        self.assertEqual(pack(2, 1, 1, 2), [(0, 0, 1, 1), (0, 1, 1, 2)])
-
-    def test_no_selection_is_all_small(self):
-        self.assertEqual(pack(2, -1, 3, 2), [(0, 0, 1, 1), (1, 0, 1, 1)])
+    def test_empty(self):
+        self.assertEqual((grouped([], 3), sections([], 3)), ([], []))
 
 
-# pack(6, 1, 3, 2) == [(0,0,1,1), (1,0,2,2), (0,1,1,1), (0,2,1,1), (1,2,1,1), (2,2,1,1)]
 class NeighbourTest(unittest.TestCase):
-    def test_down_picks_nearest_centre_below(self):
-        rects = pack(6, 1, 3, 2)
-        self.assertEqual(neighbour(rects, 1, "down"), 4)  # tiles 4 and 5 tie on |dx|, lower index wins
-        self.assertEqual(neighbour(rects, 0, "down"), 2)
+    rects = grouped(["need", "work", "work", "work"], 3)
 
-    def test_up_prefers_nearest_bottom_edge_then_centre(self):
-        self.assertEqual(neighbour(pack(6, 1, 3, 2), 4, "up"), 1)
+    def test_down_crosses_into_the_next_section(self):
+        self.assertEqual(neighbour(self.rects, 0, "down"), 1)
 
-    def test_up_and_down_clamp(self):
-        rects = pack(3, 0, 3, 2)
-        self.assertEqual(neighbour(rects, 0, "up"), 0)
-        self.assertEqual(neighbour(rects, 2, "down"), 2)
+    def test_up_into_a_short_row(self):
+        self.assertEqual(neighbour(self.rects, 3, "up"), 0)
+
+    def test_clamps_at_the_edges(self):
+        self.assertEqual(neighbour(self.rects, 0, "up"), 0)
+        self.assertEqual(neighbour(self.rects, 2, "down"), 2)
 
 
 if __name__ == "__main__":
