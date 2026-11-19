@@ -35,8 +35,8 @@ Kirigami.ApplicationWindow {
         case "terminal": controller.openTerminal(); break
         case "prev": controller.step(-1); focusInput(); break
         case "next": controller.step(1); focusInput(); break
-        case "up": zoomed ? controller.step(-1) : controller.moveRow(-agentGrid.columns); focusInput(); break
-        case "down": zoomed ? controller.step(1) : controller.moveRow(agentGrid.columns); focusInput(); break
+        case "up": zoomed ? controller.step(-1) : controller.go("up", agentGrid.columns, 2); focusInput(); break
+        case "down": zoomed ? controller.step(1) : controller.go("down", agentGrid.columns, 2); focusInput(); break
         case "zoom": zoomed = !zoomed; focusInput(); break
         }
     }

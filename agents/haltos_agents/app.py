@@ -40,6 +40,7 @@ from .claude import (
     start_argv,
     stop,
 )
+from .layout import neighbour, pack
 from .names import age, recent_dirs, slug
 from .notify import MONITOR_ARGV, Notice, NotifyPolicy, notify_argv, parse_action, parse_notify_id
 from .search import Index
@@ -50,7 +51,7 @@ LABELS = {"need": "seni bekliyor", "work": "çalışıyor", "done": "bitti"}
 POLL_MS = 2000
 INDEX_MS = 60_000
 BRANCH_TTL = 30.0
-TILE_LINES = 6
+TILE_LINES = 16
 # Tiles are re-read every poll while agents work, so start small and read further only when a few
 # huge rows (tool output, attachments) leave the short tail empty.
 TILE_BYTES = (128_000, 512_000, 2_000_000)
@@ -229,6 +230,11 @@ class Controller(QObject):
     def selectedIndex(self):
         keys = [row["key"] for row in self._agents.rows]
         return keys.index(self._selected) if self._selected in keys else -1
+
+    @Property("QVariantMap", notify=changed)
+    def counts(self):
+        groups = [row["group"] for row in self._agents.rows]
+        return {g: groups.count(g) for g in ("need", "work", "done")}
 
     @Slot(str, result=str)
     def draft(self, key):
@@ -429,13 +435,19 @@ class Controller(QObject):
         here = keys.index(self._selected) if self._selected in keys else 0
         self.select(keys[max(0, min(len(keys) - 1, here + delta))])
 
-    @Slot(int)
-    def moveRow(self, delta):
-        """Grid row moves leave the selection alone at the edges instead of sliding sideways."""
+    @Slot(str, int, int)
+    def go(self, direction, columns, bigRows):
+        if direction in ("left", "right"):
+            self.step(-1 if direction == "left" else 1)
+            return
         keys = [row["key"] for row in self._agents.rows]
-        here = keys.index(self._selected) if self._selected in keys else 0
-        if 0 <= here + delta < len(keys):
-            self.select(keys[here + delta])
+        if self._selected in keys:
+            here = keys.index(self._selected)
+            self.select(keys[neighbour(pack(len(keys), here, columns, bigRows), here, direction)])
+
+    @Slot(int, int, result=list)
+    def pack(self, columns, bigRows):
+        return [list(r) for r in pack(len(self._agents.rows), self.selectedIndex, columns, bigRows)]
 
     @Slot()
     def kill(self):

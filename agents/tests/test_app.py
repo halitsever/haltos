@@ -311,6 +311,20 @@ class ControllerTest(unittest.TestCase):
         self.c.select("b")
         self.assertEqual(self.c.selectedIndex, 1)
 
+    def test_counts_and_go(self):
+        need = dataclasses.replace(session("a"), status="waiting")
+        work = dataclasses.replace(session("b"), status="busy", state="")
+        self.c._on_polled([need, work, session("c"), session("d")], "")
+        self.assertEqual(self.c.counts, {"need": 1, "work": 1, "done": 2})
+        self.c.select("a")
+        self.c.go("down", 3, 2)
+        self.assertEqual(self.c.selectedKey, "d")
+        self.c.go("right", 3, 2)
+        self.assertEqual(self.c.selectedKey, "d")
+        self.c.go("left", 3, 2)
+        self.assertEqual(self.c.selectedKey, "c")
+        self.assertFalse(hasattr(self.c, "moveRow"))
+
     def test_drafts_kept_per_agent(self):
         self.c._on_polled([session("a"), session("b")], "")
         self.c.setDraft("a", "half typed")
@@ -475,18 +489,6 @@ class GridTest(unittest.TestCase):
             A.find_transcript, A.pending_question = orig
         self.assertEqual(seen, ["b"])
 
-    def test_alt_arrows_move_by_rows_and_clamp(self):
-        self.poll(*(session(k) for k in "abcde"))
-        self.c.select("a")
-        cols = self.grid.property("columns")
-        self.trigger("down")
-        self.assertEqual(self.c.selectedIndex, min(cols, 4))
-        for _ in range(3):
-            self.trigger("down")
-        self.assertEqual(self.c.selectedIndex, 4)
-        self.trigger("up")
-        self.assertEqual(self.c.selectedIndex, max(0, 4 - cols))
-
     def keys(self):
         bar = self.root.findChild(QQuickItem, "keyBar")
         return [b.property("text") for b in bar.childItems() if b.objectName().startswith("key:")]
@@ -554,20 +556,6 @@ class GridTest(unittest.TestCase):
         self.trigger("zoom")
         self.wait()
         self.assertEqual(field.property("cursorPosition"), 13)
-
-    def test_row_moves_stay_in_their_column(self):
-        self.poll(*(session(k) for k in "abcde"))
-        cols = self.grid.property("columns")
-        self.assertGreaterEqual(cols, 2)
-        self.c.select("b")
-        self.trigger("up")
-        self.assertEqual(self.c.selectedKey, "b")
-        last = self.c._agents.rows[-1]["key"]
-        self.c.select(self.c._agents.rows[len(self.c._agents.rows) - 2]["key"])
-        here = self.c.selectedIndex
-        self.trigger("down")
-        self.assertEqual(self.c.selectedIndex, here if here + cols > 4 else here + cols)
-        self.assertNotEqual(self.c.selectedKey, last if here + cols > 4 else None)
 
     def test_stop_dialog_stops_the_agent_it_asked_about(self):
         stopped = []
