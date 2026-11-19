@@ -66,7 +66,9 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 - [ ] HaltOS Agents starts from the application menu with the A icon and sits in the tray. Closing its window keeps the tray icon.
 - [ ] In HaltOS Agents, "+" starts an agent in a trusted repo. It appears under "çalışıyor", then under "bitti" or "seni bekliyor".
 - [ ] Typing in the agent's input box reaches the session: `claude attach <id>` in Konsole shows the same prompt.
-- [ ] "Terminal" opens the agent in Konsole, "Kes" interrupts a running turn, and an agent that ran for over a minute raises a "bitti" notification whose "Aç" button opens the app on that agent.
+- [ ] "ctrl+t terminal" opens the agent in Konsole, "esc kes" interrupts a running turn, and an agent that ran for over a minute raises a "bitti" notification whose "Aç" button opens the app on that agent.
+- [ ] The shortcuts work while typing in the input: Esc interrupts a working agent and does nothing on one that waits for you, Ctrl+N opens the new agent dialog, Ctrl+F jumps to search (Esc there goes back to the input), Ctrl+T opens Konsole, Alt+↑/↓ moves between agents. Each key bar entry does the same when clicked.
+- [ ] The feed shows `$` prompts, `⏺ Edit(file) +N -M` tool calls with `⎿` results under them, and the header shows `project:branch · model`.
 - [ ] Searching a word from an old session lists it, and clicking the result resumes it as an agent.
 
 ## 5. Second login
