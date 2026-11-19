@@ -72,7 +72,7 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 - [ ] On an agent waiting with a question, `1`, `2`... on the grid answer it. `x` or Ctrl+K interrupts a working agent, `n` opens the new agent dialog and `/` jumps to search (Esc there goes back).
 - [ ] An agent that ran for over a minute raises a notification whose "Open" button opens that agent in Claude Code.
 - [ ] Enter on a session that is already open in a terminal says so instead of opening a second one.
-- [ ] The feed shows `$` prompts, `⏺ Edit(file) +N -M` tool calls with `⎿` results under them, and the header shows `project:branch · model`.
+- [ ] Tiles show `$` prompts and `⏺ Edit(file) +N -M` tool calls with `⎿` results under them, newest at the bottom.
 - [ ] Searching a word from an old session lists it, and clicking the result resumes it as an agent.
 
 ## 5. Second login
