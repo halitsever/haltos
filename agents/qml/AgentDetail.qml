@@ -13,6 +13,7 @@ ColumnLayout {
     readonly property bool canAct: hasAgent && agent.attachable
 
     signal back()
+    signal escaped()
 
     function focusInput() {
         input.forceActiveFocus()
@@ -222,7 +223,7 @@ ColumnLayout {
             placeholderText: detail.canAct ? "ajana yaz… enter gönderir, shift+enter yeni satır"
                                            : "bu oturum bir terminalde açık, buradan yönetilemez"
             onTextChanged: detail.controller.setDraft(detail.key, text)
-            Keys.onEscapePressed: detail.controller.interrupt()
+            Keys.onEscapePressed: detail.escaped()
             Keys.onReturnPressed: event => {
                 if (event.modifiers & Qt.ShiftModifier) {
                     event.accepted = false

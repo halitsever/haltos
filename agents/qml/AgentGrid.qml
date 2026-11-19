@@ -10,6 +10,7 @@ Item {
     readonly property alias bigRows: grid.bigRows
 
     signal zoomRequested()
+    signal escaped()
 
     function spotlight(): Item {
         return tiles.itemAt(root.controller.selectedIndex)
@@ -102,6 +103,7 @@ Item {
                 Behavior on height { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
 
                 onZoomRequested: root.zoomRequested()
+                onEscaped: root.escaped()
                 onStopRequested: {
                     confirmStop.target = agentKey
                     confirmStop.targetName = name

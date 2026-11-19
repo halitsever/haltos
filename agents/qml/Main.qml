@@ -51,6 +51,19 @@ Kirigami.ApplicationWindow {
         }
     }
 
+    // NAV and TYPE are not stored: the app is typing exactly when a text field has focus.
+    readonly property bool typing: activeFocusItem !== null && activeFocusItem.cursorPosition !== undefined
+    onTypingChanged: controller.setTyping(typing)
+
+    function inputFocused(): bool {
+        const name = activeFocusItem ? activeFocusItem.objectName : ""
+        return name === "tileInput" || name === "agentInput"
+    }
+
+    function navigate() {
+        navigator.forceActiveFocus()
+    }
+
     function focusInput() {
         if (zoomed)
             agentDetail.focusInput()
@@ -58,17 +71,53 @@ Kirigami.ApplicationWindow {
             agentGrid.focusSelected()
     }
 
+    function type() {
+        if (controller.selected.attachable !== true) {
+            ttyHint.show("this session is open in a terminal", 2000)
+            return
+        }
+        focusInput()
+    }
+
+    // Moves keep the mode: typing stays in the new spotlight's input, navigating stays on the navigator.
+    function move(fn) {
+        const typingHere = inputFocused()
+        fn()
+        if (typingHere)
+            focusInput()
+    }
+
     function trigger(action: string) {
+        if (action.startsWith("answer:")) {
+            controller.answer(Number(action.slice(7)))
+            return
+        }
         switch (action) {
         case "interrupt": controller.interrupt(); break
         case "new": newAgent.open(); break
         case "search": search.forceActiveFocus(); search.selectAll(); break
         case "terminal": controller.openTerminal(); break
-        case "prev": controller.step(-1); focusInput(); break
-        case "next": controller.step(1); focusInput(); break
-        case "up": zoomed ? controller.step(-1) : controller.go("up", agentGrid.columns, 2); focusInput(); break
-        case "down": zoomed ? controller.step(1) : controller.go("down", agentGrid.columns, 2); focusInput(); break
-        case "zoom": zoomed = !zoomed; focusInput(); break
+        case "type": type(); break
+        case "help": help.open = !help.open; break
+        case "prev": move(() => controller.step(-1)); break
+        case "next": move(() => controller.step(1)); break
+        case "up":
+        case "down":
+            move(() => zoomed ? controller.step(action === "up" ? -1 : 1)
+                              : controller.go(action, agentGrid.columns, agentGrid.bigRows))
+            break
+        case "zoom": {
+            const typingHere = inputFocused()
+            zoomed = !zoomed
+            typingHere ? focusInput() : navigate()
+            break
+        }
+        case "escape":
+            if (help.open)
+                help.open = false
+            else if (zoomed)
+                trigger("zoom")
+            break
         }
     }
 
@@ -81,18 +130,19 @@ Kirigami.ApplicationWindow {
     Shortcut { sequence: "Alt+Up"; onActivated: root.trigger("up") }
     Shortcut { sequence: "Alt+Down"; onActivated: root.trigger("down") }
 
-    // Focus moves only on what the user does. The one exception is the first agent showing up
-    // while nothing else holds focus, so typing works right after the window opens.
-    property bool placedFocus: false
-    Connections {
-        target: root.controller
-        function onChanged() {
-            if (root.placedFocus || root.controller.selectedIndex < 0)
-                return
-            root.placedFocus = true
-            if (!newAgent.visible && !search.activeFocus)
-                Qt.callLater(root.focusInput)
-        }
+    // Kirigami's page stack asks for focus too, so NAV claims it once everything is built.
+    Component.onCompleted: navigate()
+
+    // A spotlight that disappears takes its focused input with it and focus drops to the window's root item.
+    function focusLost(): bool {
+        return !activeFocusItem || activeFocusItem.parent === null
+    }
+    onActiveFocusItemChanged: {
+        if (active && focusLost())
+            Qt.callLater(() => {
+                if (root.focusLost())
+                    root.navigate()
+            })
     }
 
     onActiveChanged: controller.setWindowActive(active)
@@ -110,7 +160,7 @@ Kirigami.ApplicationWindow {
             root.show()
             root.raise()
             root.requestActivate()
-            root.focusInput()
+            root.navigate()
         }
     }
 
@@ -206,7 +256,7 @@ Kirigami.ApplicationWindow {
                 Keys.onEscapePressed: {
                     search.clear()
                     root.controller.search("")
-                    root.focusInput()
+                    root.navigate()
                 }
             }
             QQC2.ToolButton {
@@ -226,7 +276,7 @@ Kirigami.ApplicationWindow {
 
         SearchResults {
             controller: root.controller
-            onPicked: root.focusInput()
+            onPicked: root.navigate()
             visible: root.controller.query !== ""
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -237,6 +287,7 @@ Kirigami.ApplicationWindow {
             controller: root.controller
             visible: root.controller.query === "" && !root.zoomed
             onZoomRequested: root.trigger("zoom")
+            onEscaped: root.navigate()
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
@@ -247,6 +298,7 @@ Kirigami.ApplicationWindow {
             controller: root.controller
             visible: root.controller.query === "" && root.zoomed
             onBack: root.trigger("zoom")
+            onEscaped: root.navigate()
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
@@ -261,6 +313,7 @@ Kirigami.ApplicationWindow {
             objectName: "keyBar"
             Layout.fillWidth: true
             zoomed: root.zoomed
+            typing: root.typing
             canInterrupt: root.controller.selected.group === "work" && root.controller.selected.attachable === true
             canTerminal: root.controller.selected.attachable === true
             onTriggered: action => root.trigger(action)
@@ -271,5 +324,51 @@ Kirigami.ApplicationWindow {
         id: newAgent
         objectName: "newAgentDialog"
         controller: root.controller
+        onClosed: root.navigate()
+    }
+
+    // Letter keys are commands only here; text fields never pass them on.
+    Item {
+        id: navigator
+        objectName: "navigator"
+        focus: true
+
+        Keys.onPressed: event => {
+            if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
+                return
+            const k = event.key
+            const t = event.text.toLowerCase()
+            const action = k === Qt.Key_Left || t === "a" || t === "h" ? "prev"
+                : k === Qt.Key_Right || t === "d" || t === "l" ? "next"
+                : k === Qt.Key_Up || t === "w" || t === "k" ? "up"
+                : k === Qt.Key_Down || t === "s" || t === "j" ? "down"
+                : k === Qt.Key_Return || k === Qt.Key_Enter || t === "i" ? "type"
+                : t.length === 1 && t >= "1" && t <= "9" ? "answer:" + (Number(t) - 1)
+                : t === "o" || k === Qt.Key_Space ? "zoom"
+                : t === "x" ? "interrupt"
+                : t === "n" ? "new"
+                : t === "/" ? "search"
+                : t === "t" ? "terminal"
+                : t === "?" ? "help"
+                : k === Qt.Key_Escape ? "escape"
+                : ""
+            if (!action)
+                return
+            event.accepted = true
+            root.trigger(action)
+        }
+    }
+
+    HelpOverlay {
+        id: help
+        objectName: "helpOverlay"
+        anchors.fill: parent
+    }
+
+    QQC2.ToolTip {
+        id: ttyHint
+        objectName: "ttyHint"
+        x: (root.width - width) / 2
+        y: root.height - height - Kirigami.Units.gridUnit * 3
     }
 }

@@ -9,14 +9,15 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
-    from PySide6.QtCore import Q_ARG, QEventLoop, QMetaObject, QObject, Qt, QTimer
-    from PySide6.QtGui import QColor, QFontDatabase, QFontInfo
+    from PySide6.QtCore import Q_ARG, QEvent, QEventLoop, QMetaObject, QObject, Qt, QTimer
+    from PySide6.QtGui import QColor, QFontDatabase, QFontInfo, QGuiApplication, QKeyEvent
     from PySide6.QtQml import QQmlApplicationEngine
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtWidgets import QApplication
 
     from haltos_agents import app as A
     from haltos_agents.claude import ClaudeError, Session, UntrustedDir
+    from haltos_agents.layout import neighbour, pack
     from haltos_agents.transcript import Question
 except ImportError:  # CI runners have no PySide6; the Qt layer is checked on a desktop.
     A = None
@@ -394,14 +395,16 @@ class BannerTest(unittest.TestCase):
         bar = root.findChild(QQuickItem, "keyBar")
         self.assertIsNotNone(bar)
         # Repeater items hang off the item tree, not the QObject tree.
-        keys = {b.objectName(): b.property("text") for b in bar.childItems() if b.objectName().startswith("key:")}
+        keys = {b.objectName(): b.property("hint") for b in bar.childItems() if b.objectName().startswith("key:")}
         self.assertEqual(keys, {
-            "key:next": "alt+←↑↓→ geç",
-            "key:zoom": "ctrl+o büyüt",
-            "key:interrupt": "esc kes",
-            "key:new": "ctrl+n yeni",
-            "key:search": "ctrl+f ara",
-            "key:terminal": "ctrl+t terminal",
+            "key:wasd": "wasd move",
+            "key:type": "enter type",
+            "key:1-9": "1-9 answer",
+            "key:zoom": "o zoom",
+            "key:interrupt": "x interrupt",
+            "key:new": "n new",
+            "key:search": "/ search",
+            "key:help": "? keys",
         })
         QMetaObject.invokeMethod(root, "trigger", Q_ARG(str, "new"))
         self.assertTrue(root.findChild(QObject, "newAgentDialog").property("visible"))
@@ -445,6 +448,16 @@ class QmlCase(unittest.TestCase):
     def item(self, name):
         return self.root.findChild(QQuickItem, name)
 
+    def tile(self, key):
+        items = self.grid.property("contentItem").childItems()
+        return next(i for i in items if i.objectName() == "agentTile" and i.property("agentKey") == key)
+
+    def tile_input(self, key):
+        # PySide drops a child's wrapper with its parent's, so the tile wrapper has to outlive this call.
+        tile = self.tile(key)
+        self.keep.append(tile)
+        return tile.findChild(QQuickItem, "tileInput")
+
 
 @unittest.skipIf(A is None, "PySide6 not installed")
 class ThemeTest(QmlCase):
@@ -468,16 +481,6 @@ class ThemeTest(QmlCase):
 @unittest.skipIf(A is None, "PySide6 not installed")
 class GridTest(QmlCase):
 
-    def tile(self, key):
-        items = self.grid.property("contentItem").childItems()
-        return next(i for i in items if i.objectName() == "agentTile" and i.property("agentKey") == key)
-
-    def tile_input(self, key):
-        # PySide drops a child's wrapper with its parent's, so the tile wrapper has to outlive this call.
-        tile = self.tile(key)
-        self.keep.append(tile)
-        return tile.findChild(QQuickItem, "tileInput")
-
     def test_grid_shows_every_agent(self):
         self.assertIsNotNone(self.grid)
         self.poll(session("a"), session("b"), session("c"))
@@ -492,8 +495,6 @@ class GridTest(QmlCase):
         self.poll(session("b"))
         self.assertEqual(self.c.selectedKey, "b")
         self.assertTrue(search.hasActiveFocus())
-        self.trigger("next")
-        self.assertTrue(self.tile_input("b").hasActiveFocus())
         bar = self.root.findChild(QQuickItem, "keyBar")
         policies = {b.property("focusPolicy") for b in bar.childItems() if b.objectName().startswith("key:")}
         self.assertEqual(policies, {0})
@@ -528,18 +529,18 @@ class GridTest(QmlCase):
 
     def keys(self):
         bar = self.root.findChild(QQuickItem, "keyBar")
-        return [b.property("text") for b in bar.childItems() if b.objectName().startswith("key:")]
+        return [b.property("hint") for b in bar.childItems() if b.objectName().startswith("key:")]
 
     def test_zoom_toggles_view_and_keys(self):
         self.poll(session("a"))
         detail = self.root.findChild(QQuickItem, "agentDetail")
-        self.assertEqual(self.keys(), ["alt+←↑↓→ geç", "ctrl+o büyüt", "esc kes", "ctrl+n yeni", "ctrl+f ara", "ctrl+t terminal"])
+        self.assertEqual(self.keys(), ["wasd move", "enter type", "1-9 answer", "o zoom", "x interrupt", "n new", "/ search", "? keys"])
         self.assertFalse(detail.property("visible"))
         self.trigger("zoom")
         self.wait()
         self.assertTrue(detail.property("visible"))
         self.assertFalse(self.grid.property("visible"))
-        self.assertEqual(self.keys(), ["ctrl+o grid", "alt+←→ önceki/sonraki", "esc kes", "ctrl+n yeni", "ctrl+t terminal"])
+        self.assertEqual(self.keys(), ["a d prev/next", "enter type", "1-9 answer", "esc grid", "x interrupt", "t terminal"])
         self.assertIsNotNone(self.root.findChild(QQuickItem, "backButton"))
         self.trigger("zoom")
         self.wait()
@@ -554,7 +555,6 @@ class GridTest(QmlCase):
         self.wait()
         full = self.root.findChild(QQuickItem, "agentInput")
         self.assertEqual(full.property("text"), "abc")
-        self.assertTrue(full.hasActiveFocus())
         full.setProperty("text", "abcd")
         self.trigger("zoom")
         self.wait()
@@ -579,7 +579,7 @@ class GridTest(QmlCase):
         self.poll(session("a"), session("b"), session("c"))
         self.assertEqual(self.c.selectedKey, "a")
         self.assertTrue(field.hasActiveFocus())
-        self.root.findChild(QQuickItem, "searchField").forceActiveFocus()
+        QMetaObject.invokeMethod(self.root, "navigate")
         self.wait()
         self.assertEqual(self.c.selectedKey, "c")
 
@@ -682,6 +682,121 @@ class GridTest(QmlCase):
         self.assertFalse(spinner.property("running"))
         self.poll(dataclasses.replace(session("a"), status="busy"))
         self.assertTrue(spinner.property("running"))
+
+
+
+class Agent:
+    def __init__(self, sent):
+        self.sent = sent
+
+    def key(self, data):
+        self.sent.append(data)
+
+
+@unittest.skipIf(A is None, "PySide6 not installed")
+class KeysTest(QmlCase):
+    def setUp(self):
+        super().setUp()
+        self.sent = []
+        self.c._act = lambda fn: fn(Agent(self.sent)) or True
+        self.wait()
+
+    def press(self, key, text=""):
+        for kind in (QEvent.KeyPress, QEvent.KeyRelease):
+            QGuiApplication.sendEvent(self.root, QKeyEvent(kind, key, Qt.NoModifier, text))
+        self.wait(80)
+
+    def letter(self, ch):
+        self.press(getattr(Qt, "Key_" + ch.upper()), ch)
+
+    def navigating(self):
+        return self.item("navigator").hasActiveFocus()
+
+    def test_starts_in_nav(self):
+        self.poll(session("a"))
+        self.assertTrue(self.navigating())
+        self.assertFalse(self.root.property("typing"))
+        self.assertEqual(self.item("modeBadge").property("text"), "NAV")
+
+    def test_wasd_moves_spotlight(self):
+        self.poll(session("a"), session("b"), session("c"))
+        self.letter("d")
+        self.assertEqual(self.c.selectedKey, "b")
+        self.letter("a")
+        self.assertEqual(self.c.selectedKey, "a")
+        grid = self.item("agentGrid")
+        below = neighbour(pack(3, 0, grid.property("columns"), grid.property("bigRows")), 0, "down")
+        self.letter("s")
+        self.assertEqual(self.c.selectedKey, "abc"[below])
+
+    def test_enter_types_and_esc_returns(self):
+        self.poll(session("a"), session("b"))
+        self.press(Qt.Key_Return, "\r")
+        field = self.tile_input("a")
+        self.assertTrue(field.hasActiveFocus())
+        self.assertEqual(self.item("modeBadge").property("text"), "TYPE")
+        self.letter("w")
+        self.assertEqual((field.property("text"), self.c.selectedKey), ("w", "a"))
+        self.press(Qt.Key_Escape)
+        self.assertTrue(self.navigating())
+        self.assertEqual(self.c.draft("a"), "w")
+
+    def test_number_answers(self):
+        self.poll(dataclasses.replace(session("a"), status="waiting"))
+        self.c._question = Question("q", [("Yes", b"y"), ("No", b"n")])
+        self.press(Qt.Key_2, "2")
+        self.assertEqual(self.sent, [b"n"])
+
+    def test_x_interrupts_esc_does_not(self):
+        self.poll(dataclasses.replace(session("a"), status="busy"))
+        self.press(Qt.Key_Return, "\r")
+        self.press(Qt.Key_Escape)
+        self.assertEqual(self.sent, [])
+        self.letter("x")
+        self.assertEqual(len(self.sent), 1)
+
+    def test_letters_go_to_search_and_dialog(self):
+        self.poll(dataclasses.replace(session("a"), status="busy"))
+        self.trigger("search")
+        self.letter("x")
+        self.assertEqual(self.item("searchField").property("text"), "x")
+        self.press(Qt.Key_Escape)
+        self.trigger("new")
+        self.wait()
+        self.letter("x")
+        self.assertFalse(self.navigating())
+        self.assertEqual(self.sent, [])
+
+    def test_focus_falls_back_when_spotlight_vanishes(self):
+        self.poll(session("a"), session("b"))
+        self.press(Qt.Key_Return, "\r")
+        self.assertTrue(self.tile_input("a").hasActiveFocus())
+        self.poll(session("b"))
+        self.wait()
+        self.assertTrue(self.navigating())
+        self.assertEqual(self.c.selectedKey, "b")
+
+    def test_zoom_keys(self):
+        self.poll(session("a"), session("b"))
+        self.letter("o")
+        self.assertTrue(self.root.property("zoomed"))
+        self.letter("d")
+        self.assertEqual(self.c.selectedKey, "b")
+        self.press(Qt.Key_Escape)
+        self.assertFalse(self.root.property("zoomed"))
+        self.assertTrue(self.navigating())
+
+    def test_help_overlay(self):
+        self.poll(session("a"))
+        self.press(Qt.Key_Question, "?")
+        self.assertTrue(self.item("helpOverlay").property("visible"))
+        self.press(Qt.Key_Escape)
+        self.assertFalse(self.item("helpOverlay").property("visible"))
+
+    def test_tty_enter_stays_nav(self):
+        self.poll(session("a", attachable=False))
+        self.press(Qt.Key_Return, "\r")
+        self.assertTrue(self.navigating())
 
 
 if __name__ == "__main__":

@@ -29,6 +29,7 @@ FocusScope {
 
     signal zoomRequested()
     signal stopRequested()
+    signal escaped()
 
     function focusInput() {
         input.forceActiveFocus()
@@ -278,11 +279,10 @@ FocusScope {
                     Component.onCompleted: tile.loadDraft()
                     onTextChanged: tile.controller.setDraft(tile.key, text)
                     onActiveFocusChanged: {
-                        tile.controller.setTyping(activeFocus)
                         if (activeFocus && !tile.selected)
                             tile.controller.select(tile.key)
                     }
-                    Keys.onEscapePressed: tile.act(() => tile.controller.interrupt())
+                    Keys.onEscapePressed: tile.escaped()
                     Keys.onReturnPressed: event => {
                         if (event.modifiers & Qt.ShiftModifier) {
                             event.accepted = false
