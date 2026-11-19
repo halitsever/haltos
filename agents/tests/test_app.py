@@ -350,6 +350,7 @@ class BannerTest(unittest.TestCase):
         keys = {b.objectName(): b.property("text") for b in bar.childItems() if b.objectName().startswith("key:")}
         self.assertEqual(keys, {
             "key:next": "alt+←↑↓→ geç",
+            "key:zoom": "ctrl+o büyüt",
             "key:interrupt": "esc kes",
             "key:new": "ctrl+n yeni",
             "key:search": "ctrl+f ara",
@@ -467,6 +468,49 @@ class GridTest(unittest.TestCase):
         self.assertEqual(self.c.selectedIndex, 4)
         self.trigger("up")
         self.assertEqual(self.c.selectedIndex, max(0, 4 - cols))
+
+    def keys(self):
+        bar = self.root.findChild(QQuickItem, "keyBar")
+        return [b.property("text") for b in bar.childItems() if b.objectName().startswith("key:")]
+
+    def test_zoom_toggles_view_and_keys(self):
+        self.poll(session("a"))
+        detail = self.root.findChild(QQuickItem, "agentDetail")
+        self.assertEqual(self.keys(), ["alt+←↑↓→ geç", "ctrl+o büyüt", "esc kes", "ctrl+n yeni", "ctrl+f ara", "ctrl+t terminal"])
+        self.assertFalse(detail.property("visible"))
+        self.trigger("zoom")
+        self.wait()
+        self.assertTrue(detail.property("visible"))
+        self.assertFalse(self.grid.property("visible"))
+        self.assertEqual(self.keys(), ["ctrl+o grid", "alt+←→ önceki/sonraki", "esc kes", "ctrl+n yeni", "ctrl+t terminal"])
+        self.assertIsNotNone(self.root.findChild(QQuickItem, "backButton"))
+        self.trigger("zoom")
+        self.wait()
+        self.assertFalse(detail.property("visible"))
+        self.assertTrue(self.grid.property("visible"))
+
+    def test_zoom_shares_draft(self):
+        self.poll(session("a"))
+        field = self.tile_input("a")
+        field.setProperty("text", "abc")
+        self.trigger("zoom")
+        self.wait()
+        full = self.root.findChild(QQuickItem, "agentInput")
+        self.assertEqual(full.property("text"), "abc")
+        self.assertTrue(full.hasActiveFocus())
+        full.setProperty("text", "abcd")
+        self.trigger("zoom")
+        self.wait()
+        self.assertEqual(field.property("text"), "abcd")
+
+    def test_zoom_arrows_step_by_one(self):
+        self.poll(*(session(k) for k in "abcde"))
+        self.c.select("a")
+        self.trigger("zoom")
+        self.trigger("down")
+        self.assertEqual(self.c.selectedIndex, 1)
+        self.trigger("up")
+        self.assertEqual(self.c.selectedIndex, 0)
 
     def test_narrow_window_has_one_column(self):
         self.root.setProperty("width", self.root.property("minimumWidth"))

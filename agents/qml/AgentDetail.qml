@@ -12,8 +12,18 @@ ColumnLayout {
     readonly property bool hasAgent: agent.key !== undefined
     readonly property bool canAct: hasAgent && agent.attachable
 
+    signal back()
+
     function focusInput() {
         input.forceActiveFocus()
+    }
+
+    // The tile and this view edit the same per-agent draft, so reload it whenever either side may have changed it.
+    readonly property string key: controller.selectedKey
+    onKeyChanged: input.text = controller.draft(key)
+    onVisibleChanged: {
+        if (visible)
+            input.text = controller.draft(key)
     }
 
     spacing: 0
@@ -24,6 +34,13 @@ ColumnLayout {
         visible: detail.hasAgent
         spacing: Kirigami.Units.smallSpacing * 2
 
+        QQC2.ToolButton {
+            objectName: "backButton"
+            text: "← grid"
+            flat: true
+            focusPolicy: Qt.NoFocus
+            onClicked: detail.back()
+        }
         QQC2.Label {
             text: detail.agent.name ?? ""
             color: Ansi.green
@@ -186,6 +203,7 @@ ColumnLayout {
             wrapMode: TextEdit.Wrap
             placeholderText: detail.canAct ? "ajana yaz… enter gönderir, shift+enter yeni satır"
                                            : "bu oturum bir terminalde açık, buradan yönetilemez"
+            onTextChanged: detail.controller.setDraft(detail.key, text)
             Keys.onEscapePressed: detail.controller.interrupt()
             Keys.onReturnPressed: event => {
                 if (event.modifiers & Qt.ShiftModifier) {

@@ -18,8 +18,13 @@ Kirigami.ApplicationWindow {
     visible: !startHidden
     font: Kirigami.Theme.fixedWidthFont
 
+    property bool zoomed: false
+
     function focusInput() {
-        agentGrid.focusSelected()
+        if (zoomed)
+            agentDetail.focusInput()
+        else
+            agentGrid.focusSelected()
     }
 
     function trigger(action: string) {
@@ -30,14 +35,16 @@ Kirigami.ApplicationWindow {
         case "terminal": controller.openTerminal(); break
         case "prev": controller.step(-1); focusInput(); break
         case "next": controller.step(1); focusInput(); break
-        case "up": controller.step(-agentGrid.columns); focusInput(); break
-        case "down": controller.step(agentGrid.columns); focusInput(); break
+        case "up": controller.step(zoomed ? -1 : -agentGrid.columns); focusInput(); break
+        case "down": controller.step(zoomed ? 1 : agentGrid.columns); focusInput(); break
+        case "zoom": zoomed = !zoomed; focusInput(); break
         }
     }
 
     Shortcut { sequence: "Ctrl+N"; onActivated: root.trigger("new") }
     Shortcut { sequence: "Ctrl+F"; onActivated: root.trigger("search") }
     Shortcut { sequence: "Ctrl+T"; onActivated: root.trigger("terminal") }
+    Shortcut { sequence: "Ctrl+O"; onActivated: root.trigger("zoom") }
     Shortcut { sequence: "Alt+Left"; onActivated: root.trigger("prev") }
     Shortcut { sequence: "Alt+Right"; onActivated: root.trigger("next") }
     Shortcut { sequence: "Alt+Up"; onActivated: root.trigger("up") }
@@ -158,15 +165,18 @@ Kirigami.ApplicationWindow {
         AgentGrid {
             id: agentGrid
             controller: root.controller
-            visible: root.controller.query === ""
+            visible: root.controller.query === "" && !root.zoomed
+            onZoomRequested: root.trigger("zoom")
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
 
         AgentDetail {
             id: agentDetail
+            objectName: "agentDetail"
             controller: root.controller
-            visible: false
+            visible: root.controller.query === "" && root.zoomed
+            onBack: root.trigger("zoom")
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
@@ -178,6 +188,7 @@ Kirigami.ApplicationWindow {
         KeyBar {
             objectName: "keyBar"
             Layout.fillWidth: true
+            zoomed: root.zoomed
             canInterrupt: root.controller.selected.group === "work" && root.controller.selected.attachable === true
             canTerminal: root.controller.selected.attachable === true
             onTriggered: action => root.trigger(action)

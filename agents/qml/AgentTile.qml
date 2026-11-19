@@ -41,6 +41,14 @@ FocusScope {
         act(() => controller.answer(index))
     }
 
+    Connections {
+        target: tile.GridView.view
+        function onVisibleChanged() {
+            if (tile.GridView.view.visible)
+                input.text = tile.controller.draft(tile.key)
+        }
+    }
+
     width: GridView.view.cellWidth
     height: GridView.view.cellHeight
 

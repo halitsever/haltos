@@ -8,14 +8,22 @@ RowLayout {
 
     property bool canInterrupt: false
     property bool canTerminal: false
+    property bool zoomed: false
 
     signal triggered(string action)
 
     spacing: 0
 
     Repeater {
-        model: [
+        model: bar.zoomed ? [
+            { action: "zoom", text: "ctrl+o grid" },
+            { action: "next", text: "alt+←→ önceki/sonraki" },
+            { action: "interrupt", text: "esc kes" },
+            { action: "new", text: "ctrl+n yeni" },
+            { action: "terminal", text: "ctrl+t terminal" }
+        ] : [
             { action: "next", text: "alt+←↑↓→ geç" },
+            { action: "zoom", text: "ctrl+o büyüt" },
             { action: "interrupt", text: "esc kes" },
             { action: "new", text: "ctrl+n yeni" },
             { action: "search", text: "ctrl+f ara" },
