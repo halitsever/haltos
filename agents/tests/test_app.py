@@ -413,14 +413,15 @@ class ControllerTest(unittest.TestCase):
         self.c._on_action("signal ... org.freedesktop.Notifications.ActionInvoked (uint32 7, 'default')")
         self.assertEqual((self.c.selectedKey, self.c.currentTab, shown), ("b", 1, [1]))
 
-    def test_without_pyte_a_tab_falls_back_to_konsole(self):
+    def test_without_pyte_a_tab_asks_for_it_instead_of_a_popup(self):
         calls = self.spawned()
         orig = A.screen.pyte
         A.screen.pyte = None
         self.addCleanup(setattr, A.screen, "pyte", orig)
         self.c._on_polled([session("a")], "")
-        self.assertTrue(self.c.openTab("a"))
-        self.assertEqual(([c[-1] for c in calls], self.c.currentTab), (["a"], 0))
+        self.assertFalse(self.c.openTab("a"))
+        self.assertEqual((calls, self.c.currentTab), ([], 0))
+        self.assertIn("sudo apt install python3-pyte", self.c.error)
 
     def test_launched_agent_is_selected_and_announced(self):
         ready = []

@@ -349,10 +349,10 @@ class Controller(QObject):
             if s is None or not s.attachable:
                 return False
             if screen.pyte is None:
-                # Without python3-pyte the app cannot draw a terminal, so Konsole stands in.
-                self.select(key)
-                self.openTerminal()
-                return True
+                # Without python3-pyte there is no terminal to draw; a popup window is not a tab.
+                self._action_error = "Tabs need python3-pyte. Run: sudo apt install python3-pyte, then restart HaltOS Agents."
+                self.changed.emit()
+                return False
             try:
                 self.terminals[key] = Terminal(self._attachment_for(key), self)
             except ClaudeError as e:
