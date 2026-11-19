@@ -2,6 +2,7 @@ import os
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
@@ -138,6 +139,51 @@ class ControllerTest(unittest.TestCase):
         self.c.retryLaunch()
         self.assertEqual(len(self.started), 1)
         self.assertEqual(self.c.untrustedDir, "")
+
+    def test_step_moves_and_clamps(self):
+        self.c._on_polled([session("a"), session("b")], "")
+        self.c.select("a")
+        self.c.step(1)
+        self.assertEqual(self.c.selectedKey, "b")
+        self.c.step(1)
+        self.assertEqual(self.c.selectedKey, "b")
+        self.c.step(-5)
+        self.assertEqual(self.c.selectedKey, "a")
+
+    def test_step_without_agents_does_nothing(self):
+        self.c.step(1)
+        self.assertEqual(self.c.selectedKey, "")
+
+    def test_interrupt_only_while_working(self):
+        sent = []
+        self.c._act = lambda fn: sent.append(fn) or True
+        self.c.sessions = [Session("a", "s", "a", "/tmp", "background", "", "waiting", 0.0, True)]
+        self.c._selected = "a"
+        self.c.interrupt()
+        self.assertEqual(sent, [])
+        self.c.sessions = [Session("a", "s", "a", "/tmp", "background", "", "busy", 0.0, True)]
+        self.c.interrupt()
+        self.assertEqual(len(sent), 1)
+
+    def test_selected_has_project_and_model(self):
+        path = os.path.join(tempfile.mkdtemp(), "s.jsonl")
+        with open(path, "w") as f:
+            f.write('{"type": "assistant", "message": {"model": "claude-opus-5-5", "content": []}}\n')
+        orig, A.find_transcript = A.find_transcript, lambda sid: Path(path)
+        try:
+            s = Session("a", "s", "a", "/tmp/kahvefalin", "background", "", "busy", 0.0, True)
+            self.c._on_polled([s], "")
+            sel = self.c.selected
+        finally:
+            A.find_transcript = orig
+        self.assertEqual((sel["project"], sel["model"]), ("kahvefalin", "opus-5.5"))
+
+    def test_rows_carry_age_and_feed_roles(self):
+        self.assertIn("age", self.c._agents.keys)
+        self.assertEqual(self.c._feed.keys, ["kind", "body", "name", "added", "removed", "error"])
+        need = Session("n", "s", "n", "/tmp", "background", "", "waiting", 0.0, True)
+        self.assertEqual(self.c._row(need)["age"], "need")
+        self.assertEqual(self.c._row(session("d"))["age"], "done")
 
 
 @unittest.skipIf(A is None, "PySide6 not installed")

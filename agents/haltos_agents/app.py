@@ -40,10 +40,10 @@ from .claude import (
     start_argv,
     stop,
 )
-from .names import recent_dirs, slug
+from .names import age, recent_dirs, slug
 from .notify import MONITOR_ARGV, Notice, NotifyPolicy, notify_argv, parse_action, parse_notify_id
 from .search import Index
-from .transcript import CANCEL, PROJECTS, find_transcript, pending_question, read_feed
+from .transcript import CANCEL, PROJECTS, find_transcript, last_model, pending_question, read_feed, short_model
 
 QML = Path(__file__).resolve().parent.parent / "qml" / "Main.qml"
 LABELS = {"need": "seni bekliyor", "work": "çalışıyor", "done": "bitti"}
@@ -104,8 +104,8 @@ class Controller(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._agents = ListModel(["key", "name", "group", "groupLabel", "state", "cwd", "branch", "attachable"], self)
-        self._feed = ListModel(["kind", "body"], self)
+        self._agents = ListModel(["key", "name", "group", "groupLabel", "state", "cwd", "branch", "attachable", "age"], self)
+        self._feed = ListModel(["kind", "body", "name", "added", "removed", "error"], self)
         self._results = ListModel(["sessionId", "title", "cwd", "where", "date", "snippet"], self)
         self._query = ""
         self._untrusted = ""
@@ -127,6 +127,7 @@ class Controller(QObject):
         self._selected = ""
         self._question = None
         self._feed_stamp = None
+        self._model = ""
         self._branches: dict[str, tuple[float, str]] = {}
         self._busy = False
         self.pool = QThreadPool(self)
@@ -180,6 +181,8 @@ class Controller(QObject):
             "name": s.name,
             "cwd": s.cwd.replace(str(Path.home()), "~", 1),
             "branch": self._branches.get(s.cwd, (0, ""))[1],
+            "project": Path(s.cwd).name,
+            "model": self._model,
             "group": s.group,
             "attachable": s.attachable,
         }
@@ -245,6 +248,7 @@ class Controller(QObject):
             "cwd": s.cwd.replace(str(Path.home()), "~", 1),
             "branch": self._branches.get(s.cwd, (0, ""))[1],
             "attachable": s.attachable,
+            "age": age(time.time() - s.started_at) if s.group == "work" else s.group,
         }
 
     def _load_feed(self, force: bool = False) -> None:
@@ -260,8 +264,13 @@ class Controller(QObject):
         if path is None:
             self._feed.replace([])
             self._question = None
+            self._model = ""
             return
-        self._feed.replace([{"kind": i.kind, "body": i.text} for i in read_feed(path)])
+        self._feed.replace([
+            {"kind": i.kind, "body": i.text, "name": i.name, "added": i.added, "removed": i.removed, "error": i.error}
+            for i in read_feed(path)
+        ])
+        self._model = short_model(last_model(path))
         self._question = pending_question(path, waiting=s.status == "waiting")
 
     @Slot(str)
@@ -323,7 +332,18 @@ class Controller(QObject):
 
     @Slot()
     def interrupt(self):
-        self._act(lambda a: a.key(CANCEL))
+        s = self.session(self._selected)
+        # Esc on a permission prompt denies it, so only a working agent gets one.
+        if s and s.group == "work":
+            self._act(lambda a: a.key(CANCEL))
+
+    @Slot(int)
+    def step(self, delta):
+        keys = [row["key"] for row in self._agents.rows]
+        if not keys:
+            return
+        here = keys.index(self._selected) if self._selected in keys else 0
+        self.select(keys[max(0, min(len(keys) - 1, here + delta))])
 
     @Slot()
     def kill(self):

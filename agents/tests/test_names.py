@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from haltos_agents.names import recent_dirs, slug
+from haltos_agents.names import age, recent_dirs, slug
 
 
 class SlugTest(unittest.TestCase):
@@ -29,6 +29,12 @@ class SlugTest(unittest.TestCase):
     def test_empty_prompt(self):
         self.assertEqual(slug("   ", set()), "agent")
         self.assertEqual(slug("!!!", {"agent"}), "agent-2")
+
+
+class AgeTest(unittest.TestCase):
+    def test_age(self):
+        got = [age(s) for s in (0, 59, 61, 3599, 3600, 4320, -5)]
+        self.assertEqual(got, ["0m", "0m", "1m", "59m", "1h0m", "1h12m", "0m"])
 
 
 class RecentDirsTest(unittest.TestCase):

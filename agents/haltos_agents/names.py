@@ -53,3 +53,8 @@ def recent_dirs(root: Path = PROJECTS, limit: int = 10) -> list[str]:
             if len(dirs) == limit:
                 break
     return dirs
+
+
+def age(seconds: float) -> str:
+    minutes = max(0, int(seconds)) // 60
+    return f"{minutes}m" if minutes < 60 else f"{minutes // 60}h{minutes % 60}m"
