@@ -32,6 +32,97 @@ Kirigami.ApplicationWindow {
     Kirigami.Theme.highlightedTextColor: Ansi.text
 
     readonly property bool searching: controller.query !== ""
+
+    component TabChip: Item {
+        id: chip
+
+        required property int at
+        property string agentKey: ""
+        property string label
+        property color dot: "transparent"
+        property int badge: 0
+        readonly property bool current: root.tab === at
+        readonly property bool closable: agentKey !== ""
+
+        objectName: "tab:" + (agentKey || "agents")
+        height: parent.height
+        implicitWidth: row.implicitWidth + Kirigami.Units.largeSpacing * 2
+
+        Rectangle {
+            anchors.fill: parent
+            radius: 6
+            color: chip.current ? Ansi.surface : hover.containsMouse ? Qt.alpha(Ansi.surface, 0.6) : "transparent"
+            border.width: chip.current ? 1 : 0
+            border.color: Ansi.rule
+        }
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.leftMargin: Kirigami.Units.largeSpacing
+            anchors.rightMargin: Kirigami.Units.largeSpacing
+            height: 2
+            radius: 1
+            color: Ansi.accent
+            visible: chip.current
+        }
+
+        MouseArea {
+            id: hover
+            anchors.fill: parent
+            hoverEnabled: true
+            acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+            onClicked: mouse => {
+                if (mouse.button === Qt.MiddleButton && chip.closable)
+                    root.controller.closeTab(chip.agentKey)
+                else
+                    root.controller.showTab(chip.at)
+            }
+        }
+
+        RowLayout {
+            id: row
+            anchors.centerIn: parent
+            spacing: Kirigami.Units.smallSpacing * 2
+
+            QQC2.Label {
+                visible: chip.closable
+                text: "●"
+                color: chip.dot
+            }
+            QQC2.Label {
+                text: chip.label
+                color: chip.current ? Ansi.text : Ansi.faint
+                elide: Text.ElideRight
+                Layout.preferredWidth: Math.min(implicitWidth, Kirigami.Units.gridUnit * 10)
+            }
+            QQC2.Label {
+                visible: chip.badge > 0
+                text: chip.badge
+                color: Ansi.bg
+                font.bold: true
+                leftPadding: Kirigami.Units.smallSpacing * 1.5
+                rightPadding: Kirigami.Units.smallSpacing * 1.5
+                background: Rectangle {
+                    radius: height / 2
+                    color: Ansi.yellow
+                }
+            }
+            QQC2.Label {
+                objectName: "closeTab"
+                visible: chip.closable
+                text: "×"
+                color: closeArea.containsMouse ? Ansi.text : Ansi.faint
+                MouseArea {
+                    id: closeArea
+                    anchors.fill: parent
+                    anchors.margins: -Kirigami.Units.smallSpacing
+                    hoverEnabled: true
+                    onClicked: root.controller.closeTab(chip.agentKey)
+                }
+            }
+        }
+    }
     readonly property int tab: controller.currentTab
 
     function navigate() {
@@ -48,7 +139,10 @@ Kirigami.ApplicationWindow {
         else
             navigate()
     }
-    onTabChanged: Qt.callLater(focusTab)
+    onTabChanged: {
+        Qt.callLater(focusTab)
+        Qt.callLater(tabBar.reveal)
+    }
 
     function cycleTab(step: int) {
         const n = tabBar.count
@@ -109,7 +203,7 @@ Kirigami.ApplicationWindow {
     Shortcut {
         sequence: "Ctrl+Shift+W"
         enabled: root.tab > 0
-        onActivated: root.controller.closeTab(tabBar.itemAt(root.tab).agentKey)
+        onActivated: root.controller.closeTab(tabBar.keyAt(root.tab))
     }
     Instantiator {
         model: 10
@@ -226,8 +320,68 @@ Kirigami.ApplicationWindow {
                 }
             }
 
-            Item {
+            Rectangle {
+                implicitWidth: 1
+                implicitHeight: Kirigami.Units.gridUnit * 1.2
+                color: Ansi.rule
+            }
+
+            // Tabs live in the top bar like a browser's: the grid first, then one per opened agent.
+            Flickable {
+                id: tabBar
+                objectName: "tabBar"
+                readonly property int count: tabs.count + 1
+
+                function keyAt(index: int): string {
+                    const chip = index > 0 ? tabs.itemAt(index - 1) : null
+                    return chip ? chip.agentKey : ""
+                }
+
                 Layout.fillWidth: true
+                Layout.preferredHeight: search.implicitHeight
+                contentWidth: strip.implicitWidth
+
+                // Keeps the current tab in view when there are more tabs than room.
+                function reveal() {
+                    const chip = root.tab > 0 ? tabs.itemAt(root.tab - 1) : null
+                    if (!chip)
+                        return
+                    if (chip.x < contentX)
+                        contentX = chip.x
+                    else if (chip.x + chip.width > contentX + width)
+                        contentX = chip.x + chip.width - width
+                }
+                flickableDirection: Flickable.HorizontalFlick
+                boundsBehavior: Flickable.StopAtBounds
+                clip: true
+
+                Row {
+                    id: strip
+                    height: parent.height
+                    spacing: Kirigami.Units.smallSpacing
+
+                    TabChip {
+                        at: 0
+                        label: "Agents"
+                        badge: root.controller.counts.need ?? 0
+                    }
+                    Repeater {
+                        id: tabs
+                        model: root.controller.tabs
+
+                        TabChip {
+                            required property string key
+                            required property string name
+                            required property string group
+                            required property int index
+
+                            at: index + 1
+                            agentKey: key
+                            label: name
+                            dot: group === "need" ? Ansi.yellow : group === "work" ? Ansi.accent : Ansi.faint
+                        }
+                    }
+                }
             }
 
             Kirigami.SearchField {
@@ -241,69 +395,20 @@ Kirigami.ApplicationWindow {
                     root.clearSearch()
                 }
             }
-            QQC2.Button {
+            AccentButton {
                 objectName: "newButton"
                 text: "+ New agent"
-                highlighted: true
-                focusPolicy: Qt.NoFocus
+                Layout.preferredHeight: search.implicitHeight
                 QQC2.ToolTip.text: "ctrl+n"
                 QQC2.ToolTip.visible: hovered
                 onClicked: newAgent.open()
             }
         }
 
-        QQC2.TabBar {
-            id: tabBar
-            objectName: "tabBar"
+        Rectangle {
             Layout.fillWidth: true
-            currentIndex: root.tab
-            onCurrentIndexChanged: {
-                if (currentIndex !== root.tab)
-                    root.controller.showTab(currentIndex)
-            }
-
-            QQC2.TabButton {
-                readonly property string agentKey: ""
-                text: "Agents"
-                width: implicitWidth
-                focusPolicy: Qt.NoFocus
-            }
-
-            Repeater {
-                model: root.controller.tabs
-
-                QQC2.TabButton {
-                    id: tabButton
-                    required property string key
-                    required property string name
-                    required property string group
-                    readonly property string agentKey: key
-
-                    // The KDE style paints `text` itself, so the name lives only in the content row.
-                    width: tabRow.implicitWidth + Kirigami.Units.largeSpacing * 2
-                    focusPolicy: Qt.NoFocus
-                    contentItem: RowLayout {
-                        id: tabRow
-                        spacing: Kirigami.Units.smallSpacing * 2
-                        QQC2.Label {
-                            text: "●"
-                            color: tabButton.group === "need" ? Ansi.yellow : tabButton.group === "work" ? Ansi.accent : Ansi.faint
-                        }
-                        QQC2.Label {
-                            text: tabButton.name
-                            font.bold: tabButton.checked
-                        }
-                        QQC2.ToolButton {
-                            objectName: "closeTab"
-                            text: "×"
-                            focusPolicy: Qt.NoFocus
-                            implicitHeight: Kirigami.Units.gridUnit
-                            implicitWidth: Kirigami.Units.gridUnit
-                            onClicked: root.controller.closeTab(tabButton.key)
-                        }
-                    }
-                }
-            }
+            implicitHeight: 1
+            color: Ansi.rule
         }
 
         SearchResults {

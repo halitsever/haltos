@@ -103,7 +103,7 @@ Item {
                 }
                 QQC2.Label {
                     visible: !tile.attachable
-                    text: "tty"
+                    text: "in terminal"
                     color: Ansi.faint
                 }
                 QQC2.Label {
@@ -193,12 +193,11 @@ Item {
 
                 Repeater {
                     model: tile.question.options ?? []
-                    QQC2.Button {
+                    AccentButton {
                         required property string modelData
                         required property int index
                         text: (index + 1) + " " + modelData
-                        highlighted: index === 0
-                        focusPolicy: Qt.NoFocus
+                        primary: index === 0
                         onClicked: tile.choose(index)
                     }
                 }

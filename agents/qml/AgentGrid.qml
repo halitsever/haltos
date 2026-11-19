@@ -62,7 +62,8 @@ Item {
             cells = root.controller.tiles(columns)
             sections = root.controller.sections(columns)
             const spot = JSON.stringify([root.controller.selectedKey, cells[root.controller.selectedIndex]])
-            if (spot !== revealed) {
+            // Hidden behind a tab the grid has no real height, so scrolling waits until it shows again.
+            if (spot !== revealed && visible) {
                 revealed = spot
                 Qt.callLater(reveal)
             }
@@ -106,6 +107,7 @@ Item {
         QQC2.ScrollBar.vertical: QQC2.ScrollBar {}
 
         onColumnsChanged: relayout()
+        onVisibleChanged: if (visible) relayout()
         Component.onCompleted: relayout()
 
         Connections {
@@ -182,11 +184,9 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "No agents yet"
         }
-        QQC2.Button {
+        AccentButton {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "+ New agent"
-            highlighted: true
-            focusPolicy: Qt.NoFocus
             onClicked: root.newRequested()
         }
     }
