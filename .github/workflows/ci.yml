@@ -12,8 +12,18 @@ jobs:
       - uses: actions/checkout@v4
       - name: shellcheck
         run: |
-          shellcheck -S warning install.sh bootstrap.sh shell/haltos-prompt.sh plasma/scripts/windeco.sh tools/clean-shot.sh tools/release.sh tests/system.sh tests/user.sh tests/lib.sh
+          shellcheck -S warning install.sh bootstrap.sh shell/haltos-prompt.sh plasma/scripts/windeco.sh tools/clean-shot.sh tools/release.sh tests/system.sh tests/user.sh tests/lib.sh agents/haltos-agents
           shellcheck -S warning -s sh system/motd/00-haltos
+
+  agents:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: unit tests
+        run: python3 -m unittest discover -s agents/tests -t agents
 
   build:
     runs-on: ubuntu-latest

@@ -60,9 +60,25 @@ gtk_import() {
 }
 
 # Writes every per-user HaltOS setting. Shared by install, refresh and the claude-code-vps sync hook.
+# The agents app is per user: its menu entry and tray autostart point into this account's share dir.
+install_agents() {
+    local share=$1 conf=$2 dir="$1/haltos/agents"
+    rm -rf "$dir"
+    install -d "$share/haltos" "$share/applications" "$conf/autostart"
+    cp -r "$HERE/agents" "$dir"
+    rm -rf "$dir/tests"
+    find "$dir" -name __pycache__ -prune -exec rm -rf {} +
+    local entry='[Desktop Entry]\nType=Application\nName=HaltOS Agents\nGenericName=Claude Code agents\nComment=Manage your Claude Code agents\nExec=%s\nIcon=haltos-agents\nTerminal=false\nCategories=Development;Utility;\nKeywords=claude;ai;agent;\n'
+    # shellcheck disable=SC2059
+    printf "$entry" "$dir/haltos-agents" >"$share/applications/haltos-agents.desktop"
+    # shellcheck disable=SC2059
+    printf "${entry}X-KDE-autostart-phase=2\n" "$dir/haltos-agents --tray" >"$conf/autostart/haltos-agents.desktop"
+}
+
 apply_user_config() {
     local share=$1 conf=$2
     copy_assets "$share"
+    install_agents "$share" "$conf"
 
     install -d "$conf/fastfetch"
     sed "s|/usr/share/haltos|$share/haltos|" "$HERE/system/fastfetch/config.jsonc" >"$conf/fastfetch/config.jsonc"
@@ -243,7 +259,8 @@ undo_user() {
     rm -rf "$share/color-schemes/HaltMono.colors" "$share/konsole/HaltOS.profile" "$share/konsole/HaltMono.colorscheme" \
         "$share/wallpapers/HaltOS" "$share/plasma/look-and-feel/$LNF" "$share/plasma/desktoptheme/haltos" "$share/haltos" "$conf/Kvantum/HaltMono" \
         "$conf/gtk-3.0/haltos-adw.css" "$conf/gtk-4.0/haltos-adw.css"
-    rm -f "$conf/claude-vps/post-apply.d/50-haltos" "$conf/autostart/haltos-firstrun.desktop"
+    rm -f "$conf/claude-vps/post-apply.d/50-haltos" "$conf/autostart/haltos-firstrun.desktop" \
+        "$conf/autostart/haltos-agents.desktop" "$share/applications/haltos-agents.desktop"
     drop_local_only
     find "$share/icons/hicolor" -name 'haltos-*' -delete 2>/dev/null || true
     drop_prompt_hook "$HOME/.bashrc"
@@ -313,8 +330,9 @@ install_system() {
     [ "$EUID" -eq 0 ] || die "system mode needs root: sudo $0 system"
     need dpkg-divert apt-get kwriteconfig6 curl gpg
 
-    log "installing fastfetch and kvantum"
-    apt-get install -y -qq fastfetch qt6-style-kvantum >/dev/null
+    log "installing fastfetch, kvantum and the agents app's Qt modules"
+    apt-get install -y -qq fastfetch qt6-style-kvantum python3-pyside6.qtqml python3-pyside6.qtquick \
+        python3-pyside6.qtwidgets qml6-module-org-kde-kirigami qml6-module-qtquick-dialogs libglib2.0-bin >/dev/null
     install_vscode
 
     copy_assets /usr/share

@@ -63,8 +63,19 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 - [ ] About This System (kinfocenter) shows the HaltOS name and logo.
 - [ ] VS Code starts from the application menu.
 - [ ] After `claude` is logged in, `claudegrid -l 2x2` opens four Claude Code panes.
+- [ ] HaltOS Agents starts from the application menu with the A icon and sits in the tray. Closing its window keeps the tray icon.
+- [ ] In HaltOS Agents, "+" starts an agent in a trusted repo. Its tile appears with `▶`, then turns to `✓` or `!`.
+- [ ] Every live agent has a tile showing its last lines. Typing in a tile's `>` line reaches that agent: `claude attach <id>` in Konsole shows the same prompt.
+- [ ] "ctrl+t terminal" opens the agent in Konsole, "esc kes" interrupts a running turn, and an agent that ran for over a minute raises a "bitti" notification whose "Aç" button opens the app on that agent.
+- [ ] The shortcuts work while typing in a tile: Esc interrupts a working agent and does nothing on one that waits for you, Ctrl+N opens the new agent dialog, Ctrl+F jumps to search (Esc there goes back to the tile), Ctrl+T opens Konsole, Alt+←/→ moves to the previous or next tile and Alt+↑/↓ one row up or down. Each key bar entry does the same when clicked.
+- [ ] Ctrl+O opens the selected agent in the full view and Ctrl+O (or "← grid") goes back. Half-typed text follows the agent between its tile and the full view.
+- [ ] Text half-typed in a tile stays, with the cursor, when a new agent starts and its tile appears.
+- [ ] The feed shows `$` prompts, `⏺ Edit(file) +N -M` tool calls with `⎿` results under them, and the header shows `project:branch · model`.
+- [ ] Searching a word from an old session lists it, and clicking the result resumes it as an agent.
 
 ## 5. Second login
+
+- [ ] HaltOS Agents is back in the tray without being opened by hand.
 
 - [ ] Log out and back in. The bar, wallpaper and theme are unchanged.
 

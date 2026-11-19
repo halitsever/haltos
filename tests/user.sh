@@ -56,6 +56,11 @@ check "panel queued for the first login" test -f "$conf/autostart/haltos-firstru
 check "sync hook installed" test -x "$conf/claude-vps/post-apply.d/50-haltos"
 same "one local-only block" "$(blocks)" 1
 check "own local-only entry kept" grep -qx '.config/mine' "$conf/claude-vps/local-only"
+check "agents app installed" test -x "$share/haltos/agents/haltos-agents"
+check "agents tests not shipped" test ! -e "$share/haltos/agents/tests"
+check "agents in app menu" grep -qx "Exec=$share/haltos/agents/haltos-agents" "$share/applications/haltos-agents.desktop"
+check "agents autostart in tray" grep -qx "Exec=$share/haltos/agents/haltos-agents --tray" "$conf/autostart/haltos-agents.desktop"
+check "agents icon" test -f "$share/icons/hicolor/scalable/apps/haltos-agents.svg"
 
 echo "== install.sh user again"
 "$haltos" user >/dev/null
@@ -68,6 +73,7 @@ echo "== install.sh refresh"
 same "prompt hooked once after refresh" "$(hooks)" 1
 same "one local-only block after refresh" "$(blocks)" 1
 same "look and feel after refresh" "$(read_kde kdeglobals KDE LookAndFeelPackage)" org.haltos.mono
+check "agents still installed after refresh" test -x "$share/haltos/agents/haltos-agents"
 
 echo "== install.sh undo-user"
 "$haltos" undo-user
@@ -83,6 +89,8 @@ check "global theme removed" test ! -e "$share/plasma/look-and-feel/org.haltos.m
 check "kvantum theme removed" test ! -e "$conf/Kvantum/HaltMono"
 check "first-run entry removed" test ! -e "$conf/autostart/haltos-firstrun.desktop"
 check "sync hook removed" test ! -e "$conf/claude-vps/post-apply.d/50-haltos"
+check "agents menu entry removed" test ! -e "$share/applications/haltos-agents.desktop"
+check "agents autostart removed" test ! -e "$conf/autostart/haltos-agents.desktop"
 same "no HaltOS icons left" "$(find "$share/icons/hicolor" -name 'haltos-*' 2>/dev/null | wc -l)" 0
 
 finish
