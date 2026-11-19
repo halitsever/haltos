@@ -674,9 +674,9 @@ class KeysTest(QmlCase):
         self.c._act = lambda fn: fn(Agent(self.sent)) or True
         self.wait()
 
-    def press(self, key, text="", mods=Qt.NoModifier):
+    def press(self, key, text="", mods=None):
         for kind in (QEvent.KeyPress, QEvent.KeyRelease):
-            QGuiApplication.sendEvent(self.root, QKeyEvent(kind, key, mods, text))
+            QGuiApplication.sendEvent(self.root, QKeyEvent(kind, key, mods or Qt.NoModifier, text))
         self.wait(80)
 
     def letter(self, ch):
