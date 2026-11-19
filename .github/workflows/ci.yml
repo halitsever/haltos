@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: shellcheck
         run: |
-          shellcheck -S warning install.sh bootstrap.sh shell/haltos-prompt.sh plasma/scripts/windeco.sh tools/clean-shot.sh tools/release.sh tests/system.sh tests/user.sh tests/lib.sh
+          shellcheck -S warning install.sh bootstrap.sh shell/haltos-prompt.sh plasma/scripts/windeco.sh tools/clean-shot.sh tools/release.sh tests/system.sh tests/user.sh tests/lib.sh agents/haltos-agents
           shellcheck -S warning -s sh system/motd/00-haltos
 
   agents:
