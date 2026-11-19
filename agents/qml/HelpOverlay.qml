@@ -38,23 +38,14 @@ Rectangle {
             // Rows alternate key and meaning, filling the two grid columns.
             Repeater {
                 model: [
-                    { title: "GRID", rows: [
+                    { title: "KEYS", rows: [
                         "←↑↓→ · w a s d · h j k l", "select an agent",
-                        "enter · click", "open it",
+                        "enter · click · t", "open it in Claude Code",
                         "1 2 …", "answer its question",
                         "x · ctrl+k", "interrupt it",
                         "n · ctrl+n", "new agent",
                         "/ · ctrl+f", "search old sessions",
-                        "t · ctrl+t", "open it in a terminal",
                         "?", "these keys"
-                    ] },
-                    { title: "AGENT", rows: [
-                        "enter", "send",
-                        "shift+enter", "new line",
-                        "1 2 …", "answer, while the box is empty",
-                        "ctrl+k", "interrupt",
-                        "alt+← →", "previous or next agent",
-                        "esc", "back to the grid, the draft stays"
                     ] }
                 ]
 

@@ -11,6 +11,17 @@ Item {
     signal opened()
     signal newRequested()
 
+    function hint(text: string) {
+        tip.show(text, 2000)
+    }
+
+    QQC2.ToolTip {
+        id: tip
+        objectName: "gridHint"
+        x: (root.width - width) / 2
+        y: root.height - height - Kirigami.Units.gridUnit
+    }
+
     component SectionHeader: QQC2.Label {
         required property string group
         required property string title

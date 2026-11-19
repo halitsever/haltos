@@ -1,5 +1,4 @@
 singleton Ansi 1.0 Ansi.qml
-AgentDetail 1.0 AgentDetail.qml
 AgentGrid 1.0 AgentGrid.qml
 AgentTile 1.0 AgentTile.qml
 HelpOverlay 1.0 HelpOverlay.qml

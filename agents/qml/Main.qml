@@ -31,46 +31,10 @@ Kirigami.ApplicationWindow {
     Kirigami.Theme.highlightColor: Ansi.accent
     Kirigami.Theme.highlightedTextColor: Ansi.text
 
-    // Two screens and no hidden modes: the grid takes letter keys, the agent screen always types.
-    property bool agentOpen: false
-    property bool moving: false
-
     readonly property bool searching: controller.query !== ""
-    readonly property string selectedKey: controller.selectedKey
-
-    // An open agent screen follows only the user's own moves. If the agent changes under it
-    // (it ended, it was archived), go back so a draft never reaches another agent.
-    onSelectedKeyChanged: {
-        if (agentOpen && !moving)
-            back()
-    }
 
     function navigate() {
         navigator.forceActiveFocus()
-    }
-
-    function focusScreen() {
-        if (agentOpen && controller.selected.attachable === true)
-            agentDetail.focusInput()
-        else
-            navigate()
-    }
-
-    function openAgent() {
-        agentOpen = true
-        focusScreen()
-    }
-
-    function back() {
-        agentOpen = false
-        navigate()
-    }
-
-    function move(fn) {
-        moving = true
-        fn()
-        moving = false
-        focusScreen()
     }
 
     function trigger(action: string) {
@@ -82,49 +46,43 @@ Kirigami.ApplicationWindow {
             return
         }
         switch (action) {
+        case "open": openSelected(); break
         case "interrupt": controller.interrupt(); break
         case "new": newAgent.open(); break
         case "search": search.forceActiveFocus(); search.selectAll(); break
-        case "terminal": controller.openTerminal(); break
-        case "open": if (controller.selectedIndex >= 0) openAgent(); break
-        case "back": back(); break
         case "help": help.open = !help.open; break
-        case "prev": move(() => controller.step(-1)); break
-        case "next": move(() => controller.step(1)); break
+        case "prev": controller.step(-1); break
+        case "next": controller.step(1); break
         case "up":
-        case "down":
-            move(() => agentOpen ? controller.step(action === "up" ? -1 : 1)
-                                 : controller.go(action, agentGrid.columns))
-            break
+        case "down": controller.go(action, agentGrid.columns); break
         case "escape":
             if (help.open)
                 help.open = false
             else if (searching)
                 clearSearch()
-            else if (agentOpen)
-                back()
             break
         }
+    }
+
+    // A session already open in a terminal cannot be attached twice, so the user is told instead.
+    function openSelected() {
+        if (controller.selectedIndex < 0)
+            return
+        if (controller.selected.attachable !== true)
+            agentGrid.hint("Already open in a terminal")
+        else
+            controller.openTerminal()
     }
 
     function clearSearch() {
         search.clear()
         controller.search("")
-        focusScreen()
+        navigate()
     }
 
     Shortcut { sequence: "Ctrl+N"; onActivated: root.trigger("new") }
     Shortcut { sequence: "Ctrl+F"; onActivated: root.trigger("search") }
-    Shortcut { sequence: "Ctrl+T"; onActivated: root.trigger("terminal") }
     Shortcut { sequence: "Ctrl+K"; onActivated: root.trigger("interrupt") }
-    Shortcut { sequence: "Alt+Left"; onActivated: root.trigger("prev") }
-    Shortcut { sequence: "Alt+Right"; onActivated: root.trigger("next") }
-    Shortcut { sequence: "Alt+Up"; onActivated: root.trigger("up") }
-    Shortcut { sequence: "Alt+Down"; onActivated: root.trigger("down") }
-
-    // A launched agent waits only while the user has text in another agent's input.
-    readonly property bool drafting: agentOpen && agentDetail.draftText !== ""
-    onDraftingChanged: controller.setTyping(drafting)
 
     // Kirigami's page stack asks for focus too, so the grid claims it once everything is built.
     Component.onCompleted: {
@@ -133,7 +91,7 @@ Kirigami.ApplicationWindow {
             showMaximized()
     }
 
-    // Focus that drops to nothing or the window's root item goes back to the current screen.
+    // Focus that drops to nothing or the window's root item goes back to the grid.
     function focusLost(): bool {
         return !activeFocusItem || activeFocusItem.parent === null
     }
@@ -141,7 +99,7 @@ Kirigami.ApplicationWindow {
         if (active && focusLost())
             Qt.callLater(() => {
                 if (root.focusLost())
-                    root.focusScreen()
+                    root.navigate()
             })
     }
 
@@ -154,25 +112,14 @@ Kirigami.ApplicationWindow {
         }
     }
 
-    function present() {
-        if (!visible)
-            showMaximized()
-        raise()
-        requestActivate()
-    }
-
     Connections {
         target: root.controller
         function onShowRequested() {
-            root.present()
-            root.focusScreen()
-        }
-        function onAgentRequested(key) {
-            root.present()
-            root.moving = true
-            root.controller.select(key)
-            root.moving = false
-            root.openAgent()
+            if (!root.visible)
+                root.showMaximized()
+            root.raise()
+            root.requestActivate()
+            root.navigate()
         }
     }
 
@@ -272,7 +219,7 @@ Kirigami.ApplicationWindow {
 
         SearchResults {
             controller: root.controller
-            onPicked: root.focusScreen()
+            onPicked: root.navigate()
             visible: root.controller.query !== ""
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -281,21 +228,9 @@ Kirigami.ApplicationWindow {
         AgentGrid {
             id: agentGrid
             controller: root.controller
-            visible: root.controller.query === "" && !root.agentOpen
+            visible: root.controller.query === ""
             onOpened: root.trigger("open")
             onNewRequested: newAgent.open()
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-        }
-
-        AgentDetail {
-            id: agentDetail
-            objectName: "agentDetail"
-            controller: root.controller
-            visible: root.controller.query === "" && root.agentOpen
-            onBack: root.back()
-            onEscaped: root.back()
-            onAnswered: index => root.controller.answer(index)
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
@@ -309,9 +244,7 @@ Kirigami.ApplicationWindow {
         KeyBar {
             objectName: "keyBar"
             Layout.fillWidth: true
-            agentOpen: root.agentOpen
             canInterrupt: root.controller.selected.group === "work" && root.controller.selected.attachable === true
-            canTerminal: root.controller.selected.attachable === true
             onTriggered: action => root.trigger(action)
         }
     }
@@ -320,11 +253,10 @@ Kirigami.ApplicationWindow {
         id: newAgent
         objectName: "newAgentDialog"
         controller: root.controller
-        onClosed: root.focusScreen()
+        onClosed: root.navigate()
     }
 
-    // Holds focus on the grid, and on the agent screen of a session that cannot take input.
-    // Text fields never pass letters on, so here they are always commands.
+    // Holds focus on the grid. Text fields never pass letters on, so here they are always commands.
     Item {
         id: navigator
         objectName: "navigator"
@@ -337,7 +269,7 @@ Kirigami.ApplicationWindow {
             const t = event.text.toLowerCase()
             const action = k === Qt.Key_Escape ? "escape"
                 : t === "?" ? "help"
-                : help.open || root.agentOpen ? ""
+                : help.open ? ""
                 : k === Qt.Key_Left || t === "a" || t === "h" ? "prev"
                 : k === Qt.Key_Right || t === "d" || t === "l" ? "next"
                 : k === Qt.Key_Up || t === "w" || t === "k" ? "up"
@@ -347,7 +279,7 @@ Kirigami.ApplicationWindow {
                 : t === "x" ? "interrupt"
                 : t === "n" ? "new"
                 : t === "/" ? "search"
-                : t === "t" ? "terminal"
+                : t === "t" ? "open"
                 : ""
             if (!action)
                 return

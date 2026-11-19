@@ -7,8 +7,6 @@ RowLayout {
     id: bar
 
     property bool canInterrupt: false
-    property bool canTerminal: false
-    property bool agentOpen: false
 
     signal triggered(string action)
 
@@ -16,15 +14,9 @@ RowLayout {
     Layout.leftMargin: Kirigami.Units.smallSpacing
 
     Repeater {
-        model: bar.agentOpen ? [
-            { key: "enter", label: "send" },
-            { key: "shift+enter", label: "new line" },
-            { key: "1 2", label: "answer" },
-            { key: "ctrl+k", label: "interrupt", action: "interrupt" },
-            { key: "esc", label: "back", action: "back" }
-        ] : [
+        model: [
             { key: "←↑↓→", label: "select" },
-            { key: "enter", label: "open", action: "open" },
+            { key: "enter", label: "open in Claude Code", action: "open" },
             { key: "1 2", label: "answer" },
             { key: "n", label: "new agent", action: "new" },
             { key: "/", label: "search", action: "search" },
@@ -42,8 +34,7 @@ RowLayout {
             flat: true
             focusPolicy: Qt.NoFocus
             hoverEnabled: act !== ""
-            enabled: act === "interrupt" ? bar.canInterrupt
-                   : act === "terminal" ? bar.canTerminal : true
+            enabled: act === "interrupt" ? bar.canInterrupt : true
             onClicked: if (act) bar.triggered(act)
 
             implicitWidth: hintLabel.implicitWidth + Kirigami.Units.smallSpacing * 4

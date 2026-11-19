@@ -46,7 +46,22 @@ Kirigami.Dialog {
         prompt.forceActiveFocus()
     }
 
+    // The task and the folder are all most people need; the rest waits behind "More options".
     Kirigami.FormLayout {
+        QQC2.TextArea {
+            id: prompt
+            Kirigami.FormData.label: "Task:"
+            Layout.fillWidth: true
+            implicitHeight: Kirigami.Units.gridUnit * 6
+            wrapMode: TextEdit.Wrap
+            placeholderText: "What should it do? Ctrl+Enter starts it."
+            Keys.onReturnPressed: event => {
+                if (event.modifiers & Qt.ControlModifier)
+                    dialog.launch()
+                else
+                    event.accepted = false
+            }
+        }
         RowLayout {
             Kirigami.FormData.label: "Folder:"
             Layout.fillWidth: true
@@ -65,35 +80,28 @@ Kirigami.Dialog {
                 onClicked: dialog.folderPicker.createObject(dialog).open()
             }
         }
+        QQC2.CheckBox {
+            id: more
+            text: "More options"
+        }
         QQC2.TextField {
             id: name
+            visible: more.checked
             Kirigami.FormData.label: "Name:"
             Layout.fillWidth: true
             placeholderText: "automatic"
         }
         QQC2.ComboBox {
             id: model
+            visible: more.checked
             Kirigami.FormData.label: "Model:"
             model: ["default", "opus", "sonnet", "haiku"]
         }
         QQC2.Switch {
             id: worktree
+            visible: more.checked
             Kirigami.FormData.label: "Worktree:"
             text: "Run in its own git worktree"
-        }
-        QQC2.TextArea {
-            id: prompt
-            Kirigami.FormData.label: "Task:"
-            Layout.fillWidth: true
-            implicitHeight: Kirigami.Units.gridUnit * 6
-            wrapMode: TextEdit.Wrap
-            placeholderText: "What should it do? Ctrl+Enter starts it."
-            Keys.onReturnPressed: event => {
-                if (event.modifiers & Qt.ControlModifier)
-                    dialog.launch()
-                else
-                    event.accepted = false
-            }
         }
     }
 

@@ -348,39 +348,48 @@ class ControllerTest(unittest.TestCase):
         self.assertEqual(self.c.selectedKey, "d")
         self.assertFalse(hasattr(self.c, "pack"))
 
-    def test_notification_click_requests_the_agent(self):
-        shown, opened = [], []
-        self.c.showRequested.connect(lambda: shown.append(1))
-        self.c.agentRequested.connect(opened.append)
+    def spawned(self):
+        """Records Konsole launches instead of opening windows."""
+        calls = []
+
+        class Proc:
+            def __init__(self, argv, **kw):
+                calls.append(argv)
+                self.done = False
+
+            def poll(self):
+                return 0 if self.done else None
+
+        orig = A.subprocess.Popen
+        A.subprocess.Popen = Proc
+        self.addCleanup(setattr, A.subprocess, "Popen", orig)
+        return calls
+
+    def test_open_terminal_runs_themed_claude_code_once(self):
+        calls = self.spawned()
+        self.c._on_polled([dataclasses.replace(session("a"), name="fix-lint")], "")
+        self.c.select("a")
+        self.c.openTerminal()
+        self.c.openTerminal()
+        self.assertEqual(len(calls), 1)
+        argv = calls[0]
+        for flag in ("--profile", "HaltOS", "--separate", "--hide-menubar", "--hide-tabbar", "tabtitle=fix-lint"):
+            self.assertIn(flag, argv)
+        self.assertEqual(argv[-3:], ["claude", "attach", "a"])
+
+    def test_notification_click_opens_claude_code(self):
+        calls = self.spawned()
         self.c._on_polled([session("a"), session("b")], "")
         self.c.notice_keys[7] = "b"
         self.c._on_action("signal ... org.freedesktop.Notifications.ActionInvoked (uint32 7, 'default')")
-        self.assertEqual((opened, shown, self.c.selectedKey), (["b"], [], "b"))
+        self.assertEqual((self.c.selectedKey, [c[-1] for c in calls]), ("b", ["b"]))
 
-    def test_launched_agent_opens_unless_typing(self):
-        opened = []
-        self.c.agentRequested.connect(opened.append)
+    def test_launched_agent_opens_in_claude_code(self):
+        calls = self.spawned()
         self.c._on_polled([session("a")], "")
         self.c._want = "b"
         self.c._on_polled([session("a"), session("b")], "")
-        self.assertEqual((self.c.selectedKey, opened), ("b", ["b"]))
-        self.c.setTyping(True)
-        self.c._want = "c"
-        self.c._on_polled([session("a"), session("b"), session("c")], "")
-        self.assertEqual(self.c.selectedKey, "b")
-        self.c.setTyping(False)
-        self.assertEqual((self.c.selectedKey, opened), ("c", ["b"]))
-
-    def test_released_hold_loads_the_new_agent(self):
-        loaded = []
-        self.c._load_feed = lambda force=False: loaded.append(self.c._selected)
-        self.c._on_polled([session("a")], "")
-        self.c.setTyping(True)
-        self.c._want = "b"
-        self.c._on_polled([session("a"), session("b")], "")
-        loaded.clear()
-        self.c.setTyping(False)
-        self.assertEqual((self.c.selectedKey, loaded), ("b", ["b"]))
+        self.assertEqual((self.c.selectedKey, [c[-1] for c in calls]), ("b", ["b"]))
 
     def test_drafts_kept_per_agent(self):
         self.c._on_polled([session("a"), session("b")], "")
@@ -437,7 +446,7 @@ class BannerTest(unittest.TestCase):
         keys = {b.objectName(): b.property("hint") for b in bar.childItems() if b.objectName().startswith("key:")}
         self.assertEqual(keys, {
             "key:←↑↓→": "←↑↓→ select",
-            "key:open": "enter open",
+            "key:open": "enter open in Claude Code",
             "key:1 2": "1 2 answer",
             "key:new": "n new agent",
             "key:search": "/ search",
@@ -484,6 +493,22 @@ class QmlCase(unittest.TestCase):
 
     def item(self, name):
         return self.root.findChild(QQuickItem, name)
+
+    def konsoles(self):
+        """Records Konsole launches instead of opening windows."""
+        calls = []
+
+        class Proc:
+            def __init__(self, argv, **kw):
+                calls.append(argv[-1])
+
+            def poll(self):
+                return None
+
+        orig = A.subprocess.Popen
+        A.subprocess.Popen = Proc
+        self.addCleanup(setattr, A.subprocess, "Popen", orig)
+        return calls
 
     def tile(self, key):
         items = self.grid.property("contentItem").childItems()
@@ -563,12 +588,12 @@ class GridTest(QmlCase):
             self.wait(400)
             self.assertEqual({(self.tile(k).width(), self.tile(k).height()) for k in "abc"}, {size})
 
-    def test_click_opens_agent(self):
+    def test_click_opens_claude_code(self):
+        calls = self.konsoles()
         self.poll(session("a"), session("b"))
         QMetaObject.invokeMethod(self.tile("b"), "open")
         self.wait()
-        self.assertTrue(self.root.property("agentOpen"))
-        self.assertEqual(self.c.selectedKey, "b")
+        self.assertEqual((self.c.selectedKey, calls), ("b", ["b"]))
 
     def test_waiting_tile_shows_buttons(self):
         self.poll(self.need("a", "Commit?"), session("b"))
@@ -655,12 +680,6 @@ class KeysTest(QmlCase):
     def navigating(self):
         return self.item("navigator").hasActiveFocus()
 
-    def field(self):
-        return self.item("agentInput")
-
-    def opened(self):
-        return self.root.property("agentOpen")
-
     def question(self):
         self.c._question = Question("q", [("Yes", b"y"), ("No", b"n")])
         self.c.changed.emit()
@@ -668,7 +687,6 @@ class KeysTest(QmlCase):
     def test_starts_on_grid(self):
         self.poll(session("a"))
         self.assertTrue(self.navigating())
-        self.assertFalse(self.opened())
 
     def test_arrows_and_wasd_move(self):
         need = dataclasses.replace(session("a"), status="waiting")
@@ -685,43 +703,31 @@ class KeysTest(QmlCase):
         self.press(Qt.Key_Right)
         self.assertEqual(self.c.selectedKey, "b")
 
-    def test_enter_opens_and_esc_returns(self):
+    def test_enter_opens_claude_code(self):
+        calls = self.konsoles()
         self.poll(session("a"), session("b"))
         self.press(Qt.Key_Return, "\r")
-        self.assertTrue(self.opened())
-        self.assertTrue(self.field().hasActiveFocus())
-        self.letter("h")
-        self.letter("i")
-        self.assertEqual(self.field().property("text"), "hi")
-        self.press(Qt.Key_Escape)
-        self.assertFalse(self.opened())
+        self.assertEqual(calls, ["a"])
         self.assertTrue(self.navigating())
-        self.assertEqual(self.c.draft("a"), "hi")
 
-    def test_digits_answer_only_when_input_empty(self):
-        self.poll(dataclasses.replace(session("a"), status="waiting"))
+    def test_tty_agent_shows_hint_instead(self):
+        calls = self.konsoles()
+        self.poll(session("a", attachable=False))
         self.press(Qt.Key_Return, "\r")
-        self.question()
-        self.press(Qt.Key_2, "2")
-        self.assertEqual(self.sent, [b"n"])
+        self.assertEqual(calls, [])
+        self.assertTrue(self.root.findChild(QObject, "gridHint").property("visible"))
+
+    def test_ctrl_k_and_x_interrupt(self):
+        self.poll(dataclasses.replace(session("a"), status="busy", state=""))
         self.letter("x")
-        self.press(Qt.Key_2, "2")
-        self.assertEqual(self.field().property("text"), "x2")
-        self.assertEqual(self.sent, [b"n"])
+        self.trigger("interrupt")
+        self.assertEqual(len(self.sent), 2)
 
     def test_grid_digit_answers(self):
         self.poll(dataclasses.replace(session("a"), status="waiting"))
         self.question()
         self.press(Qt.Key_1, "1")
         self.assertEqual(self.sent, [b"y"])
-
-    def test_ctrl_k_interrupts_and_esc_does_not(self):
-        self.poll(dataclasses.replace(session("a"), status="busy", state=""))
-        self.press(Qt.Key_Return, "\r")
-        self.press(Qt.Key_Escape)
-        self.assertEqual(self.sent, [])
-        self.trigger("interrupt")
-        self.assertEqual(len(self.sent), 1)
 
     def test_letters_go_to_search_and_dialog(self):
         self.poll(dataclasses.replace(session("a"), status="busy", state=""))
@@ -734,42 +740,6 @@ class KeysTest(QmlCase):
         self.letter("x")
         self.assertFalse(self.navigating())
         self.assertEqual(self.sent, [])
-
-    def test_open_agent_vanishing_goes_back(self):
-        self.poll(session("a"), session("b"))
-        self.press(Qt.Key_Return, "\r")
-        self.letter("h")
-        self.letter("i")
-        self.poll(session("b"))
-        self.wait()
-        self.assertFalse(self.opened())
-        self.assertTrue(self.navigating())
-        self.assertEqual(self.c.draft("a"), "hi")
-
-    def test_alt_arrows_step_on_agent_screen(self):
-        self.poll(session("a"), session("b"))
-        self.press(Qt.Key_Return, "\r")
-        self.trigger("next")
-        self.wait()
-        self.assertTrue(self.opened())
-        self.assertEqual(self.c.selectedKey, "b")
-        self.assertTrue(self.field().hasActiveFocus())
-
-    def test_notification_opens_agent(self):
-        self.poll(session("a"), session("b"))
-        self.c.select("b")
-        self.c.agentRequested.emit("b")
-        self.wait()
-        self.assertTrue(self.opened())
-        self.assertTrue(self.field().hasActiveFocus())
-
-    def test_tty_agent_opens_read_only(self):
-        self.poll(session("a", attachable=False))
-        self.press(Qt.Key_Return, "\r")
-        self.assertTrue(self.opened())
-        self.assertFalse(self.field().property("enabled"))
-        self.press(Qt.Key_Escape)
-        self.assertFalse(self.opened())
 
     def test_poll_keeps_user_scroll(self):
         self.root.setProperty("height", 600)
@@ -787,9 +757,10 @@ class KeysTest(QmlCase):
         self.c._query = "x"
         self.c.changed.emit()
         self.wait()
+        calls = self.konsoles()
         self.press(Qt.Key_Return, "\r")
         self.letter("d")
-        self.assertFalse(self.opened())
+        self.assertEqual(calls, [])
         self.assertEqual(self.c.selectedKey, "a")
         self.press(Qt.Key_Escape)
         self.assertEqual(self.c.query, "")

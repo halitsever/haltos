@@ -139,7 +139,6 @@ class Controller(QObject):
     found = Signal(object, str)
     sessionsChanged = Signal(list)
     showRequested = Signal()
-    agentRequested = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -170,7 +169,7 @@ class Controller(QObject):
         self._tiles: dict[str, tuple] = {}
         self._windows: dict[str, int] = {}
         self._drafts: dict[str, str] = {}
-        self._typing = False
+        self.terminals: dict[str, subprocess.Popen] = {}
         self._branches: dict[str, tuple[float, str]] = {}
         self._busy = False
         self.pool = QThreadPool(self)
@@ -239,14 +238,6 @@ class Controller(QObject):
     def counts(self):
         groups = [row["group"] for row in self._agents.rows]
         return {g: groups.count(g) for g in ("need", "work", "done")}
-
-    @Slot(bool)
-    def setTyping(self, typing):
-        """A launched agent waits while the user has text in another agent's input, then is only selected."""
-        self._typing = typing
-        if not typing and self._want and self.session(self._want):
-            want, self._want = self._want, ""
-            self.select(want)
 
     @Slot(str, result=str)
     def draft(self, key):
@@ -329,7 +320,7 @@ class Controller(QObject):
             order = {g: i for i, g in enumerate(GROUPS)}
             ordered = sorted(self.sessions, key=lambda s: (order[s.group], -s.started_at))
             self._agents.replace([self._row(s) for s in ordered])
-            if self._want and self.session(self._want) and not self._typing:
+            if self._want and self.session(self._want):
                 self._selected, self._want = self._want, ""
                 launched = self._selected
             elif not self.session(self._selected) and ordered:
@@ -341,7 +332,7 @@ class Controller(QObject):
         self._load_feed()
         self.changed.emit()
         if launched:
-            self.agentRequested.emit(launched)
+            self.openTerminal()
 
     def _row(self, s: Session) -> dict:
         tile = self._tiles.get(s.key, (None, [], {}))
@@ -480,12 +471,17 @@ class Controller(QObject):
 
     @Slot()
     def openTerminal(self):
+        """Opens the real Claude Code for the agent in a HaltOS themed Konsole, one window per agent."""
         s = self.session(self._selected)
         if not s or not s.attachable:
             return
+        running = self.terminals.get(s.key)
+        if running is not None and running.poll() is None:
+            return
         try:
-            subprocess.Popen(
-                ["konsole", "--profile", "HaltOS", "-e", *attach_argv(s.key)],
+            self.terminals[s.key] = subprocess.Popen(
+                ["konsole", "--profile", "HaltOS", "--separate", "--hide-menubar", "--hide-tabbar",
+                 "-p", f"tabtitle={s.name}", "--workdir", s.cwd or str(Path.home()), "-e", *attach_argv(s.key)],
                 env=clean_env(os.environ),
                 cwd=s.cwd or None,
                 start_new_session=True,
@@ -541,7 +537,7 @@ class Controller(QObject):
         key = hit and hit[1] == "open" and self.notice_keys.pop(hit[0], None)
         if key:
             self.select(key)
-            self.agentRequested.emit(key)
+            self.openTerminal()
 
     def _watch_notifications(self) -> None:
         """Clicks on our notifications arrive as ActionInvoked signals on the session bus."""
