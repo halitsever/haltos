@@ -31,32 +31,14 @@ Kirigami.ApplicationWindow {
     Kirigami.Theme.highlightColor: Ansi.accent
     Kirigami.Theme.highlightedTextColor: Ansi.text
 
-    property bool zoomed: false
-
-    component Counter: QQC2.Label {
-        required property string group
-        required property string label
-        readonly property int count: root.controller.counts[group] ?? 0
-        objectName: "counter:" + group
-        visible: count > 0
-        text: count + " " + label
-        font.pointSize: Kirigami.Theme.smallFont.pointSize
-        leftPadding: Kirigami.Units.smallSpacing * 2
-        rightPadding: Kirigami.Units.smallSpacing * 2
-        topPadding: 1
-        bottomPadding: 1
-        background: Rectangle {
-            radius: height / 2
-            color: Qt.alpha(parent.color, 0.14)
-        }
-    }
+    property bool agentOpen: false
 
     // NAV and TYPE are not stored: the app is typing exactly when a text field has focus.
     readonly property bool typing: activeFocusItem !== null && activeFocusItem.cursorPosition !== undefined
     onTypingChanged: controller.setTyping(typing)
 
     // The agent the focused input was typing to. A selection that moves away from it under the
-    // input (a click, a poll, a zoomed agent leaving) drops to NAV so keys never reach another agent.
+    // input (a click, a poll, a agentOpen agent leaving) drops to NAV so keys never reach another agent.
     property string typingKey: ""
     readonly property string selectedKey: controller.selectedKey
     onSelectedKeyChanged: {
@@ -74,10 +56,10 @@ Kirigami.ApplicationWindow {
     }
 
     function focusInput() {
-        if (zoomed)
+        if (agentOpen)
             agentDetail.focusInput()
         else
-            agentGrid.focusSelected()
+            navigate()
     }
 
     function type() {
@@ -112,18 +94,19 @@ Kirigami.ApplicationWindow {
         case "search": search.forceActiveFocus(); search.selectAll(); break
         case "terminal": controller.openTerminal(); break
         case "type": type(); break
+        case "open": if (!agentOpen) trigger("zoom"); break
         case "help": help.open = !help.open; break
         case "prev": move(() => controller.step(-1)); break
         case "next": move(() => controller.step(1)); break
         case "up":
         case "down":
-            move(() => zoomed ? controller.step(action === "up" ? -1 : 1)
+            move(() => agentOpen ? controller.step(action === "up" ? -1 : 1)
                               : controller.go(action, agentGrid.columns))
             break
         case "zoom": {
             const typingHere = inputFocused()
-            zoomed = !zoomed
-            typingHere ? focusInput() : navigate()
+            agentOpen = !agentOpen
+            typingHere || agentOpen ? focusInput() : navigate()
             break
         }
         case "escape":
@@ -132,7 +115,7 @@ Kirigami.ApplicationWindow {
             } else if (searching) {
                 search.clear()
                 controller.search("")
-            } else if (zoomed) {
+            } else if (agentOpen) {
                 trigger("zoom")
             }
             break
@@ -246,22 +229,6 @@ Kirigami.ApplicationWindow {
                 }
             }
 
-            Counter {
-                group: "need"
-                label: "waiting"
-                color: Ansi.yellow
-            }
-            Counter {
-                group: "work"
-                label: "working"
-                color: Ansi.accent
-            }
-            Counter {
-                group: "done"
-                label: "done"
-                color: Ansi.faint
-            }
-
             Item {
                 Layout.fillWidth: true
             }
@@ -279,10 +246,12 @@ Kirigami.ApplicationWindow {
                     root.navigate()
                 }
             }
-            QQC2.ToolButton {
-                text: "+"
+            QQC2.Button {
+                objectName: "newButton"
+                text: "+ New agent"
+                highlighted: true
                 focusPolicy: Qt.NoFocus
-                QQC2.ToolTip.text: "New agent (ctrl+n)"
+                QQC2.ToolTip.text: "ctrl+n"
                 QQC2.ToolTip.visible: hovered
                 onClicked: newAgent.open()
             }
@@ -305,9 +274,9 @@ Kirigami.ApplicationWindow {
         AgentGrid {
             id: agentGrid
             controller: root.controller
-            visible: root.controller.query === "" && !root.zoomed
-            onZoomRequested: root.trigger("zoom")
-            onEscaped: root.navigate()
+            visible: root.controller.query === "" && !root.agentOpen
+            onOpened: root.trigger("open")
+            onNewRequested: newAgent.open()
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
@@ -316,7 +285,7 @@ Kirigami.ApplicationWindow {
             id: agentDetail
             objectName: "agentDetail"
             controller: root.controller
-            visible: root.controller.query === "" && root.zoomed
+            visible: root.controller.query === "" && root.agentOpen
             onBack: root.trigger("zoom")
             onEscaped: root.navigate()
             Layout.fillWidth: true
@@ -332,7 +301,7 @@ Kirigami.ApplicationWindow {
         KeyBar {
             objectName: "keyBar"
             Layout.fillWidth: true
-            zoomed: root.zoomed
+            agentOpen: root.agentOpen
             typing: root.typing
             canInterrupt: root.controller.selected.group === "work" && root.controller.selected.attachable === true
             canTerminal: root.controller.selected.attachable === true

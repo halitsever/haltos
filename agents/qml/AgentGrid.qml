@@ -7,20 +7,27 @@ Item {
 
     required property QtObject controller
     readonly property alias columns: grid.columns
-    readonly property alias bigRows: grid.bigRows
 
-    signal zoomRequested()
-    signal escaped()
+    signal opened()
+    signal newRequested()
 
-    function spotlight(): Item {
-        return tiles.itemAt(root.controller.selectedIndex)
-    }
+    component SectionHeader: QQC2.Label {
+        required property string group
+        required property string title
+        readonly property int at: grid.order.indexOf(group)
+        readonly property var info: at < 0 ? null : grid.sections[at]
 
-    function focusSelected() {
-        grid.reveal()
-        const tile = spotlight()
-        if (tile)
-            tile.focusInput()
+        objectName: "section:" + group
+        visible: at >= 0
+        x: Kirigami.Units.smallSpacing
+        y: info ? info[2] * grid.cellHeight + at * grid.headerHeight : 0
+        height: grid.headerHeight
+        verticalAlignment: Text.AlignBottom
+        bottomPadding: Kirigami.Units.smallSpacing
+        font.bold: true
+        text: title + "  " + (info ? info[1] : 0)
+
+        Behavior on y { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
     }
 
     Flickable {
@@ -29,48 +36,65 @@ Item {
 
         readonly property int columns: Math.max(1, Math.floor(width / (Kirigami.Units.gridUnit * 16)))
         readonly property real cellWidth: Math.floor(width / columns)
-        readonly property real cellHeight: Kirigami.Units.gridUnit * 6
-        readonly property int bigRows: Math.max(2, Math.round(height / 2 / cellHeight))
+        readonly property real cellHeight: Kirigami.Units.gridUnit * 7
+        readonly property real headerHeight: Kirigami.Units.gridUnit * 2
         readonly property int count: tiles.count
-        property var rects: []
+        property var cells: []
+        property var sections: []
+        readonly property var order: sections.map(s => s[0])
         property int frame: 0
         property string revealed: ""
 
-        // Packing lives in Python, so QML re-reads it whenever the rows, the selection or the size change.
-        // It scrolls only when the spotlight itself moved, so a poll never undoes the user's scrolling.
+        // Layout lives in Python, so QML re-reads it whenever the rows or the width change.
+        // It scrolls only when the selected tile moved, so a poll never undoes the user's scrolling.
         function relayout() {
-            rects = root.controller.tiles(columns).map(t => [t[0], t[1], 1, 1])
-            const spot = JSON.stringify([root.controller.selectedKey, rects[root.controller.selectedIndex]])
+            cells = root.controller.tiles(columns)
+            sections = root.controller.sections(columns)
+            const spot = JSON.stringify([root.controller.selectedKey, cells[root.controller.selectedIndex]])
             if (spot !== revealed) {
                 revealed = spot
                 Qt.callLater(reveal)
             }
         }
 
+        // Sections run in row order, so a tile belongs to the last section starting at or above its row.
+        function sectionOf(index: int): int {
+            const row = cells[index] ? cells[index][1] : 0
+            let at = 0
+            for (let i = 0; i < sections.length; i++)
+                if (sections[i][2] <= row)
+                    at = i
+            return at
+        }
+
+        function tileTop(index: int): real {
+            const cell = cells[index]
+            return cell ? cell[1] * cellHeight + (sectionOf(index) + 1) * headerHeight : 0
+        }
+
         function reveal() {
-            const r = rects[root.controller.selectedIndex]
-            if (!r)
+            const i = root.controller.selectedIndex
+            if (!cells[i])
                 return
-            const top = r[1] * cellHeight
-            const bottom = top + r[3] * cellHeight
-            if (top < contentY)
-                contentY = top
-            else if (bottom > contentY + height)
-                contentY = Math.min(bottom, contentHeight) - height
+            const y0 = tileTop(i)
+            const y1 = y0 + cellHeight
+            if (y0 - headerHeight < contentY)
+                contentY = Math.max(0, y0 - headerHeight)
+            else if (y1 > contentY + height)
+                contentY = Math.min(y1, contentHeight) - height
         }
 
         anchors.fill: parent
         anchors.margins: Kirigami.Units.smallSpacing
         clip: true
         contentWidth: width
-        contentHeight: rects.reduce((end, r) => Math.max(end, (r[1] + r[3]) * cellHeight), 0)
+        contentHeight: cells.length ? tileTop(cells.length - 1) + cellHeight : 0
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
 
         QQC2.ScrollBar.vertical: QQC2.ScrollBar {}
 
         onColumnsChanged: relayout()
-        onBigRowsChanged: relayout()
         Component.onCompleted: relayout()
 
         Connections {
@@ -84,8 +108,24 @@ Item {
             objectName: "spinner"
             interval: 90
             repeat: true
-            running: grid.visible && (root.controller.counts.work ?? 0) > 0
+            running: grid.visible && root.Window.window !== null && root.Window.window.visible && (root.controller.counts.work ?? 0) > 0
             onTriggered: grid.frame++
+        }
+
+        SectionHeader {
+            group: "need"
+            title: "● Waiting for you"
+            color: Ansi.yellow
+        }
+        SectionHeader {
+            group: "work"
+            title: "◐ Working"
+            color: Ansi.accent
+        }
+        SectionHeader {
+            group: "done"
+            title: "✓ Done"
+            color: Ansi.faint
         }
 
         Repeater {
@@ -93,23 +133,19 @@ Item {
             model: root.controller.agents
 
             delegate: AgentTile {
-                readonly property var rect: grid.rects[index] ?? [0, 0, 1, 1]
+                readonly property var cell: grid.cells[index] ?? [0, 0]
 
                 controller: root.controller
-                big: agentKey === root.controller.selectedKey
                 frame: grid.frame
-                x: rect[0] * grid.cellWidth
-                y: rect[1] * grid.cellHeight
-                width: rect[2] * grid.cellWidth
-                height: rect[3] * grid.cellHeight
+                x: cell[0] * grid.cellWidth
+                y: grid.tileTop(index)
+                width: grid.cellWidth
+                height: grid.cellHeight
 
                 Behavior on x { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
                 Behavior on y { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
-                Behavior on width { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
-                Behavior on height { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
 
-                onZoomRequested: root.zoomRequested()
-                onEscaped: root.escaped()
+                onOpened: root.opened()
                 onStopRequested: {
                     confirmStop.target = agentKey
                     confirmStop.targetName = name
@@ -133,13 +169,14 @@ Item {
         }
         QQC2.Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "no agents yet"
+            text: "No agents yet"
         }
-        QQC2.Label {
+        QQC2.Button {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: Ansi.paint(Ansi.accent, "n") + " new agent"
-            textFormat: Text.StyledText
-            color: Ansi.faint
+            text: "+ New agent"
+            highlighted: true
+            focusPolicy: Qt.NoFocus
+            onClicked: root.newRequested()
         }
     }
 

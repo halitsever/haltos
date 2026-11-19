@@ -505,14 +505,10 @@ class ThemeTest(QmlCase):
         if "JetBrains Mono" in QFontDatabase.families():
             self.assertEqual(self.root.property("font").family(), "JetBrains Mono")
 
-    def test_counters(self):
-        need = dataclasses.replace(session("a"), status="waiting")
-        work = [dataclasses.replace(session(k), status="busy", state="") for k in "bc"]
-        self.poll(need, *work)
-        self.assertEqual(self.item("counter:need").property("text"), "1 waiting")
-        self.assertEqual(self.item("counter:work").property("text"), "2 working")
-        self.assertFalse(self.item("counter:done").property("visible"))
+    def test_empty_state_and_new_button(self):
+        self.poll(session("a"))
         self.assertFalse(self.item("emptyState").property("visible"))
+        self.assertEqual(self.item("newButton").property("text"), "+ New agent")
         self.poll()
         self.assertTrue(self.item("emptyState").property("visible"))
 
@@ -520,35 +516,68 @@ class ThemeTest(QmlCase):
 @unittest.skipIf(A is None, "PySide6 not installed")
 class GridTest(QmlCase):
 
+    def need(self, key, question=None):
+        if question:
+            self.c._tiles[key] = (None, [], {"text": question, "options": ["Yes", "No"]})
+        return dataclasses.replace(session(key), status="waiting")
+
+    def work(self, key):
+        return dataclasses.replace(session(key), status="busy", state="")
+
     def test_grid_shows_every_agent(self):
-        self.assertIsNotNone(self.grid)
         self.poll(session("a"), session("b"), session("c"))
         self.assertEqual(self.grid.property("count"), 3)
-        self.assertIsNone(self.root.findChild(QQuickItem, "agentList"))
 
     def test_poll_does_not_move_focus(self):
         self.poll(session("a"))
-        search = self.root.findChild(QQuickItem, "searchField")
+        search = self.item("searchField")
         self.trigger("search")
         self.assertTrue(search.hasActiveFocus())
         self.poll(session("b"))
-        self.assertEqual(self.c.selectedKey, "b")
         self.assertTrue(search.hasActiveFocus())
-        bar = self.root.findChild(QQuickItem, "keyBar")
+        bar = self.item("keyBar")
         policies = {b.property("focusPolicy") for b in bar.childItems() if b.objectName().startswith("key:")}
         self.assertEqual(policies, {0})
 
-    def test_focus_and_draft_survive_new_agent(self):
-        self.poll(session("a"))
-        field = self.tile_input("a")
-        field.forceActiveFocus()
-        field.setProperty("text", "hello")
-        newer = Session("b", "sid-b", "b", "/tmp", "background", "done", "idle", 1.0, True)
-        self.poll(newer, session("a"))
-        self.assertEqual([r["key"] for r in self.c._agents.rows], ["b", "a"])
-        self.assertTrue(field.hasActiveFocus())
-        self.assertEqual(field.property("text"), "hello")
-        self.assertEqual(self.c.draft("a"), "hello")
+    def test_sections_in_order_and_hidden_when_empty(self):
+        self.poll(self.need("a"), session("b"))
+        need, work, done = (self.item("section:" + g) for g in ("need", "work", "done"))
+        self.assertEqual(need.property("text"), "● Waiting for you  1")
+        self.assertEqual(done.property("text"), "✓ Done  1")
+        self.assertFalse(work.property("visible"))
+        self.assertLess(need.y(), done.y())
+
+    def test_tiles_sit_in_their_sections(self):
+        self.poll(self.need("a"), self.work("b"), self.work("c"), session("d"))
+        self.wait(600)
+        cols = self.grid.property("columns")
+        ch, hh = self.grid.property("cellHeight"), self.grid.property("headerHeight")
+        order = [g for g, _, _ in self.c.sections(cols)]
+        for key, (col, row), group in zip("abcd", self.c.tiles(cols), ["need", "work", "work", "done"]):
+            self.assertEqual(self.tile(key).y(), row * ch + (order.index(group) + 1) * hh, key)
+            self.assertEqual(self.tile(key).x(), col * self.grid.property("cellWidth"), key)
+
+    def test_tiles_keep_size_on_selection(self):
+        self.poll(session("a"), session("b"), session("c"))
+        size = (self.grid.property("cellWidth"), self.grid.property("cellHeight"))
+        for key in "abc":
+            self.c.select(key)
+            self.wait(400)
+            self.assertEqual({(self.tile(k).width(), self.tile(k).height()) for k in "abc"}, {size})
+
+    def test_click_opens_agent(self):
+        self.poll(session("a"), session("b"))
+        QMetaObject.invokeMethod(self.tile("b"), "open")
+        self.wait()
+        self.assertTrue(self.root.property("agentOpen"))
+        self.assertEqual(self.c.selectedKey, "b")
+
+    def test_waiting_tile_shows_buttons(self):
+        self.poll(self.need("a", "Commit?"), session("b"))
+        tile_a, tile_b = self.tile("a"), self.tile("b")
+        self.keep += [tile_a, tile_b]
+        self.assertTrue(tile_a.findChild(QQuickItem, "answerButtons").isVisible())
+        self.assertFalse(tile_b.findChild(QQuickItem, "answerButtons").isVisible())
 
     def test_unselected_tile_acts_on_its_agent(self):
         path = os.path.join(tempfile.mkdtemp(), "s.jsonl")
@@ -565,76 +594,6 @@ class GridTest(QmlCase):
         finally:
             A.find_transcript, A.pending_question = orig
         self.assertEqual(seen, ["b"])
-
-    def keys(self):
-        bar = self.root.findChild(QQuickItem, "keyBar")
-        return [b.property("hint") for b in bar.childItems() if b.objectName().startswith("key:")]
-
-    def test_zoom_toggles_view_and_keys(self):
-        self.poll(session("a"))
-        detail = self.root.findChild(QQuickItem, "agentDetail")
-        self.assertEqual(self.keys(), ["wasd move", "enter type", "1-9 answer", "o zoom", "x interrupt", "n new", "/ search", "? keys"])
-        self.assertFalse(detail.property("visible"))
-        self.trigger("zoom")
-        self.wait()
-        self.assertTrue(detail.property("visible"))
-        self.assertFalse(self.grid.property("visible"))
-        self.assertEqual(self.keys(), ["a d prev/next", "enter type", "1-9 answer", "esc grid", "x interrupt", "t terminal"])
-        self.assertIsNotNone(self.root.findChild(QQuickItem, "backButton"))
-        self.trigger("zoom")
-        self.wait()
-        self.assertFalse(detail.property("visible"))
-        self.assertTrue(self.grid.property("visible"))
-
-    def test_zoom_shares_draft(self):
-        self.poll(session("a"))
-        field = self.tile_input("a")
-        field.setProperty("text", "abc")
-        self.trigger("zoom")
-        self.wait()
-        full = self.root.findChild(QQuickItem, "agentInput")
-        self.assertEqual(full.property("text"), "abc")
-        full.setProperty("text", "abcd")
-        self.trigger("zoom")
-        self.wait()
-        self.assertEqual(field.property("text"), "abcd")
-
-    def test_zoom_arrows_step_by_one(self):
-        self.poll(*(session(k) for k in "abcde"))
-        self.c.select("a")
-        self.trigger("zoom")
-        self.trigger("down")
-        self.assertEqual(self.c.selectedIndex, 1)
-        self.trigger("up")
-        self.assertEqual(self.c.selectedIndex, 0)
-
-    def test_launched_agent_waits_while_typing(self):
-        self.poll(session("a"), session("b"))
-        self.c.select("a")
-        field = self.tile_input("a")
-        field.forceActiveFocus()
-        field.setProperty("text", "typing")
-        self.c._want = "c"
-        self.poll(session("a"), session("b"), session("c"))
-        self.assertEqual(self.c.selectedKey, "a")
-        self.assertTrue(field.hasActiveFocus())
-        QMetaObject.invokeMethod(self.root, "navigate")
-        self.wait()
-        self.assertEqual(self.c.selectedKey, "c")
-
-    def test_zoom_keeps_cursor_at_end(self):
-        self.poll(session("a"))
-        field = self.tile_input("a")
-        field.forceActiveFocus()
-        field.setProperty("text", "fix the")
-        self.trigger("zoom")
-        self.wait()
-        full = self.root.findChild(QQuickItem, "agentInput")
-        self.assertEqual(full.property("cursorPosition"), 7)
-        full.setProperty("text", "fix the tests")
-        self.trigger("zoom")
-        self.wait()
-        self.assertEqual(field.property("cursorPosition"), 13)
 
     def test_stop_dialog_stops_the_agent_it_asked_about(self):
         stopped = []
@@ -654,41 +613,7 @@ class GridTest(QmlCase):
             A.stop = orig
         self.assertEqual(stopped, ["a"])
 
-    def big(self, key):
-        return self.tile(key).property("big")
-
-    def test_spotlight_follows_selection(self):
-        self.poll(session("a"), session("b"), session("c"))
-        self.assertEqual([self.big(k) for k in "abc"], [True, False, False])
-        self.c.select("c")
-        self.wait()
-        self.assertEqual([self.big(k) for k in "abc"], [False, False, True])
-
-    def test_only_spotlight_has_input(self):
-        self.poll(session("a"), session("b"))
-        self.assertTrue(self.tile_input("a").isVisible())
-        self.assertFalse(self.tile_input("b").isVisible())
-
-    def test_draft_follows_spotlight(self):
-        self.poll(session("a"), session("b"))
-        field = self.tile_input("a")
-        field.setProperty("text", "half done")
-        self.c.select("b")
-        self.wait()
-        self.c.select("a")
-        self.wait()
-        self.assertEqual(field.property("text"), "half done")
-        self.assertEqual(field.property("cursorPosition"), 9)
-
-    def test_poll_reorder_keeps_spotlight(self):
-        self.poll(session("a"), session("b"))
-        self.c.select("b")
-        self.poll(session("a"), dataclasses.replace(session("b"), status="waiting"))
-        self.assertEqual([r["key"] for r in self.c._agents.rows], ["b", "a"])
-        self.assertEqual(self.c.selectedKey, "b")
-        self.assertTrue(self.big("b"))
-
-    def test_spotlight_scrolled_into_view(self):
+    def test_selection_scrolled_into_view(self):
         self.root.setProperty("height", 600)
         self.poll(*(session(f"s{i:02}") for i in range(30)))
         self.c.select("s29")
@@ -701,9 +626,8 @@ class GridTest(QmlCase):
         spinner = self.root.findChild(QObject, "spinner")
         self.poll(session("a"))
         self.assertFalse(spinner.property("running"))
-        self.poll(dataclasses.replace(session("a"), status="busy"))
+        self.poll(self.work("a"))
         self.assertTrue(spinner.property("running"))
-
 
 
 class Agent:
@@ -739,18 +663,6 @@ class KeysTest(QmlCase):
         self.assertFalse(self.root.property("typing"))
         self.assertEqual(self.item("modeBadge").property("text"), "NAV")
 
-    def test_enter_types_and_esc_returns(self):
-        self.poll(session("a"), session("b"))
-        self.press(Qt.Key_Return, "\r")
-        field = self.tile_input("a")
-        self.assertTrue(field.hasActiveFocus())
-        self.assertEqual(self.item("modeBadge").property("text"), "TYPE")
-        self.letter("w")
-        self.assertEqual((field.property("text"), self.c.selectedKey), ("w", "a"))
-        self.press(Qt.Key_Escape)
-        self.assertTrue(self.navigating())
-        self.assertEqual(self.c.draft("a"), "w")
-
     def test_number_answers(self):
         self.poll(dataclasses.replace(session("a"), status="waiting"))
         self.c._question = Question("q", [("Yes", b"y"), ("No", b"n")])
@@ -777,25 +689,6 @@ class KeysTest(QmlCase):
         self.assertFalse(self.navigating())
         self.assertEqual(self.sent, [])
 
-    def test_focus_falls_back_when_spotlight_vanishes(self):
-        self.poll(session("a"), session("b"))
-        self.press(Qt.Key_Return, "\r")
-        self.assertTrue(self.tile_input("a").hasActiveFocus())
-        self.poll(session("b"))
-        self.wait()
-        self.assertTrue(self.navigating())
-        self.assertEqual(self.c.selectedKey, "b")
-
-    def test_zoom_keys(self):
-        self.poll(session("a"), session("b"))
-        self.letter("o")
-        self.assertTrue(self.root.property("zoomed"))
-        self.letter("d")
-        self.assertEqual(self.c.selectedKey, "b")
-        self.press(Qt.Key_Escape)
-        self.assertFalse(self.root.property("zoomed"))
-        self.assertTrue(self.navigating())
-
     def test_help_overlay(self):
         self.poll(session("a"))
         self.press(Qt.Key_Question, "?")
@@ -811,13 +704,6 @@ class KeysTest(QmlCase):
         self.assertTrue(self.navigating())
         self.letter("d")
         self.assertEqual(self.c.draft("a"), "")
-
-    def test_alt_move_while_typing_stays_in_type(self):
-        self.poll(session("a"), session("b"))
-        self.press(Qt.Key_Return, "\r")
-        self.trigger("next")
-        self.wait()
-        self.assertTrue(self.tile_input("b").hasActiveFocus())
 
     def test_zoomed_agent_vanishing_goes_to_nav(self):
         self.poll(session("a"), session("b"))

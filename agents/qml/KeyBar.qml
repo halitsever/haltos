@@ -8,7 +8,7 @@ RowLayout {
 
     property bool canInterrupt: false
     property bool canTerminal: false
-    property bool zoomed: false
+    property bool agentOpen: false
     property bool typing: false
 
     signal triggered(string action)
@@ -36,7 +36,7 @@ RowLayout {
             { key: "enter", label: "send" },
             { key: "shift+enter", label: "newline" },
             { key: "esc", label: "nav" }
-        ] : bar.zoomed ? [
+        ] : bar.agentOpen ? [
             { key: "a d", label: "prev/next", action: "next" },
             { key: "enter", label: "type", action: "type" },
             { key: "1-9", label: "answer" },
