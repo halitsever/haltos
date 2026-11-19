@@ -54,6 +54,17 @@ FONT = {
     "S": ["███████╗", "██╔════╝", "███████╗", "╚════██║", "███████║", "╚══════╝"],
 }
 
+# The HaltOS Agents icon: a small pixel creature with an antenna, two eyes and three feet.
+CREATURE = [
+    "     ██     ",
+    "      █     ",
+    " ▄████████▄ ",
+    "██▀▀████▀▀██",
+    "██▄▄████▄▄██",
+    "▀██████████▀",
+    " ██  ██  ██ ",
+]
+
 MARK = [
     "██╗  ██╗    ",
     "██║  ██║    ",
@@ -102,6 +113,7 @@ def cell_rects(ch, x, y, w, h):
     return {
         "█": [(x, y, x + w, y + h)],
         "▄": [(x, y + h / 2, x + w, y + h)],
+        "▀": [(x, y, x + w, y + h / 2)],
         "═": [hl(x, x + w, cy - d), hl(x, x + w, cy + d)],
         "║": [vl(cx - d, y, y + h), vl(cx + d, y, y + h)],
         "╗": [hl(x, cx + d + e, cy - d), vl(cx + d, cy - d - e, y + h), hl(x, cx - d + e, cy + d), vl(cx - d, cy + d - e, y + h)],
@@ -331,7 +343,7 @@ def main():
         os.makedirs(out, exist_ok=True)
         mark_png(size, tile=size <= 32).save(os.path.join(out, "haltos-logo.png"))
     write(os.path.join(icons, "scalable", "apps", "haltos-logo.svg"), grid_svg(MARK, 10, 20, 6))
-    write(os.path.join(icons, "scalable", "apps", "haltos-agents.svg"), grid_svg([f"  {row}  " for row in FONT["A"]], 10, 20, 6))
+    write(os.path.join(icons, "scalable", "apps", "haltos-agents.svg"), grid_svg([f" {row} " for row in CREATURE], 10, 20, 6))
 
     for size in (16, 22, 24, 32, 48, 64, 128, 256):
         start_png(size).save(os.path.join(icons, f"{size}x{size}", "apps", "haltos-start.png"))
