@@ -11,7 +11,95 @@ Item {
     signal opened()
     signal newRequested()
     signal deleteRequested(string key, string name)
+    signal deleteManyRequested(var keys)
     signal clearDoneRequested()
+
+    // Keys marked with Ctrl+click for a bulk action.
+    property var marked: []
+
+    function toggleMark(key: string) {
+        const at = marked.indexOf(key)
+        marked = at < 0 ? marked.concat([key]) : marked.filter(k => k !== key)
+    }
+
+    function clearMarks() {
+        marked = []
+    }
+
+    function showMenu(key: string, name: string, group: string, attachable: bool) {
+        tileMenu.target = key
+        tileMenu.targetName = name
+        tileMenu.targetGroup = group
+        tileMenu.targetAttachable = attachable
+        tileMenu.popup()
+    }
+
+    QQC2.Menu {
+        id: tileMenu
+        objectName: "tileMenu"
+
+        property string target
+        property string targetName
+        property string targetGroup
+        property bool targetAttachable
+        readonly property bool inMarks: root.marked.length > 1 && root.marked.indexOf(target) >= 0
+
+        QQC2.MenuItem {
+            text: "Open"
+            onTriggered: {
+                root.controller.select(tileMenu.target)
+                root.opened()
+            }
+        }
+        QQC2.MenuItem {
+            text: "Open folder"
+            onTriggered: root.controller.openFolder(tileMenu.target)
+        }
+        QQC2.MenuItem {
+            text: "Open in VS Code"
+            onTriggered: root.controller.openInCode(tileMenu.target)
+        }
+        QQC2.MenuSeparator {}
+        QQC2.MenuItem {
+            text: root.marked.indexOf(tileMenu.target) >= 0 ? "Unselect" : "Select"
+            onTriggered: root.toggleMark(tileMenu.target)
+        }
+        QQC2.MenuItem {
+            visible: root.marked.length > 0
+            height: visible ? implicitHeight : 0
+            text: "Clear selection"
+            onTriggered: root.clearMarks()
+        }
+        QQC2.MenuSeparator {}
+        QQC2.MenuItem {
+            text: "Stop…"
+            enabled: tileMenu.targetAttachable && tileMenu.targetGroup !== "done"
+            onTriggered: {
+                confirmStop.target = tileMenu.target
+                confirmStop.targetName = tileMenu.targetName
+                confirmStop.open()
+            }
+        }
+        QQC2.MenuItem {
+            text: tileMenu.inMarks ? "Delete " + root.marked.length + " selected…" : "Delete…"
+            onTriggered: {
+                if (tileMenu.inMarks)
+                    root.deleteManyRequested(root.marked)
+                else
+                    root.deleteRequested(tileMenu.target, tileMenu.targetName)
+            }
+        }
+    }
+
+    QQC2.Menu {
+        id: sectionMenu
+        property string group
+        property string sectionTitle
+        QQC2.MenuItem {
+            text: "Delete all " + root.controller.keysIn(sectionMenu.group).length + " in " + sectionMenu.sectionTitle + "…"
+            onTriggered: root.deleteManyRequested(root.controller.keysIn(sectionMenu.group))
+        }
+    }
 
     function hint(text: string) {
         tip.show(text, 2000)
@@ -41,6 +129,16 @@ Item {
         text: title + "  " + (info ? info[1] : 0)
 
         Behavior on y { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.RightButton
+            onClicked: {
+                sectionMenu.group = parent.group
+                sectionMenu.sectionTitle = parent.title.slice(2)
+                sectionMenu.popup()
+            }
+        }
     }
 
     Flickable {
@@ -172,8 +270,11 @@ Item {
                 Behavior on x { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
                 Behavior on y { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
 
+                marked: root.marked.indexOf(agentKey) >= 0
                 onOpened: root.opened()
                 onDeleteRequested: root.deleteRequested(agentKey, name)
+                onMenuRequested: root.showMenu(agentKey, name, group, attachable)
+                onMarkToggled: root.toggleMark(agentKey)
                 onStopRequested: {
                     confirmStop.target = agentKey
                     confirmStop.targetName = name

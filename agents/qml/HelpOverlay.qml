@@ -44,6 +44,7 @@ Rectangle {
                         "1 2 …", "answer its question",
                         "x · ctrl+k", "interrupt it",
                         "delete", "delete it (asks first)",
+                        "ctrl+click · right click", "select several · menu",
                         "n · ctrl+n", "new agent in the last folder",
                         "ctrl+g", "switch between the grid and Tasks",
                         "ctrl+tab · alt+0..9", "next tab or pane, jump to a tab",

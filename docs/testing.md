@@ -77,6 +77,7 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 - [ ] Enter on a session that is already open in a terminal says so instead of opening a second one.
 - [ ] "Delete…" in a tile's or a pane's `⋮` menu, or Delete on a selected tile in Tasks, asks first, then stops the agent if it runs and removes it from the list and its tab.
 - [ ] "Clear" next to "Done" asks, then removes every finished agent and leaves the waiting and working ones.
+- [ ] A right click on a tile, a pane's bar or a tab opens its menu. Ctrl+click marks several tiles, Delete or "Delete N selected…" removes them after one question, and Esc clears the marks. A right click on a section title offers "Delete all N in …".
 - [ ] "Open folder" and "Open in VS Code" in the `⋮` menus open the agent's folder. A double click on a pane's bar opens that agent in its own tab.
 - [ ] The window title and the tray tooltip read like "HaltOS Agents · 2 waiting · 1 working".
 - [ ] Tiles show `$` prompts and `⏺ Edit(file) +N -M` tool calls with `⎿` results under them, newest at the bottom.

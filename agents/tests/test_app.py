@@ -572,6 +572,14 @@ class ControllerTest(unittest.TestCase):
         self.c.clearDone()
         self.assertEqual(calls, [("rm", "d1"), ("rm", "d2")])
 
+    def test_delete_many_and_keys_in_a_section(self):
+        calls, hid = self.deleting()
+        need = [dataclasses.replace(session(k), status="waiting") for k in ("n1", "n2")]
+        self.c._on_polled([*need, session("d")], "")
+        self.assertEqual(self.c.keysIn("need"), ["n1", "n2"])
+        self.c.deleteAgents(["n1", "d"])
+        self.assertEqual(calls, [("stop", "n1"), ("rm", "n1"), ("rm", "d")])
+
     def test_drafts_kept_per_agent(self):
         self.c._on_polled([session("a"), session("b")], "")
         self.c.setDraft("a", "half typed")
@@ -1036,6 +1044,37 @@ class KeysTest(QmlCase):
         QMetaObject.invokeMethod(self.item("clearDone"), "clicked")
         self.wait()
         self.assertTrue(self.root.findChild(QObject, "clearDoneDialog").property("visible"))
+
+    def test_ctrl_click_marks_and_delete_removes_them_all(self):
+        removed = []
+        orig = A.remove
+        A.remove = lambda key: removed.append(key) or True
+        self.addCleanup(setattr, A, "remove", orig)
+        self.c.pool.start = lambda job: job.run()
+        self.c.refresh = lambda: None
+        self.poll(session("a"), session("b"), session("c"))
+        for key in "ab":
+            QMetaObject.invokeMethod(self.tile(key), "markToggled")
+        self.wait()
+        self.assertEqual(self.tile("a").property("marked"), True)
+        self.press(Qt.Key_Delete)
+        self.wait()
+        dialog = self.root.findChild(QObject, "deleteDialog")
+        self.assertEqual(dialog.property("targets").toVariant(), ["a", "b"])
+        QMetaObject.invokeMethod(dialog, "accept")
+        self.wait()
+        self.assertEqual(removed, ["a", "b"])
+        self.assertFalse(self.tile("c").property("marked"))
+
+    def test_esc_clears_marks_and_right_click_opens_the_menu(self):
+        self.poll(session("a"), session("b"))
+        QMetaObject.invokeMethod(self.tile("b"), "markToggled")
+        self.wait()
+        self.press(Qt.Key_Escape)
+        self.assertFalse(self.tile("b").property("marked"))
+        QMetaObject.invokeMethod(self.tile("b"), "menuRequested")
+        self.wait()
+        self.assertTrue(self.root.findChild(QObject, "tileMenu").property("visible"))
 
     def test_grid_digit_answers(self):
         self.poll(dataclasses.replace(session("a"), status="waiting"))

@@ -73,7 +73,13 @@ Item {
                     anchors.top: parent.top
                     height: paneHeader.height + cell.border.width
                     enabled: cell.key !== ""
-                    onClicked: if (cell.view) cell.view.forceActiveFocus()
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    onClicked: mouse => {
+                        if (mouse.button === Qt.RightButton)
+                            paneMenu.popup()
+                        else if (cell.view)
+                            cell.view.forceActiveFocus()
+                    }
                     onDoubleClicked: page.maximize(cell.index + 1)
                 }
 

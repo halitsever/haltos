@@ -93,14 +93,28 @@ Kirigami.ApplicationWindow {
             id: hover
             anchors.fill: parent
             hoverEnabled: true
-            acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+            acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
             onClicked: mouse => {
-                if (mouse.button === Qt.MiddleButton && chip.closable)
+                if (mouse.button === Qt.RightButton && chip.closable)
+                    chipMenu.popup()
+                else if (mouse.button === Qt.MiddleButton && chip.closable)
                     root.controller.closeTab(chip.agentKey)
                 else if (chip.isGrid)
                     root.enterGrid()
                 else
                     root.leaveGrid(chip.at)
+            }
+        }
+
+        QQC2.Menu {
+            id: chipMenu
+            QQC2.MenuItem {
+                text: "Close tab"
+                onTriggered: root.controller.closeTab(chip.agentKey)
+            }
+            QQC2.MenuItem {
+                text: "Delete agent…"
+                onTriggered: root.askDelete(chip.agentKey, chip.label)
             }
         }
 
@@ -187,7 +201,12 @@ Kirigami.ApplicationWindow {
         }
         switch (action) {
         case "open": openSelected(); break
-        case "delete": askDelete(controller.selectedKey, controller.selected.name ?? ""); break
+        case "delete":
+            if (agentGrid.marked.length > 0)
+                askDeleteMany(agentGrid.marked)
+            else
+                askDelete(controller.selectedKey, controller.selected.name ?? "")
+            break
         case "interrupt": controller.interrupt(); break
         case "new": controller.newAgentQuick(); break
         case "newDialog": newAgent.open(); break
@@ -204,6 +223,8 @@ Kirigami.ApplicationWindow {
                 help.open = false
             else if (searching)
                 clearSearch()
+            else if (agentGrid.marked.length > 0)
+                agentGrid.clearMarks()
             break
         }
     }
@@ -221,8 +242,16 @@ Kirigami.ApplicationWindow {
     function askDelete(key: string, name: string) {
         if (!key)
             return
-        confirmDelete.target = key
+        confirmDelete.targets = [key]
         confirmDelete.targetName = name
+        confirmDelete.open()
+    }
+
+    function askDeleteMany(keys) {
+        if (!keys || keys.length === 0)
+            return
+        confirmDelete.targets = keys.slice()
+        confirmDelete.targetName = keys.length + " agents"
         confirmDelete.open()
     }
 
@@ -523,6 +552,7 @@ Kirigami.ApplicationWindow {
                 onOpened: root.trigger("open")
                 onNewRequested: root.trigger("new")
                 onDeleteRequested: (key, name) => root.askDelete(key, name)
+                onDeleteManyRequested: keys => root.askDeleteMany(keys)
                 onClearDoneRequested: confirmClear.open()
             }
 
@@ -568,13 +598,17 @@ Kirigami.ApplicationWindow {
         id: confirmDelete
         objectName: "deleteDialog"
 
-        property string target
+        property var targets: []
+        readonly property string target: targets.length ? targets[0] : ""
         property string targetName
 
-        title: "Delete agent"
-        subtitle: "Delete " + targetName + "? It stops if it is running and leaves the list."
+        title: targets.length > 1 ? "Delete agents" : "Delete agent"
+        subtitle: "Delete " + targetName + "? Running ones stop first, then they leave the list."
         standardButtons: Kirigami.Dialog.Ok | Kirigami.Dialog.Cancel
-        onAccepted: root.controller.deleteAgent(target)
+        onAccepted: {
+            root.controller.deleteAgents(targets)
+            agentGrid.clearMarks()
+        }
         onClosed: root.focusTab()
     }
 

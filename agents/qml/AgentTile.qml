@@ -25,9 +25,13 @@ Item {
     readonly property bool asking: question.text !== undefined
     readonly property color tone: group === "need" ? Ansi.yellow : group === "work" ? Ansi.accent : Ansi.faint
 
+    property bool marked: false
+
     signal opened()
     signal stopRequested()
     signal deleteRequested()
+    signal menuRequested()
+    signal markToggled()
 
     // A poll can move the selection, so every action selects its own agent first.
     function act(fn) {
@@ -59,7 +63,7 @@ Item {
         radius: 6
         color: Qt.alpha(Ansi.surface, 0.55)
         border.width: tile.selected ? 2 : 1
-        border.color: tile.selected ? Ansi.accent : Ansi.rule
+        border.color: tile.selected || tile.marked ? Ansi.accent : Ansi.rule
         opacity: tile.group === "done" && !tile.selected ? 0.55 : 1
 
         SequentialAnimation {
@@ -72,8 +76,42 @@ Item {
             id: hover
             anchors.fill: parent
             hoverEnabled: true
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
             cursorShape: Qt.PointingHandCursor
-            onClicked: tile.open()
+            onClicked: mouse => {
+                if (mouse.button === Qt.RightButton) {
+                    tile.act(() => {})
+                    tile.menuRequested()
+                } else if (mouse.modifiers & Qt.ControlModifier) {
+                    tile.markToggled()
+                } else {
+                    tile.open()
+                }
+            }
+        }
+
+        // Ctrl+click marks tiles for a bulk action; the tick says which ones.
+        Rectangle {
+            anchors.fill: parent
+            radius: parent.radius
+            color: Qt.alpha(Ansi.accent, 0.12)
+            visible: tile.marked
+        }
+        Rectangle {
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: Kirigami.Units.smallSpacing * 2
+            width: Kirigami.Units.gridUnit * 1.2
+            height: width
+            radius: width / 2
+            color: Ansi.accent
+            visible: tile.marked
+            QQC2.Label {
+                anchors.centerIn: parent
+                text: "✓"
+                color: Ansi.text
+                font.bold: true
+            }
         }
 
         ColumnLayout {
@@ -101,38 +139,11 @@ Item {
                 QQC2.ToolButton {
                     text: "⋮"
                     focusPolicy: Qt.NoFocus
-                    opacity: hover.containsMouse || hovered || more.visible ? 1 : 0
+                    opacity: hover.containsMouse || hovered ? 1 : 0
                     implicitHeight: metaLabel.implicitHeight + Kirigami.Units.smallSpacing
                     onClicked: {
                         tile.act(() => {})
-                        more.popup()
-                    }
-
-                    QQC2.Menu {
-                        id: more
-                        QQC2.MenuItem {
-                            text: "Open folder"
-                            onTriggered: tile.controller.openFolder(tile.key)
-                        }
-                        QQC2.MenuItem {
-                            text: "Open in VS Code"
-                            onTriggered: tile.controller.openInCode(tile.key)
-                        }
-                        QQC2.MenuSeparator {}
-                        QQC2.MenuItem {
-                            text: "Archive"
-                            enabled: tile.group === "done"
-                            onTriggered: tile.act(() => tile.controller.archive())
-                        }
-                        QQC2.MenuItem {
-                            text: "Stop…"
-                            enabled: tile.attachable
-                            onTriggered: tile.act(() => tile.stopRequested())
-                        }
-                        QQC2.MenuItem {
-                            text: "Delete…"
-                            onTriggered: tile.act(() => tile.deleteRequested())
-                        }
+                        tile.menuRequested()
                     }
                 }
             }

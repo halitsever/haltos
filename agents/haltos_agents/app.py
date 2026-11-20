@@ -723,6 +723,15 @@ class Controller(QObject):
     def openInCode(self, key):
         self._open_with(["code"], key)
 
+    @Slot(str, result=list)
+    def keysIn(self, group):
+        return [row["key"] for row in self._agents.rows if row["group"] == group]
+
+    @Slot(list)
+    def deleteAgents(self, keys):
+        for key in keys:
+            self.deleteAgent(key)
+
     @Slot()
     def clearDone(self):
         for row in list(self._agents.rows):
