@@ -10,6 +10,7 @@ Item {
 
     signal opened()
     signal newRequested()
+    signal deleteRequested(string key, string name)
 
     function hint(text: string) {
         tip.show(text, 2000)
@@ -159,6 +160,7 @@ Item {
                 Behavior on y { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
 
                 onOpened: root.opened()
+                onDeleteRequested: root.deleteRequested(agentKey, name)
                 onStopRequested: {
                     confirmStop.target = agentKey
                     confirmStop.targetName = name

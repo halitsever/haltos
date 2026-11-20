@@ -511,6 +511,43 @@ class ControllerTest(unittest.TestCase):
         self.c.fillGrid(4)
         self.assertEqual(self.c.tabKeys, ["a", "b", "d"])
 
+    def deleting(self, removed=True):
+        calls, hid = [], []
+        patches = {"stop": lambda key: calls.append(("stop", key)),
+                   "remove": lambda key: calls.append(("rm", key)) or removed}
+        for name, fn in patches.items():
+            orig = getattr(A, name)
+            setattr(A, name, fn)
+            self.addCleanup(setattr, A, name, orig)
+        orig_add = A.hidden.add
+        A.hidden.add = lambda path, key: hid.append(key)
+        self.addCleanup(setattr, A.hidden, "add", orig_add)
+        self.c.pool.start = lambda job: job.run()
+        # The real refresh would ask claude for its sessions; these tests stay offline.
+        self.c.refresh = lambda: None
+        return calls, hid
+
+    def test_delete_stops_a_running_agent_then_removes_it(self):
+        calls, hid = self.deleting()
+        made = fake_attachments(self.c) if A.screen.pyte else None
+        work = dataclasses.replace(session("a"), status="busy", state="")
+        self.c._on_polled([work, session("b")], "")
+        if made is not None:
+            self.c.openTab("a")
+        self.c.deleteAgent("a")
+        self.assertEqual(calls, [("stop", "a"), ("rm", "a")])
+        self.assertEqual(hid, [])
+        self.assertNotIn("a", self.c.tabKeys)
+        self.assertIn("a", self.c.hidden)
+
+    def test_delete_hides_what_claude_will_not_remove(self):
+        calls, hid = self.deleting(removed=False)
+        self.c._on_polled([session("a"), session("t", attachable=False)], "")
+        self.c.deleteAgent("a")
+        self.c.deleteAgent("t")
+        self.assertEqual(calls, [("rm", "a")])
+        self.assertEqual(hid, ["a", "t"])
+
     def test_drafts_kept_per_agent(self):
         self.c._on_polled([session("a"), session("b")], "")
         self.c.setDraft("a", "half typed")
@@ -950,6 +987,24 @@ class KeysTest(QmlCase):
         self.wait()
         self.assertEqual(len(seen), 1)
         self.assertFalse(self.root.findChild(QObject, "newAgentDialog").property("visible"))
+
+    def test_delete_key_asks_then_deletes_the_agent_it_asked_about(self):
+        removed = []
+        orig = A.remove
+        A.remove = lambda key: removed.append(key) or True
+        self.addCleanup(setattr, A, "remove", orig)
+        self.c.pool.start = lambda job: job.run()
+        self.c.refresh = lambda: None
+        self.poll(session("a"), session("b"))
+        self.press(Qt.Key_Delete)
+        self.wait()
+        dialog = self.root.findChild(QObject, "deleteDialog")
+        self.assertTrue(dialog.property("visible"))
+        self.assertEqual(dialog.property("target"), "a")
+        self.c.select("b")
+        QMetaObject.invokeMethod(dialog, "accept")
+        self.wait()
+        self.assertEqual(removed, ["a"])
 
     def test_grid_digit_answers(self):
         self.poll(dataclasses.replace(session("a"), status="waiting"))

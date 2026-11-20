@@ -187,6 +187,7 @@ Kirigami.ApplicationWindow {
         }
         switch (action) {
         case "open": openSelected(); break
+        case "delete": askDelete(controller.selectedKey, controller.selected.name ?? ""); break
         case "interrupt": controller.interrupt(); break
         case "new": controller.newAgentQuick(); break
         case "newDialog": newAgent.open(); break
@@ -215,6 +216,14 @@ Kirigami.ApplicationWindow {
             agentGrid.hint("Already open in a terminal")
         else
             controller.openTab(controller.selectedKey)
+    }
+
+    function askDelete(key: string, name: string) {
+        if (!key)
+            return
+        confirmDelete.target = key
+        confirmDelete.targetName = name
+        confirmDelete.open()
     }
 
     function clearSearch() {
@@ -513,6 +522,7 @@ Kirigami.ApplicationWindow {
                 controller: root.controller
                 onOpened: root.trigger("open")
                 onNewRequested: root.trigger("new")
+                onDeleteRequested: (key, name) => root.askDelete(key, name)
             }
 
             GridPage {
@@ -520,6 +530,7 @@ Kirigami.ApplicationWindow {
                 controller: root.controller
                 termFont: root.font
                 onMaximize: tab => root.leaveGrid(tab)
+                onDeleteRequested: (key, name) => root.askDelete(key, name)
                 onNewAgent: root.trigger("new")
             }
 
@@ -551,6 +562,21 @@ Kirigami.ApplicationWindow {
         }
     }
 
+    // Deleting cannot be undone, so it always asks, and it deletes the agent it asked about.
+    Kirigami.PromptDialog {
+        id: confirmDelete
+        objectName: "deleteDialog"
+
+        property string target
+        property string targetName
+
+        title: "Delete agent"
+        subtitle: "Delete " + targetName + "? It stops if it is running and leaves the list."
+        standardButtons: Kirigami.Dialog.Ok | Kirigami.Dialog.Cancel
+        onAccepted: root.controller.deleteAgent(target)
+        onClosed: root.focusTab()
+    }
+
     NewAgentDialog {
         id: newAgent
         objectName: "newAgentDialog"
@@ -579,6 +605,7 @@ Kirigami.ApplicationWindow {
                 : k === Qt.Key_Down || t === "s" || t === "j" ? "down"
                 : k === Qt.Key_Return || k === Qt.Key_Enter || k === Qt.Key_Space ? "open"
                 : t.length === 1 && t >= "1" && t <= "9" ? "answer:" + (Number(t) - 1)
+                : k === Qt.Key_Delete ? "delete"
                 : t === "x" ? "interrupt"
                 : t === "n" ? "new"
                 : t === "/" ? "search"

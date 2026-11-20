@@ -698,6 +698,31 @@ class Controller(QObject):
 
         self.pool.start(Job(work, self.acted))
 
+    @Slot(str)
+    def deleteAgent(self, key):
+        """Stops the agent if it runs and removes it; what claude refuses to remove is hidden instead."""
+        s = self.session(key)
+        if s is None:
+            return
+        self.closeTab(key)
+        a = self.attachments.pop(key, None)
+        if a:
+            a.close()
+
+        def work():
+            if s.attachable:
+                if s.group != "done":
+                    try:
+                        stop(key)
+                    except ClaudeError:
+                        pass
+                if remove(key):
+                    return key
+            hidden.add(hidden.PATH, key)
+            return key
+
+        self.pool.start(Job(work, self.acted))
+
     @Slot(object, str)
     def _on_acted(self, result, error):
         if isinstance(result, str):

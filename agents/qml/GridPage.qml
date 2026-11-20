@@ -21,6 +21,7 @@ Item {
 
     signal maximize(int tab)
     signal newAgent()
+    signal deleteRequested(string key, string name)
 
     function focusCell(index: int) {
         const cell = cells.itemAt(index)
@@ -87,6 +88,28 @@ Item {
                             color: cell.focused ? Ansi.text : Ansi.faint
                             elide: Text.ElideRight
                             Layout.fillWidth: true
+                        }
+                        QQC2.Label {
+                            text: "⋮"
+                            color: paneMenuArea.containsMouse ? Ansi.text : Ansi.faint
+                            MouseArea {
+                                id: paneMenuArea
+                                anchors.fill: parent
+                                anchors.margins: -Kirigami.Units.smallSpacing
+                                hoverEnabled: true
+                                onClicked: paneMenu.popup()
+                            }
+                            QQC2.Menu {
+                                id: paneMenu
+                                QQC2.MenuItem {
+                                    text: "Open in its own tab"
+                                    onTriggered: page.maximize(cell.index + 1)
+                                }
+                                QQC2.MenuItem {
+                                    text: "Delete…"
+                                    onTriggered: page.deleteRequested(cell.key, cell.agent.name ?? cell.key)
+                                }
+                            }
                         }
                         QQC2.Label {
                             objectName: "maximize"

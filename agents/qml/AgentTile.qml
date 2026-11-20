@@ -27,6 +27,7 @@ Item {
 
     signal opened()
     signal stopRequested()
+    signal deleteRequested()
 
     // A poll can move the selection, so every action selects its own agent first.
     function act(fn) {
@@ -100,7 +101,6 @@ Item {
                 QQC2.ToolButton {
                     text: "⋮"
                     focusPolicy: Qt.NoFocus
-                    enabled: tile.attachable
                     opacity: hover.containsMouse || hovered || more.visible ? 1 : 0
                     implicitHeight: metaLabel.implicitHeight + Kirigami.Units.smallSpacing
                     onClicked: {
@@ -117,7 +117,12 @@ Item {
                         }
                         QQC2.MenuItem {
                             text: "Stop…"
+                            enabled: tile.attachable
                             onTriggered: tile.act(() => tile.stopRequested())
+                        }
+                        QQC2.MenuItem {
+                            text: "Delete…"
+                            onTriggered: tile.act(() => tile.deleteRequested())
                         }
                     }
                 }
