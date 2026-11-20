@@ -130,12 +130,13 @@ def live_sessions(sessions_dir: str = os.path.join(CLAUDE, "sessions")) -> set[s
     return live
 
 
-def resume_config(grid: dict, transcript=has_transcript, running: set[str] = frozenset()) -> dict:
+def resume_config(grid: dict, transcript=has_transcript, running: set[str] = frozenset(), is_dir=os.path.isdir) -> dict:
     """A claudegrid config with one pane per session. A session that never got a message opens fresh in its folder,
-    and one that runs somewhere already stays out, since two processes on one session overwrite each other."""
+    and one that runs somewhere already stays out, since two processes on one session overwrite each other.
+    claudegrid refuses the whole grid over one missing folder, so such a pane stays out too."""
     panes = []
     for s in grid["sessions"]:
-        if s["id"] in running:
+        if s["id"] in running or not is_dir(s["cwd"]):
             continue
         pane = {"dir": s["cwd"]}
         if s.get("name"):
@@ -171,7 +172,7 @@ def clean_env(environ) -> dict[str, str]:
     return {k: v for k, v in environ.items() if not k.startswith("CLAUDE") or k == "CLAUDE_CONFIG_DIR"}
 
 
-def launch_grid(grid: dict | None = None) -> bool:
+def launch_grid(grid: dict | None = None, on_fail=None) -> bool:
     args = ["claudegrid"]
     if grid:
         config = resume_config(grid, running=live_sessions())
@@ -188,8 +189,13 @@ def launch_grid(grid: dict | None = None) -> bool:
                                  stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except OSError:
         return False
-    # claudegrid exits once Konsole is up, and the tray lives for days, so nothing may stay unreaped.
-    threading.Thread(target=child.wait, daemon=True).start()
+    def reap() -> None:
+        # claudegrid exits once Konsole is up, and the tray lives for days, so nothing may stay unreaped.
+        code = child.wait()
+        if code and on_fail:
+            on_fail(code)
+
+    threading.Thread(target=reap, daemon=True).start()
     return True
 
 
@@ -282,7 +288,7 @@ def open_default(x11: "X11 | None") -> bool:
 
 
 def tray() -> int:
-    from PySide6.QtCore import QPoint, QSize, Qt, QTimer
+    from PySide6.QtCore import QObject, QPoint, QSize, Qt, QTimer, Signal
     from PySide6.QtGui import QColor, QCursor, QGuiApplication, QIcon, QPainter, QPen, QPixmap
     from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QSystemTrayIcon,
                                    QToolButton, QVBoxLayout, QWidget)
@@ -308,6 +314,14 @@ def tray() -> int:
         p.end()
         return QIcon(pix)
 
+    class Relay(QObject):
+        failed = Signal(int)
+
+    # The reaper thread hands a failed start over to the UI thread.
+    relay = Relay()
+    relay.failed.connect(lambda code: icon.showMessage(
+        "HaltOS Agents", f"claudegrid stopped with code {code}. Run claudegrid in Konsole to see why."))
+
     def start(grid: dict | None = None) -> None:
         if grid:
             ids = {x["id"] for x in grid["sessions"]}
@@ -316,7 +330,7 @@ def tray() -> int:
             if window is not None and ids <= live_sessions():
                 x11.activate(window)
                 return
-        if not launch_grid(grid):
+        if not launch_grid(grid, on_fail=relay.failed.emit):
             icon.showMessage("HaltOS Agents", "claudegrid could not start. Is it installed?")
 
     def forget(index: int) -> None:

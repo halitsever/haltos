@@ -112,15 +112,20 @@ class StoreTest(unittest.TestCase):
 class ResumeTest(unittest.TestCase):
     def test_each_session_resumes_in_its_own_folder(self):
         grid = {"saved": 1, "sessions": [{"id": "a", "cwd": "/w/one", "name": "one-1"}, s("b", "/w/two")]}
-        config = ha.resume_config(grid, transcript=lambda sid: sid == "a")
+        config = ha.resume_config(grid, transcript=lambda sid: sid == "a", is_dir=lambda d: True)
         self.assertEqual(config, {"panes": [
             {"dir": "/w/one", "name": "one-1", "args": ["--resume", "a"]},
             {"dir": "/w/two"},
         ]})
 
+    def test_a_pane_whose_folder_is_gone_is_left_out(self):
+        grid = {"saved": 1, "sessions": [s("a", "/w/gone"), s("b", "/w/here")]}
+        config = ha.resume_config(grid, transcript=lambda sid: True, is_dir=lambda d: d == "/w/here")
+        self.assertEqual(config, {"panes": [{"dir": "/w/here", "args": ["--resume", "b"]}]})
+
     def test_a_session_already_running_is_not_opened_twice(self):
         grid = {"saved": 1, "sessions": [s("a", "/w/one"), s("b", "/w/two")]}
-        config = ha.resume_config(grid, transcript=lambda sid: True, running={"a"})
+        config = ha.resume_config(grid, transcript=lambda sid: True, running={"a"}, is_dir=lambda d: True)
         self.assertEqual(config, {"panes": [{"dir": "/w/two", "args": ["--resume", "b"]}]})
 
     def test_live_sessions_skip_files_of_processes_that_ended(self):
@@ -185,6 +190,18 @@ class LaunchTest(unittest.TestCase):
                 ha.launch_grid({"saved": 0, "sessions": [s("a")]})
                 time.sleep(1.0)
                 self.assertEqual(zombies(), [])
+
+    def test_a_claudegrid_that_fails_is_reported(self):
+        failed = []
+        with tempfile.TemporaryDirectory() as d:
+            fake = os.path.join(d, "claudegrid")
+            with open(fake, "w") as f:
+                f.write("#!/bin/sh\nexit 3\n")
+            os.chmod(fake, 0o755)
+            with mock.patch.dict(os.environ, {"PATH": d + os.pathsep + os.environ["PATH"]}):
+                self.assertTrue(ha.launch_grid(on_fail=failed.append))
+                time.sleep(1.0)
+        self.assertEqual(failed, [3])
 
     def test_a_missing_claudegrid_does_not_raise(self):
         with mock.patch.dict(os.environ, {"PATH": "/nonexistent"}):
