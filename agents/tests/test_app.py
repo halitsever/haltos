@@ -17,6 +17,7 @@ try:
 
     from haltos_agents import app as A
     from haltos_agents.claude import ClaudeError, Session, UntrustedDir
+    from tests.test_attach import wait_until
     from haltos_agents.layout import grouped, neighbour
     from haltos_agents.transcript import Question
 except ImportError:  # CI runners have no PySide6; the Qt layer is checked on a desktop.
@@ -61,6 +62,9 @@ class FakeAttachment:
 
     def resize(self, cols, rows):
         self.sizes.append((cols, rows))
+
+    def close(self):
+        self.closed = True
 
 
 def fake_attachments(controller):
@@ -395,19 +399,6 @@ class ControllerTest(unittest.TestCase):
         self.addCleanup(setattr, A.subprocess, "Popen", orig)
         return calls
 
-    def test_open_terminal_runs_themed_claude_code_once(self):
-        calls = self.spawned()
-        self.c._on_polled([dataclasses.replace(session("a"), name="fix-lint")], "")
-        self.c.select("a")
-        self.c.openTerminal()
-        self.c.openTerminal()
-        self.assertEqual(len(calls), 1)
-        argv = calls[0]
-        for flag in ("--profile", "HaltOS", "--separate", "--hide-menubar", "--hide-tabbar", "tabtitle=fix-lint"):
-            self.assertIn(flag, argv)
-        self.assertEqual(argv[-3:], ["claude", "attach", "a"])
-
-    @unittest.skipIf(A is not None and A.screen.pyte is None, "pyte not installed")
     def test_notification_click_opens_the_agent_tab(self):
         fake_attachments(self.c)
         shown = []
@@ -546,7 +537,8 @@ class ControllerTest(unittest.TestCase):
         self.c.deleteAgent("a")
         self.c.deleteAgent("t")
         self.assertEqual(calls, [("rm", "a")])
-        self.assertEqual(hid, ["a", "t"])
+        self.assertEqual(hid, ["a"])
+        self.assertIn("t", self.c.hidden)
 
     def test_status_line_counts_who_waits(self):
         self.assertEqual(self.c.statusLine, "HaltOS Agents")
@@ -579,6 +571,57 @@ class ControllerTest(unittest.TestCase):
         self.assertEqual(self.c.keysIn("need"), ["n1", "n2"])
         self.c.deleteAgents(["n1", "d"])
         self.assertEqual(calls, [("stop", "n1"), ("rm", "n1"), ("rm", "d")])
+
+    @unittest.skipIf(A is not None and A.screen.pyte is None, "pyte not installed")
+    def test_closed_tab_stays_closed_and_frees_its_attachment(self):
+        made = fake_attachments(self.c)
+        self.c.attachments = made
+        self.c._on_polled([session("a"), session("b")], "")
+        self.c.fillGrid(2)
+        first = made["a"]
+        self.c.closeTab("a")
+        self.c.fillGrid(2)
+        self.assertEqual(self.c.tabKeys, ["b"])
+        self.assertNotIn("a", self.c.attachments)
+        self.assertTrue(wait_until(lambda: getattr(first, "closed", False)))
+        self.c.openTab("a")
+        self.assertEqual(self.c.tabKeys, ["b", "a"])
+
+    @unittest.skipIf(A is not None and A.screen.pyte is None, "pyte not installed")
+    def test_failing_attach_is_not_retried_in_a_loop(self):
+        tries = []
+
+        def broken(key):
+            tries.append(key)
+            raise A.ClaudeError("no attach")
+
+        self.c._attachment_for = broken
+        self.c._on_polled([session("a")], "")
+        self.c.changed.connect(lambda: self.c.fillGrid(1))
+        self.c.fillGrid(1)
+        self.c.fillGrid(1)
+        self.assertEqual(tries, ["a"])
+
+    def test_delete_keeps_an_agent_that_would_not_stop(self):
+        calls, hid = self.deleting()
+
+        def refuse(key):
+            raise A.ClaudeError("still busy")
+
+        A.stop = refuse
+        work = dataclasses.replace(session("a"), status="busy", state="")
+        self.c._on_polled([work], "")
+        self.c.deleteAgent("a")
+        self.assertEqual((calls, hid), ([], []))
+        self.assertNotIn("a", self.c.hidden)
+        self.assertIn("still busy", self.c.error)
+
+    def test_terminal_sessions_are_hidden_for_now_not_for_good(self):
+        calls, hid = self.deleting()
+        self.c._on_polled([dataclasses.replace(session("pid:42", attachable=False), status="busy")], "")
+        self.c.deleteAgent("pid:42")
+        self.assertEqual((calls, hid), ([], []))
+        self.assertIn("pid:42", self.c.hidden)
 
     def test_drafts_kept_per_agent(self):
         self.c._on_polled([session("a"), session("b")], "")
@@ -638,8 +681,7 @@ class BannerTest(unittest.TestCase):
             "key:click": "click type into a pane",
             "key:ctrl+tab": "ctrl+tab next pane",
             "key:⤢": "⤢ own tab",
-            "key:new": "n new agent",
-            "key:tasks": "ctrl+g tasks",
+            "key:tasks": "alt+0 tasks",
         })
         QMetaObject.invokeMethod(root, "trigger", Q_ARG(str, "newDialog"))
         self.assertTrue(root.findChild(QObject, "newAgentDialog").property("visible"))
@@ -740,6 +782,16 @@ class GridDefaultTest(QmlCase):
             QGuiApplication.sendEvent(self.root, QKeyEvent(kind, Qt.Key_D, Qt.NoModifier, "d"))
         self.wait()
         self.assertEqual(self.c.selectedKey, before)
+
+    def shortcuts(self):
+        return {n: self.root.findChild(QObject, "shortcut:" + n).property("enabled") for n in ("new", "find", "interrupt", "grid")}
+
+    def test_claude_code_keys_are_left_alone_on_the_grid(self):
+        self.poll(session("a"))
+        self.assertEqual(self.shortcuts(), {"new": False, "find": False, "interrupt": False, "grid": False})
+        self.trigger("tasks")
+        self.wait()
+        self.assertEqual(self.shortcuts(), {"new": True, "find": True, "interrupt": True, "grid": True})
 
     def test_tasks_chip_switches_to_the_overview(self):
         self.poll(session("a"))

@@ -61,6 +61,7 @@ TILE_LINES = 16
 # huge rows (tool output, attachments) leave the short tail empty.
 TILE_BYTES = (128_000, 512_000, 2_000_000)
 SETTINGS = Path.home() / ".config" / "haltos-agents.ini"
+ALREADY_RUNNING = 3
 GRID_LAYOUTS = ("1x2", "2x2", "3x2", "2x3", "3x3", "4x2")
 INDEX_DB = Path.home() / ".cache" / "haltos-agents" / "index.sqlite"
 
@@ -146,6 +147,7 @@ class Terminal(QObject):
         self.screen = screen.Screen(cols, rows)
         self._rows = ListModel(["key", "html"], self)
         self._cursor = (0, 0, True)
+        self._resets = 0
         self.attachment = None
         self.attach(attachment)
         # Output arrives on the reader thread; the UI picks it up at most every 30 ms.
@@ -163,6 +165,12 @@ class Terminal(QObject):
         attachment.resize(cols, rows)
 
     def _refresh(self) -> None:
+        if self.screen.resets != self._resets:
+            # The screen started over, so Claude Code is asked to draw everything again.
+            self._resets = self.screen.resets
+            cols, rows = self.screen.cols, self.screen.screen.lines
+            self.attachment.resize(cols, rows - 1)
+            self.attachment.resize(cols, rows)
         if not self.screen.take_changed():
             return
         self._rows.replace([{"key": str(i), "html": row} for i, row in enumerate(self.screen.rows())])
@@ -230,6 +238,9 @@ class Controller(QObject):
         self._tabs = ListModel(["key", "name", "group"], self)
         self.settings = QSettings(os.environ.get("HALTOS_AGENTS_SETTINGS", str(SETTINGS)), QSettings.IniFormat)
         self.terminals: dict[str, Terminal] = {}
+        # Tabs the user closed stay closed when the grid fills its panes; failed attaches wait a minute.
+        self._dismissed: set[str] = set()
+        self._attach_failed: dict[str, float] = {}
         self._current_tab = 0
         self._query = ""
         self._untrusted = ""
@@ -255,7 +266,6 @@ class Controller(QObject):
         self._tiles: dict[str, tuple] = {}
         self._windows: dict[str, int] = {}
         self._drafts: dict[str, str] = {}
-        self.terminals: dict[str, subprocess.Popen] = {}
         self._branches: dict[str, tuple[float, str]] = {}
         self._busy = False
         self.pool = QThreadPool(self)
@@ -347,6 +357,7 @@ class Controller(QObject):
     @Slot(str, result=bool)
     def openTab(self, key):
         """Opens the agent's Claude Code in a tab, or switches to the tab it already has."""
+        self._dismissed.discard(key)
         if not self._ensure_tab(key):
             return False
         keys = self._tab_keys()
@@ -371,9 +382,11 @@ class Controller(QObject):
         try:
             self.terminals[key] = Terminal(self._attachment_for(key), self)
         except ClaudeError as e:
+            self._attach_failed[key] = time.monotonic()
             self._action_error = str(e)
             self.changed.emit()
             return False
+        self._attach_failed.pop(key, None)
         self._tabs.replace(self._tab_rows(keys + [key]))
         return True
 
@@ -383,11 +396,15 @@ class Controller(QObject):
         if screen.pyte is None:
             return
         opened = False
+        now = time.monotonic()
         for row in self._agents.rows:
             if len(self._tab_keys()) >= count:
                 break
-            if row["key"] not in self._tab_keys() and row["attachable"]:
-                opened = self._ensure_tab(row["key"]) or opened
+            key = row["key"]
+            if (key in self._tab_keys() or not row["attachable"] or key in self._dismissed
+                    or now - self._attach_failed.get(key, -60.0) < 60.0):
+                continue
+            opened = self._ensure_tab(key) or opened
         if opened:
             self.changed.emit()
 
@@ -408,8 +425,14 @@ class Controller(QObject):
             return
         at = keys.index(key) + 1
         keys.remove(key)
+        self._dismissed.add(key)
         terminal = self.terminals.pop(key)
         terminal.close()
+        terminal.deleteLater()
+        # Detaching ends the `claude attach` process; the grid's actions start a new one when needed.
+        a = self.attachments.pop(key, None)
+        if a:
+            threading.Thread(target=a.close, daemon=True).start()
         self._tabs.replace(self._tab_rows(keys))
         if self._current_tab == at:
             self._current_tab = min(at, len(keys))
@@ -663,27 +686,6 @@ class Controller(QObject):
             self.pool.start(Job(lambda: stop(s.key), self.acted))
 
     @Slot()
-    def openTerminal(self):
-        """Opens the real Claude Code for the agent in a HaltOS themed Konsole, one window per agent."""
-        s = self.session(self._selected)
-        if not s or not s.attachable:
-            return
-        running = self.terminals.get(s.key)
-        if running is not None and running.poll() is None:
-            return
-        try:
-            self.terminals[s.key] = subprocess.Popen(
-                ["konsole", "--profile", "HaltOS", "--separate", "--hide-menubar", "--hide-tabbar",
-                 "-p", f"tabtitle={s.name}", "--workdir", s.cwd or str(Path.home()), "-e", *attach_argv(s.key)],
-                env=clean_env(os.environ),
-                cwd=s.cwd or None,
-                start_new_session=True,
-            )
-        except OSError as e:
-            self._action_error = f"Could not open Konsole: {e}"
-            self.changed.emit()
-
-    @Slot()
     def archive(self):
         s = self.session(self._selected)
         if not s or s.group != "done":
@@ -750,15 +752,13 @@ class Controller(QObject):
             a.close()
 
         def work():
-            if s.attachable:
-                if s.group != "done":
-                    try:
-                        stop(key)
-                    except ClaudeError:
-                        pass
-                if remove(key):
-                    return key
-            hidden.add(hidden.PATH, key)
+            # A session in someone's terminal cannot be stopped from here; it is only hidden until restart.
+            if not s.attachable:
+                return key
+            if s.group != "done":
+                stop(key)  # a failure reaches the user instead of hiding a running agent
+            if not remove(key):
+                hidden.add(hidden.PATH, key)
             return key
 
         self.pool.start(Job(work, self.acted))
@@ -1019,7 +1019,8 @@ def run(args) -> int:
     controller = Controller()
     server = None if args.smoke else _single_instance(app, controller)
     if server is None and not args.smoke:
-        return 0
+        # A dedicated code, so the user service does not restart a copy that only handed over.
+        return ALREADY_RUNNING
 
     tray = None
     if not args.smoke and QSystemTrayIcon.isSystemTrayAvailable():

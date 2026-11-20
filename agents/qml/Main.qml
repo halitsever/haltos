@@ -262,17 +262,20 @@ Kirigami.ApplicationWindow {
     }
 
     // On an agent tab these keys belong to Claude Code, so the app's own ones stay on the grid.
-    Shortcut { sequence: "Ctrl+N"; enabled: root.tab === 0; onActivated: root.trigger("new") }
-    Shortcut { sequence: "Ctrl+F"; enabled: root.tab === 0; onActivated: root.trigger("search") }
-    Shortcut { sequence: "Ctrl+K"; enabled: root.tab === 0; onActivated: root.trigger("interrupt") }
+    // In a pane or a tab these keys belong to Claude Code (Ctrl+K and Ctrl+G are its own), so the
+    // app's versions only live on the Tasks overview.
+    readonly property bool onTasks: tab === 0 && !gridMode
+    Shortcut { objectName: "shortcut:new"; sequence: "Ctrl+N"; enabled: root.onTasks; onActivated: root.trigger("new") }
+    Shortcut { objectName: "shortcut:find"; sequence: "Ctrl+F"; enabled: root.onTasks; onActivated: root.trigger("search") }
+    Shortcut { objectName: "shortcut:interrupt"; sequence: "Ctrl+K"; enabled: root.onTasks; onActivated: root.trigger("interrupt") }
 
     // Tab keys Claude Code does not use, so they work everywhere.
     Shortcut { sequence: "Ctrl+Tab"; onActivated: root.gridMode ? gridPage.cycle(1) : root.cycleTab(1) }
     Shortcut { sequences: ["Ctrl+Shift+Tab", "Ctrl+Backtab"]; onActivated: root.gridMode ? gridPage.cycle(-1) : root.cycleTab(-1) }
-    Shortcut { sequence: "Ctrl+G"; enabled: root.tab === 0 || root.gridMode; onActivated: root.gridMode ? root.leaveGrid(0) : root.enterGrid() }
+    Shortcut { objectName: "shortcut:grid"; sequence: "Ctrl+G"; enabled: root.onTasks; onActivated: root.enterGrid() }
     Shortcut {
         sequence: "Ctrl+Shift+W"
-        enabled: root.tab > 0
+        enabled: root.tab > 0 && !root.gridMode
         onActivated: root.controller.closeTab(tabBar.keyAt(root.tab))
     }
     Instantiator {

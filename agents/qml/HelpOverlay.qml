@@ -46,7 +46,7 @@ Rectangle {
                         "delete", "delete it (asks first)",
                         "ctrl+click · right click", "select several · menu",
                         "n · ctrl+n", "new agent in the last folder",
-                        "ctrl+g", "switch between the grid and Tasks",
+                        "ctrl+g · alt+0", "grid from Tasks · Tasks from anywhere",
                         "ctrl+tab · alt+0..9", "next tab or pane, jump to a tab",
                         "/ · ctrl+f", "search old sessions",
                         "?", "these keys"

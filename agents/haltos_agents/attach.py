@@ -71,7 +71,11 @@ class Attachment:
                 return
             listener = self.listener
             if listener is not None:
-                listener(data)
+                # A broken screen must not stop the reading, or Claude Code blocks on a full PTY.
+                try:
+                    listener(data)
+                except Exception:  # noqa: BLE001
+                    pass
             if not self.ready and READY in tail + data:
                 self._flush()
             tail = data[-len(READY) :]

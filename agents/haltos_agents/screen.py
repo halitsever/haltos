@@ -45,11 +45,21 @@ def style(char) -> str:
 class Screen:
     """The reader thread feeds it, the UI thread reads rows, so both go through one lock."""
 
-    def __init__(self, cols: int, rows: int, history: int = 5000):
-        self.screen = pyte.HistoryScreen(cols, rows, history=history, ratio=0.5)
-        self.stream = pyte.ByteStream(self.screen)
+    def __init__(self, cols: int, rows: int, history: int = 1000):
+        self.history = history
         self.lock = threading.Lock()
+        self.resets = 0
+        self._build(cols, rows)
+
+    def _build(self, cols: int, rows: int) -> None:
+        self.screen = pyte.HistoryScreen(cols, rows, history=self.history, ratio=0.5)
+        self.stream = pyte.ByteStream(self.screen)
         self.changed = True
+
+    def _recover(self) -> None:
+        """pyte can raise mid-sequence and then never parse again, so a fresh screen replaces it."""
+        self._build(self.screen.columns, self.screen.lines)
+        self.resets += 1
 
     @property
     def cols(self) -> int:
@@ -57,7 +67,10 @@ class Screen:
 
     def feed(self, data: bytes) -> None:
         with self.lock:
-            self.stream.feed(data)
+            try:
+                self.stream.feed(data)
+            except Exception:  # noqa: BLE001
+                self._recover()
             self.changed = True
 
     def take_changed(self) -> bool:
@@ -67,13 +80,20 @@ class Screen:
 
     def resize(self, cols: int, rows: int) -> None:
         with self.lock:
-            self.screen.resize(rows, cols)
+            try:
+                self.screen.resize(rows, cols)
+            except Exception:  # noqa: BLE001
+                self._build(cols, rows)
+                self.resets += 1
             self.changed = True
 
     def scroll(self, pages: int) -> None:
         with self.lock:
-            for _ in range(abs(pages)):
-                (self.screen.prev_page if pages < 0 else self.screen.next_page)()
+            try:
+                for _ in range(abs(pages)):
+                    (self.screen.prev_page if pages < 0 else self.screen.next_page)()
+            except Exception:  # noqa: BLE001
+                self._recover()
             self.changed = True
 
     def cursor(self) -> tuple[int, int, bool]:

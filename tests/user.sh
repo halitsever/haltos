@@ -63,7 +63,10 @@ check "agents runs as a user service" grep -qx "ExecStart=$share/haltos/agents/h
 check "agents service always comes back" grep -qx "Restart=always" "$conf/systemd/user/haltos-agents.service"
 check "agents service never gives up restarting" grep -qx "StartLimitIntervalSec=0" "$conf/systemd/user/haltos-agents.service"
 check "agents service starts with the session" test -L "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
-check "no second autostart for agents" test ! -e "$conf/autostart/haltos-agents.desktop"
+check "agents service leaves the agents it started alone" grep -qx "KillMode=process" "$conf/systemd/user/haltos-agents.service"
+check "agents service does not restart a copy that handed over" grep -qx "RestartPreventExitStatus=3" "$conf/systemd/user/haltos-agents.service"
+check "agents service link resolves" test -e "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
+check "agents autostart only starts the service" grep -qx "Exec=systemctl --user start haltos-agents.service" "$conf/autostart/haltos-agents.desktop"
 check "agents icon" test -f "$share/icons/hicolor/scalable/apps/haltos-agents.svg"
 
 echo "== install.sh user again"
@@ -78,6 +81,7 @@ same "prompt hooked once after refresh" "$(hooks)" 1
 same "one local-only block after refresh" "$(blocks)" 1
 same "look and feel after refresh" "$(read_kde kdeglobals KDE LookAndFeelPackage)" org.haltos.mono
 check "agents still installed after refresh" test -x "$share/haltos/agents/haltos-agents"
+check "agents service kept after refresh" test -e "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
 
 echo "== install.sh undo-user"
 "$haltos" undo-user

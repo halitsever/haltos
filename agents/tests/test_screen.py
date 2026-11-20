@@ -41,6 +41,24 @@ class ScreenTest(unittest.TestCase):
         s.resize(20, 5)
         self.assertEqual((len(s.rows()), s.cols), (5, 20))
 
+    def test_a_pyte_error_resets_the_screen_instead_of_freezing_it(self):
+        s = screen.Screen(6, 2)
+        s.feed(b"old")
+        real = s.stream.feed
+
+        def boom(data):
+            s.stream.feed = real
+            raise RuntimeError("dictionary changed size during iteration")
+
+        s.stream.feed = boom
+        s.feed(b"x")
+        s.feed(b"new")
+        self.assertTrue(s.rows()[0].startswith("new"))
+        s.screen.prev_page = lambda: (_ for _ in ()).throw(RuntimeError("boom"))
+        s.scroll(-1)
+        s.feed(b"!")
+        self.assertIn("!", "".join(s.rows()))
+
     def test_changed_flag(self):
         s = screen.Screen(4, 1)
         self.assertTrue(s.take_changed())

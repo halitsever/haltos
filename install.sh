@@ -71,11 +71,16 @@ install_agents() {
     local entry='[Desktop Entry]\nType=Application\nName=HaltOS Agents\nGenericName=Claude Code agents\nComment=Manage your Claude Code agents\nExec=%s\nIcon=haltos-agents\nTerminal=false\nCategories=Development;Utility;\nKeywords=claude;ai;agent;\n'
     # shellcheck disable=SC2059
     printf "$entry" "$dir/haltos-agents" >"$share/applications/haltos-agents.desktop"
-    # A user service instead of an autostart entry: the app is always running and comes back however it stops.
-    rm -f "$conf/autostart/haltos-agents.desktop"
-    printf '[Unit]\nDescription=HaltOS Agents\nPartOf=graphical-session.target\nAfter=graphical-session.target\nStartLimitIntervalSec=0\n\n[Service]\nExecStart=%s --tray\nRestart=always\nRestartSec=2\n\n[Install]\nWantedBy=graphical-session.target\n' \
+    # A user service keeps the app running and brings it back however it stops. KillMode=process
+    # spares the agents it started, and exit 3 (another copy already runs) is not restarted.
+    printf '[Unit]\nDescription=HaltOS Agents\nPartOf=graphical-session.target\nAfter=graphical-session.target\nStartLimitIntervalSec=0\n\n[Service]\nExecStart=%s --tray\nRestart=always\nRestartSec=2\nRestartPreventExitStatus=3\nKillMode=process\n\n[Install]\nWantedBy=graphical-session.target\n' \
         "$dir/haltos-agents" >"$units/haltos-agents.service"
     ln -sf ../haltos-agents.service "$units/graphical-session.target.wants/haltos-agents.service"
+    # Some sessions never reach graphical-session.target, so login also asks for the service.
+    install -d "$conf/autostart"
+    printf '[Desktop Entry]\nType=Application\nName=HaltOS Agents service\nExec=systemctl --user start haltos-agents.service\nNoDisplay=true\nX-KDE-autostart-phase=2\n' \
+        >"$conf/autostart/haltos-agents.desktop"
+    systemctl --user daemon-reload 2>/dev/null || true
 }
 
 apply_user_config() {
@@ -262,9 +267,12 @@ undo_user() {
     rm -rf "$share/color-schemes/HaltMono.colors" "$share/konsole/HaltOS.profile" "$share/konsole/HaltMono.colorscheme" \
         "$share/wallpapers/HaltOS" "$share/plasma/look-and-feel/$LNF" "$share/plasma/desktoptheme/haltos" "$share/haltos" "$conf/Kvantum/HaltMono" \
         "$conf/gtk-3.0/haltos-adw.css" "$conf/gtk-4.0/haltos-adw.css"
+    # The app has no Quit and restarts itself, so the service is stopped before its files go.
+    systemctl --user disable --now haltos-agents.service 2>/dev/null || true
     rm -f "$conf/claude-vps/post-apply.d/50-haltos" "$conf/autostart/haltos-firstrun.desktop" \
         "$conf/autostart/haltos-agents.desktop" "$share/applications/haltos-agents.desktop" \
         "$conf/systemd/user/haltos-agents.service" "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
+    systemctl --user daemon-reload 2>/dev/null || true
     drop_local_only
     find "$share/icons/hicolor" -name 'haltos-*' -delete 2>/dev/null || true
     drop_prompt_hook "$HOME/.bashrc"

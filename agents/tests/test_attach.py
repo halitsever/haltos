@@ -90,6 +90,21 @@ class AttachTest(unittest.TestCase):
         self.addCleanup(a.close)
         self.assertTrue(wait_until(lambda: b"hello" in b"".join(got)))
 
+    def test_a_failing_listener_does_not_stop_the_reader(self):
+        got = []
+
+        def listener(data):
+            got.append(data)
+            if len(got) == 1:
+                raise RuntimeError("screen broke")
+
+        child = "import os, time; os.write(1, b'one'); time.sleep(0.5); os.write(1, b'two'); time.sleep(2)"
+        a = Attachment([sys.executable, "-c", child], {})
+        a.listener = listener
+        a.start()
+        self.addCleanup(a.close)
+        self.assertTrue(wait_until(lambda: b"two" in b"".join(got)))
+
     def test_resize_reaches_the_child(self):
         got = []
         child = (
