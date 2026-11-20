@@ -71,15 +71,17 @@ install_agents() {
         "$dir" >"$share/applications/haltos-agents.desktop"
     printf '[Desktop Entry]\nType=Application\nName=New grid\nGenericName=Claude Code grid\nComment=Open a new grid of Claude Code agents\nExec=claudegrid\nTryExec=claudegrid\nIcon=claudegrid\nTerminal=false\nNoDisplay=true\n' \
         >"$share/applications/haltos-agents-new.desktop"
-    # Restart=always brings the tray back however it stops. KillMode=process spares the grids it opened.
-    printf '[Unit]\nDescription=HaltOS Agents\nPartOf=graphical-session.target\nAfter=graphical-session.target\nStartLimitIntervalSec=0\n\n[Service]\nExecStart=/usr/bin/python3 %s/haltos_agents.py\nRestart=always\nRestartSec=2\nKillMode=process\n\n[Install]\nWantedBy=graphical-session.target\n' \
+    # Restart=always brings the tray back however it stops, except exit 3: no desktop to show it on, which only the
+    # next login fixes. KillMode=process spares the grids it opened.
+    printf '[Unit]\nDescription=HaltOS Agents\nPartOf=graphical-session.target\nAfter=graphical-session.target\nStartLimitIntervalSec=0\n\n[Service]\nExecStart=/usr/bin/python3 %s/haltos_agents.py\nRestart=always\nRestartSec=2\nRestartPreventExitStatus=3\nKillMode=process\n\n[Install]\nWantedBy=graphical-session.target\n' \
         "$dir" >"$units/haltos-agents.service"
     ln -sf ../haltos-agents.service "$units/graphical-session.target.wants/haltos-agents.service"
     # Some sessions never reach graphical-session.target, so login also asks for the service.
     printf '[Desktop Entry]\nType=Application\nName=HaltOS Agents service\nExec=systemctl --user start haltos-agents.service\nNoDisplay=true\nX-KDE-autostart-phase=2\n' \
         >"$conf/autostart/haltos-agents.desktop"
     systemctl --user daemon-reload 2>/dev/null || true
-    systemctl --user try-restart haltos-agents.service 2>/dev/null || true
+    # Inside a desktop session the tray comes up now. Elsewhere it exits 3 and waits for the next login.
+    systemctl --user restart haltos-agents.service 2>/dev/null || true
 }
 
 # VS Code loads an unpacked extension folder on its next start, so neither the code CLI nor a network is needed.
@@ -274,11 +276,11 @@ undo_user() {
         *) rm -f "${conf:?}/$f" ;;
         esac
     done
+    # The tray restarts itself, so its service stops before its files go.
+    systemctl --user disable --now haltos-agents.service 2>/dev/null || true
     rm -rf "$share/color-schemes/HaltMono.colors" "$share/konsole/HaltOS.profile" "$share/konsole/HaltMono.colorscheme" \
         "$share/wallpapers/HaltOS" "$share/plasma/look-and-feel/$LNF" "$share/plasma/desktoptheme/haltos" "$share/haltos" "$conf/Kvantum/HaltMono" \
         "$conf/gtk-3.0/haltos-adw.css" "$conf/gtk-4.0/haltos-adw.css"
-    # The tray restarts itself, so its service stops before its files go.
-    systemctl --user disable --now haltos-agents.service 2>/dev/null || true
     rm -f "$conf/claude-vps/post-apply.d/50-haltos" "$conf/autostart/haltos-firstrun.desktop" \
         "$conf/autostart/haltos-agents.desktop" "$share/applications/haltos-agents.desktop" "$share/applications/haltos-agents-new.desktop" \
         "$conf/systemd/user/haltos-agents.service" "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"

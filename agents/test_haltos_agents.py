@@ -97,6 +97,29 @@ class SettleTest(unittest.TestCase):
         self.assertEqual(ha.settle({1: [s("a")]}, {}), [])
 
 
+class ForgetTest(unittest.TestCase):
+    def test_the_grid_shown_is_removed_even_after_the_list_moved(self):
+        shown = {"saved": 1, "sessions": [s("a")]}
+        # The recorder put a new grid first while the menu was open.
+        now = [{"saved": 9, "sessions": [s("new")]}, {"saved": 1, "sessions": [s("a")]}, {"saved": 0, "sessions": [s("z")]}]
+        self.assertEqual([g["sessions"][0]["id"] for g in ha.forget_grid(now, shown)], ["new", "z"])
+
+    def test_a_grid_already_gone_changes_nothing(self):
+        now = [{"saved": 9, "sessions": [s("new")]}]
+        self.assertEqual(ha.forget_grid(now, {"saved": 1, "sessions": [s("a")]}), now)
+
+
+class GuardTest(unittest.TestCase):
+    def test_the_same_grid_is_not_resumed_again_while_it_starts(self):
+        with tempfile.TemporaryDirectory() as d:
+            grid = {"saved": 1, "sessions": [s("a")]}
+            with mock.patch.object(ha, "STATE", d):
+                self.assertTrue(ha.claim_resume(grid, now=100))
+                self.assertFalse(ha.claim_resume(grid, now=105))
+                self.assertTrue(ha.claim_resume({"saved": 2, "sessions": [s("b")]}, now=106))
+                self.assertTrue(ha.claim_resume(grid, now=100 + ha.RESUME_GUARD + 1))
+
+
 class StoreTest(unittest.TestCase):
     def test_saved_grids_load_back_and_junk_is_ignored(self):
         with tempfile.TemporaryDirectory() as d:
@@ -220,9 +243,33 @@ class LaunchTest(unittest.TestCase):
                 time.sleep(1.0)
         self.assertEqual(failed, [3])
 
+    def test_each_resume_gets_its_own_config_and_it_is_removed_after(self):
+        with tempfile.TemporaryDirectory() as d:
+            fake = os.path.join(d, "claudegrid")
+            with open(fake, "w") as f:
+                f.write("#!/bin/sh\ncat \"$2\" > \"$0.$$\"\n")
+            os.chmod(fake, 0o755)
+            state = os.path.join(d, "state")
+            with mock.patch.dict(os.environ, {"PATH": d + os.pathsep + os.environ["PATH"]}), \
+                    mock.patch.object(ha, "STATE", state), mock.patch.object(ha, "live_sessions", lambda: set()):
+                ha.launch_grid({"saved": 0, "sessions": [{"id": "a", "cwd": d, "name": "first"}]})
+                ha.launch_grid({"saved": 0, "sessions": [{"id": "b", "cwd": d, "name": "second"}]})
+                time.sleep(1.0)
+            seen = sorted(open(os.path.join(d, n)).read() for n in os.listdir(d) if n.startswith("claudegrid."))
+            self.assertEqual(len(seen), 2)
+            self.assertNotEqual(seen[0], seen[1])
+            self.assertEqual([n for n in os.listdir(state) if n.endswith(".json")], [])
+
     def test_a_missing_claudegrid_does_not_raise(self):
         with mock.patch.dict(os.environ, {"PATH": "/nonexistent"}):
             self.assertFalse(ha.launch_grid())
+
+
+class StartupTest(unittest.TestCase):
+    def test_without_a_display_the_tray_exits_with_the_code_systemd_does_not_restart(self):
+        env = {k: v for k, v in os.environ.items() if k not in ("DISPLAY", "WAYLAND_DISPLAY")}
+        run = subprocess.run([sys.executable, ha.__file__], env=env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(run.returncode, ha.NO_DESKTOP, run.stderr)
 
 
 @unittest.skipUnless(os.environ.get("DISPLAY"), "needs an X display")

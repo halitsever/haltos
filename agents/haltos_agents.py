@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 
@@ -16,6 +17,10 @@ STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.join(HOME, ".lo
 GRIDS = os.path.join(STATE, "grids.json")
 CLAUDE = os.path.join(HOME, ".claude")
 KEEP = 12
+# Exit code for "no desktop to show a tray on": the service does not restart it, the next login starts it again.
+NO_DESKTOP = 3
+# How long a resumed grid is left to start before the same grid may be resumed again.
+RESUME_GUARD = 15
 
 
 def is_grid(wm_class: str, title: str, cmdline: list[str] | None = None) -> bool:
@@ -93,6 +98,33 @@ def settle(previous: dict[int, list[dict]], current: dict[int, list[dict]]) -> l
     """The sessions of each grid window that look the same as one look earlier. A closing window loses its panes
     one by one, and saving it halfway would drop the rest from the saved grid."""
     return [sessions for window, sessions in current.items() if sessions and previous.get(window) == sessions]
+
+
+def grid_key(grid: dict) -> tuple:
+    return grid["saved"], grid["sessions"][0]["id"]
+
+
+def forget_grid(grids: list[dict], grid: dict) -> list[dict]:
+    """Removes the grid that was shown, wherever the recorder has moved it since."""
+    return [g for g in grids if grid_key(g) != grid_key(grid)]
+
+
+def claim_resume(grid: dict, now: float) -> bool:
+    """False while the same grid was resumed moments ago: its sessions are not running yet, so a second click
+    would start each of them twice."""
+    path = os.path.join(STATE, "resume-guard")
+    key = ",".join(sorted(x["id"] for x in grid["sessions"]))
+    try:
+        with open(path) as f:
+            last_key, last_at = f.read().split("\n")[:2]
+        if last_key == key and now - float(last_at) < RESUME_GUARD:
+            return False
+    except (OSError, ValueError):
+        pass
+    os.makedirs(STATE, exist_ok=True)
+    with open(path, "w") as f:
+        f.write(f"{key}\n{now}\n")
+    return True
 
 
 def load_grids(path: str = GRIDS) -> list[dict]:
@@ -184,24 +216,34 @@ def clean_env(environ) -> dict[str, str]:
 
 def launch_grid(grid: dict | None = None, on_fail=None) -> bool:
     args = ["claudegrid"]
+    config_path = None
     if grid:
         config = resume_config(grid, running=live_sessions())
-        if not config["panes"]:
+        if not config["panes"] or not claim_resume(grid, time.time()):
             return True
-        path = os.path.join(STATE, "resume.json")
         os.makedirs(STATE, exist_ok=True)
-        with open(path, "w") as f:
+        # One file per launch, since claudegrid reads it a moment later and another launch may come in between.
+        fd, config_path = tempfile.mkstemp(prefix="resume-", suffix=".json", dir=STATE)
+        with os.fdopen(fd, "w") as f:
             json.dump(config, f)
-        args += ["-c", path, "-l", str(len(config["panes"]))]
+        args += ["-c", config_path, "-l", str(len(config["panes"]))]
     try:
         # Its own session, so a restart of the tray never takes the grid's Konsole down with it.
         child = subprocess.Popen(args, cwd=HOME, start_new_session=True, env=clean_env(os.environ),
                                  stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except OSError:
+        if config_path:
+            os.unlink(config_path)
         return False
+
     def reap() -> None:
         # claudegrid exits once Konsole is up, and the tray lives for days, so nothing may stay unreaped.
         code = child.wait()
+        if config_path:
+            try:
+                os.unlink(config_path)
+            except OSError:
+                pass
         if code and on_fail:
             on_fail(code)
 
@@ -267,11 +309,10 @@ class X11:
         value = APP.encode()
         self.x.XChangeProperty(self.d, ctypes.c_ulong(window), self.atom("_KDE_NET_WM_DESKTOP_FILE"),
                                self.atom("UTF8_STRING"), 8, 0, value, len(value))
-        # The task bar only reads that property when a window appears, so the window appears again.
+        # The task bar only reads that property when a window appears, so the window appears again. Both happen
+        # in this one call, so a tray that stops right here cannot leave the grid hidden.
         self.x.XUnmapWindow(self.d, ctypes.c_ulong(window))
-        self.x.XFlush(self.d)
-
-    def show(self, window: int) -> None:
+        self.x.XSync(self.d, 0)
         self.x.XMapWindow(self.d, ctypes.c_ulong(window))
         self.x.XFlush(self.d)
 
@@ -298,6 +339,21 @@ def open_default(x11: "X11 | None") -> bool:
 
 
 def tray() -> int:
+    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+        print("haltos-agents: no desktop session to show the tray on", file=sys.stderr)
+        return NO_DESKTOP
+    if not os.environ.get("WAYLAND_DISPLAY"):
+        try:
+            X11()
+        except OSError:
+            # Qt aborts with a core dump on a display it cannot reach.
+            print(f"haltos-agents: cannot reach display {os.environ.get('DISPLAY')}", file=sys.stderr)
+            return NO_DESKTOP
+    try:
+        import PySide6.QtWidgets  # noqa: F401
+    except ImportError:
+        print("haltos-agents: PySide6 is missing, install python3-pyside6.qtwidgets", file=sys.stderr)
+        return NO_DESKTOP
     from PySide6.QtCore import QObject, QPoint, QSize, Qt, QTimer, Signal
     from PySide6.QtGui import QColor, QCursor, QGuiApplication, QIcon, QPainter, QPen, QPixmap
     from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QSystemTrayIcon,
@@ -343,11 +399,8 @@ def tray() -> int:
         if not launch_grid(grid, on_fail=relay.failed.emit):
             icon.showMessage("HaltOS Agents", "claudegrid could not start. Is it installed?")
 
-    def forget(index: int) -> None:
-        grids = load_grids()
-        if 0 <= index < len(grids):
-            del grids[index]
-            save_grids(grids)
+    def forget(grid: dict) -> None:
+        save_grids(forget_grid(load_grids(), grid))
 
     def show_open() -> None:
         found = x11.grids() if x11 else []
@@ -384,7 +437,7 @@ def tray() -> int:
             caption.setStyleSheet("color: #71717a; padding: 6px 10px 2px 10px;")
             self.box.addWidget(caption)
             now = time.time()
-            for i, grid in enumerate(grids):
+            for grid in grids:
                 row = QWidget()
                 line = QHBoxLayout(row)
                 line.setContentsMargins(0, 0, 0, 0)
@@ -399,14 +452,14 @@ def tray() -> int:
                 remove.setIconSize(QSize(16, 16))
                 remove.setAutoRaise(True)
                 remove.setToolTip("Remove this grid")
-                remove.clicked.connect(lambda _=False, i=i: self.remove(i))
+                remove.clicked.connect(lambda _=False, g=grid: self.remove(g))
                 line.addWidget(open_btn, 1)
                 line.addWidget(remove)
                 self.box.addWidget(row)
             self.adjustSize()
 
-        def remove(self, index: int) -> None:
-            forget(index)
+        def remove(self, grid: dict) -> None:
+            forget(grid)
             self.rebuild()
 
         def popup_at(self, pos: QPoint) -> None:
@@ -428,7 +481,6 @@ def tray() -> int:
         for w in found:
             if w not in tagged and x11.text(w, "_KDE_NET_WM_DESKTOP_FILE") != APP:
                 x11.retag(w)
-                QTimer.singleShot(250, lambda w=w: x11.show(w))
         tagged.intersection_update(found)
         tagged.update(found)
 
@@ -459,9 +511,13 @@ def tray() -> int:
 
     # Plasma draws the right click menu itself, so it holds plain entries: a submenu per grid stands in for the X.
     context = QMenu()
+    submenus: list = []
 
     def fill_context() -> None:
+        # clear() keeps menus made by addMenu(), so they are dropped by hand or every right click leaks them.
         context.clear()
+        while submenus:
+            submenus.pop().deleteLater()
         if x11 and x11.grids():
             context.addAction("Show open grid").triggered.connect(show_open)
         context.addAction("New grid").triggered.connect(lambda: start())
@@ -469,10 +525,11 @@ def tray() -> int:
         if grids:
             context.addSection("Recent grids")
         now = time.time()
-        for i, grid in enumerate(grids):
+        for grid in grids:
             sub_menu = context.addMenu(label(grid, now))
+            submenus.append(sub_menu)
             sub_menu.addAction("Open").triggered.connect(lambda _=False, g=grid: start(g))
-            sub_menu.addAction("Remove").triggered.connect(lambda _=False, i=i: forget(i))
+            sub_menu.addAction("Remove").triggered.connect(lambda _=False, g=grid: forget(g))
 
     context.aboutToShow.connect(fill_context)
     fill_context()
