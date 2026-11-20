@@ -32,11 +32,20 @@ Kirigami.ApplicationWindow {
     Kirigami.Theme.highlightedTextColor: Ansi.text
 
     readonly property bool searching: controller.query !== ""
-    property bool gridMode: false
+    // The grid of live agents is home, like claudegrid; Tasks is the overview one click away.
+    property bool gridMode: true
+
+    function fillPanes() {
+        controller.fillGrid(gridPage.cols * gridPage.rows)
+    }
 
     function enterGrid() {
         gridMode = true
-        Qt.callLater(() => gridPage.focusCell(0))
+        fillPanes()
+        Qt.callLater(() => {
+            if (root.gridMode)
+                gridPage.focusCell(gridPage.focusedCell)
+        })
     }
 
     function leaveGrid(index: int) {
@@ -170,7 +179,7 @@ Kirigami.ApplicationWindow {
 
     function trigger(action: string) {
         // With search results on screen the agents are hidden, so keys aimed at them wait.
-        if (searching && !["new", "newDialog", "grid", "search", "help", "escape"].includes(action))
+        if (searching && !["new", "newDialog", "grid", "tasks", "search", "help", "escape"].includes(action))
             return
         if (action.startsWith("answer:")) {
             controller.answer(Number(action.slice(7)))
@@ -182,6 +191,7 @@ Kirigami.ApplicationWindow {
         case "new": controller.newAgentQuick(); break
         case "newDialog": newAgent.open(); break
         case "grid": gridMode ? leaveGrid(0) : enterGrid(); break
+        case "tasks": leaveGrid(0); break
         case "search": search.forceActiveFocus(); search.selectAll(); break
         case "help": help.open = !help.open; break
         case "prev": controller.step(-1); break
@@ -239,6 +249,8 @@ Kirigami.ApplicationWindow {
     // Kirigami's page stack asks for focus too, so the grid claims it once everything is built.
     Component.onCompleted: {
         navigate()
+        if (gridMode)
+            enterGrid()
         if (!startHidden)
             showMaximized()
     }
@@ -261,6 +273,14 @@ Kirigami.ApplicationWindow {
         if (hideOnClose) {
             close.accepted = false
             root.hide()
+        }
+    }
+
+    Connections {
+        target: root.controller
+        function onChanged() {
+            if (root.gridMode)
+                root.fillPanes()
         }
     }
 
@@ -383,11 +403,6 @@ Kirigami.ApplicationWindow {
                     spacing: Kirigami.Units.smallSpacing
 
                     TabChip {
-                        at: 0
-                        label: "Agents"
-                        badge: root.controller.counts.need ?? 0
-                    }
-                    TabChip {
                         id: gridChip
                         at: -1
                         isGrid: true
@@ -417,6 +432,11 @@ Kirigami.ApplicationWindow {
                                 }
                             }
                         }
+                    }
+                    TabChip {
+                        at: 0
+                        label: "Tasks"
+                        badge: root.controller.counts.need ?? 0
                     }
                     Repeater {
                         id: tabs
@@ -449,9 +469,9 @@ Kirigami.ApplicationWindow {
                 }
             }
             AccentButton {
+                id: newButtonRef
                 objectName: "newButton"
                 text: "+ New agent"
-                Layout.preferredHeight: search.implicitHeight
                 QQC2.ToolTip.text: "Starts Claude Code in your last folder (ctrl+n)"
                 QQC2.ToolTip.visible: hovered
                 onClicked: root.trigger("new")
@@ -460,7 +480,7 @@ Kirigami.ApplicationWindow {
                 objectName: "newOptions"
                 text: "▾"
                 primary: false
-                Layout.preferredHeight: search.implicitHeight
+                Layout.preferredHeight: newButtonRef.implicitHeight
                 QQC2.ToolTip.text: "Pick folder, task, model or worktree"
                 QQC2.ToolTip.visible: hovered
                 onClicked: root.trigger("newDialog")
@@ -552,6 +572,7 @@ Kirigami.ApplicationWindow {
             const action = k === Qt.Key_Escape ? "escape"
                 : t === "?" ? "help"
                 : help.open ? ""
+                : root.gridMode ? (t === "n" ? "new" : "")
                 : k === Qt.Key_Left || t === "a" || t === "h" ? "prev"
                 : k === Qt.Key_Right || t === "d" || t === "l" ? "next"
                 : k === Qt.Key_Up || t === "w" || t === "k" ? "up"

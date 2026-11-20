@@ -478,7 +478,7 @@ class ControllerTest(unittest.TestCase):
         seen = self.launches()
         folder = tempfile.mkdtemp(prefix="shop-")
         self.c.newAgent(folder, "", "", False, "first task")
-        base = A.slug(Path(folder).name, set())
+        base = A.slug(Path(folder).name.replace("-", " ").replace("_", " "), set())
         self.c._on_polled([dataclasses.replace(session("a"), name=base)], "")
         self.c.newAgentQuick()
         argv, cwd = seen[-1]
@@ -497,6 +497,19 @@ class ControllerTest(unittest.TestCase):
         self.c.setGridLayout("3x2")
         self.c.setGridLayout("9x9")
         self.assertEqual(A.Controller().gridLayout, "3x2")
+
+    @unittest.skipIf(A is not None and A.screen.pyte is None, "pyte not installed")
+    def test_fill_grid_opens_waiting_then_working_agents(self):
+        fake_attachments(self.c)
+        need = dataclasses.replace(session("a"), status="waiting")
+        work = dataclasses.replace(session("b"), status="busy", state="")
+        tty = dataclasses.replace(session("t", attachable=False), status="waiting")
+        self.c._on_polled([session("d"), work, tty, need], "")
+        self.c.fillGrid(2)
+        self.assertEqual(self.c.tabKeys, ["a", "b"])
+        self.assertEqual(self.c.currentTab, 0)
+        self.c.fillGrid(4)
+        self.assertEqual(self.c.tabKeys, ["a", "b", "d"])
 
     def test_drafts_kept_per_agent(self):
         self.c._on_polled([session("a"), session("b")], "")
@@ -551,14 +564,13 @@ class BannerTest(unittest.TestCase):
         self.assertIsNotNone(bar)
         # Repeater items hang off the item tree, not the QObject tree.
         keys = {b.objectName(): b.property("hint") for b in bar.childItems() if b.objectName().startswith("key:")}
+        # The app opens on the grid, so the key bar starts with the grid's keys.
         self.assertEqual(keys, {
-            "key:←↑↓→": "←↑↓→ select",
-            "key:open": "enter open in Claude Code",
-            "key:1 2": "1 2 answer",
+            "key:click": "click type into a pane",
+            "key:ctrl+tab": "ctrl+tab next pane",
+            "key:⤢": "⤢ own tab",
             "key:new": "n new agent",
-            "key:grid": "ctrl+g grid",
-            "key:search": "/ search",
-            "key:help": "? keys",
+            "key:tasks": "ctrl+g tasks",
         })
         QMetaObject.invokeMethod(root, "trigger", Q_ARG(str, "newDialog"))
         self.assertTrue(root.findChild(QObject, "newAgentDialog").property("visible"))
@@ -569,6 +581,8 @@ class BannerTest(unittest.TestCase):
 
 @unittest.skipIf(A is None, "PySide6 not installed")
 class QmlCase(unittest.TestCase):
+    # Most tests drive the Tasks overview; the app itself opens on the grid.
+    start_in_tasks = True
     @classmethod
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication(sys.argv)
@@ -584,6 +598,9 @@ class QmlCase(unittest.TestCase):
         self.root.requestActivate()
         self.grid = self.root.findChild(QQuickItem, "agentGrid")
         self.keep = []
+        if self.start_in_tasks:
+            self.trigger("tasks")
+            self.wait()
 
     def tearDown(self):
         self.wait(300)
@@ -631,6 +648,36 @@ class QmlCase(unittest.TestCase):
         tile = self.tile(key)
         self.keep.append(tile)
         return tile.findChild(QQuickItem, "tileInput")
+
+
+@unittest.skipIf(A is None, "PySide6 not installed")
+class GridDefaultTest(QmlCase):
+    start_in_tasks = False
+
+    @unittest.skipIf(A is not None and A.screen.pyte is None, NO_PYTE)
+    def test_opens_on_the_grid_filled_with_agents(self):
+        fake_attachments(self.c)
+        need = dataclasses.replace(session("a"), status="waiting")
+        self.poll(need, session("b"), session("c"))
+        self.wait(300)
+        self.assertTrue(self.item("gridPage").isVisible())
+        self.assertEqual(self.c.tabKeys, ["a", "b", "c"])
+        self.letter_free()
+
+    def letter_free(self):
+        """Letters on the grid never drive the hidden Tasks view."""
+        before = self.c.selectedKey
+        for kind in (QEvent.KeyPress, QEvent.KeyRelease):
+            QGuiApplication.sendEvent(self.root, QKeyEvent(kind, Qt.Key_D, Qt.NoModifier, "d"))
+        self.wait()
+        self.assertEqual(self.c.selectedKey, before)
+
+    def test_tasks_chip_switches_to_the_overview(self):
+        self.poll(session("a"))
+        self.trigger("tasks")
+        self.wait()
+        self.assertFalse(self.item("gridPage").isVisible())
+        self.assertTrue(self.grid.isVisible())
 
 
 @unittest.skipIf(A is None, "PySide6 not installed")

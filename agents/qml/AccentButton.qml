@@ -10,8 +10,8 @@ QQC2.AbstractButton {
 
     focusPolicy: Qt.NoFocus
     hoverEnabled: true
-    implicitHeight: Math.max(Kirigami.Units.gridUnit * 1.8, label.implicitHeight + Kirigami.Units.smallSpacing * 2)
-    implicitWidth: label.implicitWidth + Kirigami.Units.largeSpacing * 2
+    implicitHeight: label.implicitHeight + Kirigami.Units.smallSpacing * 3
+    implicitWidth: label.implicitWidth + Kirigami.Units.smallSpacing * 6
 
     background: Rectangle {
         radius: 6
@@ -25,7 +25,6 @@ QQC2.AbstractButton {
         id: label
         text: button.text
         color: Ansi.text
-        font.bold: button.primary
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
     }

@@ -14,6 +14,8 @@ Item {
     readonly property var size: controller.gridLayout.split("x").map(Number)
     readonly property int cols: size[0]
     readonly property int rows: size[1]
+    onColsChanged: if (visible) Qt.callLater(() => controller.fillGrid(cols * rows))
+    onRowsChanged: if (visible) Qt.callLater(() => controller.fillGrid(cols * rows))
     readonly property var keys: controller.tabKeys
     property int focusedCell: 0
 

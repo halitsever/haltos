@@ -20,7 +20,8 @@ RowLayout {
             { key: "click", label: "type into a pane" },
             { key: "ctrl+tab", label: "next pane" },
             { key: "⤢", label: "own tab" },
-            { key: "ctrl+g", label: "agents", action: "grid" }
+            { key: "n", label: "new agent", action: "new" },
+            { key: "ctrl+g", label: "tasks", action: "tasks" }
         ] : bar.agentTab ? [
             { key: "ctrl+tab", label: "next tab" },
             { key: "alt+0", label: "agents" },

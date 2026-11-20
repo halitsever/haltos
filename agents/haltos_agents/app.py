@@ -347,28 +347,49 @@ class Controller(QObject):
     @Slot(str, result=bool)
     def openTab(self, key):
         """Opens the agent's Claude Code in a tab, or switches to the tab it already has."""
+        if not self._ensure_tab(key):
+            return False
         keys = self._tab_keys()
-        if key not in keys:
-            s = self.session(key)
-            if s is None or not s.attachable:
-                return False
-            if screen.pyte is None:
-                # Without python3-pyte there is no terminal to draw; a popup window is not a tab.
-                self._action_error = "Tabs need python3-pyte. Run: sudo apt install python3-pyte, then restart HaltOS Agents."
-                self.changed.emit()
-                return False
-            try:
-                self.terminals[key] = Terminal(self._attachment_for(key), self)
-            except ClaudeError as e:
-                self._action_error = str(e)
-                self.changed.emit()
-                return False
-            keys.append(key)
-            self._tabs.replace(self._tab_rows(keys))
         self._current_tab = keys.index(key) + 1
         self.select(key)
         self.changed.emit()
         return True
+
+    def _ensure_tab(self, key: str) -> bool:
+        """Gives the agent a tab without switching to it."""
+        keys = self._tab_keys()
+        if key in keys:
+            return True
+        s = self.session(key)
+        if s is None or not s.attachable:
+            return False
+        if screen.pyte is None:
+            # Without python3-pyte there is no terminal to draw; a popup window is not a tab.
+            self._action_error = "Tabs need python3-pyte. Run: sudo apt install python3-pyte, then restart HaltOS Agents."
+            self.changed.emit()
+            return False
+        try:
+            self.terminals[key] = Terminal(self._attachment_for(key), self)
+        except ClaudeError as e:
+            self._action_error = str(e)
+            self.changed.emit()
+            return False
+        self._tabs.replace(self._tab_rows(keys + [key]))
+        return True
+
+    @Slot(int)
+    def fillGrid(self, count):
+        """Fills empty grid panes with the agents that most need a look: waiting first, then working, then done."""
+        if screen.pyte is None:
+            return
+        opened = False
+        for row in self._agents.rows:
+            if len(self._tab_keys()) >= count:
+                break
+            if row["key"] not in self._tab_keys() and row["attachable"]:
+                opened = self._ensure_tab(row["key"]) or opened
+        if opened:
+            self.changed.emit()
 
     @Slot(int)
     def showTab(self, index):
@@ -781,7 +802,9 @@ class Controller(QObject):
         selected = self.session(self._selected)
         directory = last if last and Path(last).is_dir() else selected.cwd if selected else str(Path.home())
         self.settings.setValue("lastDir", directory)
-        self._launch(start_argv(slug(Path(directory).name, {s.name for s in self.sessions}), "", None, False), directory)
+        # Folder names use dashes and underscores where slug expects spaces, so they keep their word breaks.
+        base = Path(directory).name.replace("-", " ").replace("_", " ")
+        self._launch(start_argv(slug(base, {s.name for s in self.sessions}), "", None, False), directory)
 
     @Property(str, notify=changed)
     def gridLayout(self):
@@ -938,7 +961,7 @@ def run(args) -> int:
         tray = QSystemTrayIcon(app.windowIcon(), app)
         menu = QMenu()
         menu.addAction("Open", controller.showRequested.emit)
-        menu.addAction("Quit", app.quit)
+        # No Quit: the app is meant to keep running, and its user service would start it again anyway.
         tray.setContextMenu(menu)
         tray.setToolTip("HaltOS Agents")
         tray.activated.connect(lambda reason: reason == QSystemTrayIcon.Trigger and controller.showRequested.emit())

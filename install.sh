@@ -71,9 +71,9 @@ install_agents() {
     local entry='[Desktop Entry]\nType=Application\nName=HaltOS Agents\nGenericName=Claude Code agents\nComment=Manage your Claude Code agents\nExec=%s\nIcon=haltos-agents\nTerminal=false\nCategories=Development;Utility;\nKeywords=claude;ai;agent;\n'
     # shellcheck disable=SC2059
     printf "$entry" "$dir/haltos-agents" >"$share/applications/haltos-agents.desktop"
-    # A user service instead of an autostart entry, so the app comes back on its own if it crashes.
+    # A user service instead of an autostart entry: the app is always running and comes back however it stops.
     rm -f "$conf/autostart/haltos-agents.desktop"
-    printf '[Unit]\nDescription=HaltOS Agents\nPartOf=graphical-session.target\nAfter=graphical-session.target\n\n[Service]\nExecStart=%s --tray\nRestart=on-failure\nRestartSec=2\n\n[Install]\nWantedBy=graphical-session.target\n' \
+    printf '[Unit]\nDescription=HaltOS Agents\nPartOf=graphical-session.target\nAfter=graphical-session.target\nStartLimitIntervalSec=0\n\n[Service]\nExecStart=%s --tray\nRestart=always\nRestartSec=2\n\n[Install]\nWantedBy=graphical-session.target\n' \
         "$dir/haltos-agents" >"$units/haltos-agents.service"
     ln -sf ../haltos-agents.service "$units/graphical-session.target.wants/haltos-agents.service"
 }

@@ -68,7 +68,9 @@ Item {
         }
 
         MouseArea {
+            id: hover
             anchors.fill: parent
+            hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: tile.open()
         }
@@ -78,6 +80,7 @@ Item {
             anchors.margins: Kirigami.Units.smallSpacing * 2
             spacing: 2
 
+            // The name gets the whole first row; where it runs and how long sits below it, small.
             RowLayout {
                 Layout.fillWidth: true
                 spacing: Kirigami.Units.smallSpacing * 2
@@ -88,35 +91,18 @@ Item {
                     color: Ansi.accent
                 }
                 QQC2.Label {
+                    id: nameLabel
                     text: tile.name
                     font.bold: true
                     elide: Text.ElideRight
-                    Layout.maximumWidth: implicitWidth
                     Layout.fillWidth: true
-                }
-                QQC2.Label {
-                    id: projectLabel
-                    text: tile.project
-                    color: Ansi.faint
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
-                QQC2.Label {
-                    visible: !tile.attachable
-                    text: "in terminal"
-                    color: Ansi.faint
-                }
-                QQC2.Label {
-                    // The section header already names the status, so only working agents show their age.
-                    visible: tile.group === "work"
-                    text: tile.age
-                    color: Ansi.faint
                 }
                 QQC2.ToolButton {
                     text: "⋮"
                     focusPolicy: Qt.NoFocus
                     enabled: tile.attachable
-                    implicitHeight: projectLabel.implicitHeight
+                    opacity: hover.containsMouse || hovered || more.visible ? 1 : 0
+                    implicitHeight: metaLabel.implicitHeight + Kirigami.Units.smallSpacing
                     onClicked: {
                         tile.act(() => {})
                         more.popup()
@@ -125,16 +111,25 @@ Item {
                     QQC2.Menu {
                         id: more
                         QQC2.MenuItem {
-                            text: "archive"
+                            text: "Archive"
                             enabled: tile.group === "done"
                             onTriggered: tile.act(() => tile.controller.archive())
                         }
                         QQC2.MenuItem {
-                            text: "stop…"
+                            text: "Stop…"
                             onTriggered: tile.act(() => tile.stopRequested())
                         }
                     }
                 }
+            }
+            QQC2.Label {
+                id: metaLabel
+                Layout.fillWidth: true
+                elide: Text.ElideRight
+                color: Ansi.faint
+                font.pointSize: Kirigami.Theme.smallFont.pointSize
+                text: [tile.project, tile.group === "work" ? tile.age : "", tile.attachable ? "" : "open in a terminal"]
+                      .filter(part => part !== "").join(" · ")
             }
 
             Item {
@@ -142,14 +137,15 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
-                readonly property int step: Math.round(projectLabel.fontInfo.pixelSize * 1.45) + 2
+                // Body rows use the normal font, so the row height comes from the name, not the small meta line.
+                readonly property int step: Math.round(nameLabel.fontInfo.pixelSize * 1.45) + 2
 
                 // Whole lines only, so a tile never shows half a row at the top.
                 Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
-                    height: Math.floor(body.height / body.step) * body.step
+                    height: Math.max(0, Math.floor(body.height / body.step)) * body.step
                     clip: true
 
                     // Bottom-aligned so the newest lines stay visible and older ones fall off the top.
@@ -172,6 +168,13 @@ Item {
                                 verticalAlignment: Text.AlignVCenter
                                 text: Ansi.line(modelData, Ansi.faint)
                             }
+                        }
+                        QQC2.Label {
+                            width: parent.width
+                            visible: tile.tail.length === 0 && !tile.asking
+                            text: tile.group === "need" ? "Waiting for your first message" : "No output yet"
+                            color: Ansi.faint
+                            font.italic: true
                         }
                         QQC2.Label {
                             width: parent.width
