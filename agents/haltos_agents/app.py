@@ -432,7 +432,7 @@ class Controller(QObject):
         # Detaching ends the `claude attach` process; the grid's actions start a new one when needed.
         a = self.attachments.pop(key, None)
         if a:
-            threading.Thread(target=a.close, daemon=True).start()
+            self._close_later(a)
         self._tabs.replace(self._tab_rows(keys))
         if self._current_tab == at:
             self._current_tab = min(at, len(keys))
@@ -530,6 +530,15 @@ class Controller(QObject):
             # A tab whose agent is gone has nothing to attach to any more.
             for key in [k for k in self._tab_keys() if not self.session(k)]:
                 self.closeTab(key)
+            # An attach that dropped for a live agent is replaced, so its tab keeps working.
+            for key, term in list(self.terminals.items()):
+                if not term.attachment.alive and self.session(key):
+                    try:
+                        fresh = self._attachment_for(key)
+                    except ClaudeError:
+                        continue
+                    if fresh is not term.attachment:
+                        term.attach(fresh)
             self._tabs.replace(self._tab_rows(self._tab_keys()))
             if self._want and self.session(self._want):
                 self._selected, self._want = self._want, ""
@@ -589,13 +598,18 @@ class Controller(QObject):
         self._load_feed(force=True)
         self.changed.emit()
 
+    @staticmethod
+    def _close_later(a: Attachment) -> None:
+        """Closing waits for `claude attach` to exit, which must not freeze the window."""
+        threading.Thread(target=a.close, daemon=True).start()
+
     def _prune_attachments(self) -> None:
         """Each attachment is a node process, so ones for gone or unreachable sessions are closed."""
         live = {s.key: s for s in self.sessions}
         for key, a in list(self.attachments.items()):
             if key in live and not a.failed:
                 continue
-            a.close()
+            self._close_later(a)
             del self.attachments[key]
             if a.failed and key in live:
                 self._action_error = f"Could not attach to {live[key].name}. Try the terminal."
@@ -749,7 +763,7 @@ class Controller(QObject):
         self.closeTab(key)
         a = self.attachments.pop(key, None)
         if a:
-            a.close()
+            self._close_later(a)
 
         def work():
             # A session in someone's terminal cannot be stopped from here; it is only hidden until restart.
@@ -769,7 +783,7 @@ class Controller(QObject):
             self.hidden.add(result)
             a = self.attachments.pop(result, None)
             if a:
-                a.close()
+                self._close_later(a)
         if error:
             self._action_error = error
             self.changed.emit()

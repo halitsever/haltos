@@ -51,6 +51,7 @@ def session(key, sid=None, attachable=True):
 class FakeAttachment:
     def __init__(self):
         self.listener, self.sent, self.sizes = None, [], []
+        self.alive = True
 
     def key(self, data):
         self.sent.append(data)
@@ -622,6 +623,23 @@ class ControllerTest(unittest.TestCase):
         self.c.deleteAgent("pid:42")
         self.assertEqual((calls, hid), ([], []))
         self.assertIn("pid:42", self.c.hidden)
+
+    @unittest.skipIf(A is not None and A.screen.pyte is None, "pyte not installed")
+    def test_a_dropped_attachment_is_replaced_on_the_next_poll(self):
+        made = []
+
+        def attachment_for(key):
+            if not made or not made[-1].alive:
+                made.append(FakeAttachment())
+            return made[-1]
+
+        self.c._attachment_for = attachment_for
+        self.c._on_polled([session("a")], "")
+        self.c.openTab("a")
+        made[-1].alive = False
+        self.c._on_polled([session("a")], "")
+        self.assertEqual(len(made), 2)
+        self.assertIs(self.c.terminal("a").attachment, made[-1])
 
     def test_drafts_kept_per_agent(self):
         self.c._on_polled([session("a"), session("b")], "")
