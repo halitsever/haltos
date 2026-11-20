@@ -166,7 +166,7 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.margins: 28
-        text: "HaltOS 1.2 // SIGKILL"
+        text: "HaltOS 1.3 // SIGKILL"
         color: root.mutedFg
         font.family: root.mono
         font.pixelSize: 13

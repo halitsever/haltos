@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0
+
+- HaltOS Agents is claudegrid as a system app. The HaltOS H button in the task bar brings your last grid back with every Claude Code agent resumed in its own folder, and a New grid button next to it opens a fresh one.
+- The H icon sits in the system tray all the time. A left click lists your recent grids to reopen, with an X to remove each, and the right click menu has the same. A user service keeps it running and brings it back if it stops.
+- claudegrid's Konsole windows group under the H button instead of Konsole's.
+- VS Code opens in a HaltMono theme with JetBrains Mono and the terminal's colours. A theme or font you pick yourself still wins, and `undo-user` takes it out.
+- The wallpaper, the readme, the GIF and the launch video no longer show the release number.
+- The install retries the VS Code signing key download when Microsoft answers with 429.
+
 ## 1.2.1
 
 - `haltos harden` is removed. claudegrid agents run as your own account again, and `bootstrap.sh` no longer sets up the agent isolation on new servers.

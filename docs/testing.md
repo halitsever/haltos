@@ -38,7 +38,7 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 | Command | Expected |
 | --- | --- |
 | Login banner | ASCII `H` logo and an `apt` line, no Ubuntu ads |
-| `lsb_release -d` | `HaltOS 1.2 (SIGKILL)` |
+| `lsb_release -d` | `HaltOS 1.3 (SIGKILL)` |
 | `grep ^ID= /etc/os-release` | `ID=ubuntu` |
 | `dpkg-divert --list \| grep -cE 'os-release\|lsb-release\|issue'` | `3` |
 | `fastfetch` | HALTOS banner, the `os` line says HaltOS, not Kubuntu |
