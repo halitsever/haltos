@@ -1,7 +1,7 @@
 # Releasing
 
 1. In a PR, bump `VERSION` (for example `1.1.0`) and add a `## 1.1.0` section at the top of `CHANGELOG.md`. A codename goes in brackets: `## 2.0.0 (SIGTERM)`.
-   Then run `python3 tools/build-assets.py` and commit what it changes: the site, login and splash screens and fastfetch banner show the version. A new codename goes in `HALTOS_CODENAME` in `install.sh` first. CI fails if the site or theme files still show the old one. The video and GIF need a re-render too, see "Regenerating assets" in the readme.
+   Then run `python3 tools/build-assets.py` and commit what it changes: the site, login and splash screens and fastfetch banner show the version. A new codename goes in `HALTOS_CODENAME` in `install.sh` first. CI fails if the site or theme files still show the old one.
 2. Merge it, then on an up to date `main`:
 
    ```sh
