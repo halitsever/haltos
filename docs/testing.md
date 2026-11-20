@@ -61,7 +61,7 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 - [ ] The settings dialog of Kate or Dolphin shows outline buttons that turn white when pressed.
 - [ ] Window titlebars are flat and use JetBrains Mono.
 - [ ] About This System (kinfocenter) shows the HaltOS name and logo.
-- [ ] VS Code starts from the application menu.
+- [ ] VS Code starts from the application menu, in the HaltMono theme with JetBrains Mono in the editor and its terminal.
 - [ ] After `claude` is logged in, `claudegrid -l 2x2` opens four Claude Code panes.
 - [ ] HaltOS Agents starts from the application menu with the A icon and sits in the tray. Closing its window keeps the tray icon.
 - [ ] HaltOS Agents is pinned to the task bar, uses the pixel creature icon and opens maximized. It is dark (HaltMono, JetBrains Mono) even when the desktop uses a light theme.
@@ -106,4 +106,4 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 
 - [ ] `haltos undo-user`, then `sudo haltos undo-system`.
 - [ ] `lsb_release -d` shows Ubuntu again and the SSH banner is Ubuntu's.
-- [ ] After logging out and back in, the desktop is Breeze again. VS Code stays installed.
+- [ ] After logging out and back in, the desktop is Breeze again. VS Code stays installed and opens in its own default theme.

@@ -23,7 +23,6 @@ VER, CODENAME = release()
 TAG = f"v{VER} // {CODENAME}"
 # Files that spell out the release. Blog posts keep the version they were written about.
 STAMPED = [
-    "Readme.md",
     "docs/testing.md",
     "site/index.html",
     "sddm/haltos/Main.qml",
@@ -229,8 +228,6 @@ def wallpaper(w, h, seed=0x48, plain=False):
     cx = (w - sw) / 2 + fd.textlength(sub, font=sub_font) + round(4 * k)
     fd.rectangle([cx, sy + round(4 * k), cx + round(12 * k), sy + round(26 * k)], fill=FG + (255,))
 
-    tag_font = ImageFont.truetype(os.path.join(FONT_DIR, "JetBrainsMono-Regular.ttf"), round(15 * k))
-    fd.text((ox + bw - fd.textlength(TAG, font=tag_font), oy - round(30 * k)), TAG, font=tag_font, fill=DIM + (255,))
 
     base = Image.alpha_composite(base, glow(fg, round(10 * k), strength=1))
     return scanlines(base, k).convert("RGB")

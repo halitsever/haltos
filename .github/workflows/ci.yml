@@ -50,7 +50,8 @@ jobs:
         run: |
           python - <<'PY'
           import json, xml.etree.ElementTree as ET
-          for p in ["plasma/look-and-feel/org.haltos.mono/metadata.json", "branding/wallpapers/HaltOS/metadata.json"]:
+          for p in ["plasma/look-and-feel/org.haltos.mono/metadata.json", "branding/wallpapers/HaltOS/metadata.json",
+                    "vscode/haltmono/package.json", "vscode/haltmono/themes/haltmono-color-theme.json"]:
               json.load(open(p))
           for p in ["kvantum/HaltMono/HaltMono.svg", "branding/haltos-logo.svg", "branding/haltos-wordmark.svg"]:
               ET.parse(p)

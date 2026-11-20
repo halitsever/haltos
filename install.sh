@@ -83,10 +83,20 @@ install_agents() {
     systemctl --user daemon-reload 2>/dev/null || true
 }
 
+# VS Code loads an unpacked extension folder on its next start, so neither the code CLI nor a network is needed.
+install_vscode_theme() {
+    local dir="$HOME/.vscode/extensions" ver
+    ver=$(sed -n 's/^ *"version": "\(.*\)",$/\1/p' "$HERE/vscode/haltmono/package.json")
+    rm -rf "$dir"/haltos.haltmono-*
+    install -d "$dir"
+    cp -r "$HERE/vscode/haltmono" "$dir/haltos.haltmono-$ver"
+}
+
 apply_user_config() {
     local share=$1 conf=$2
     copy_assets "$share"
     install_agents "$share" "$conf"
+    install_vscode_theme
 
     install -d "$conf/fastfetch"
     sed "s|/usr/share/haltos|$share/haltos|" "$HERE/system/fastfetch/config.jsonc" >"$conf/fastfetch/config.jsonc"
@@ -274,6 +284,7 @@ undo_user() {
         "$conf/systemd/user/haltos-agents.service" "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
     systemctl --user daemon-reload 2>/dev/null || true
     drop_local_only
+    rm -rf "$HOME/.vscode/extensions"/haltos.haltmono-*
     find "$share/icons/hicolor" -name 'haltos-*' -delete 2>/dev/null || true
     drop_prompt_hook "$HOME/.bashrc"
     rm -f "$HOME/.cache/icon-cache.kcache"
