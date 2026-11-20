@@ -66,8 +66,11 @@ install_agents() {
     rm -rf "$dir"
     install -d "$dir" "$share/applications" "$units/graphical-session.target.wants" "$conf/autostart"
     cp "$HERE/agents/haltos_agents.py" "$dir/"
-    printf '[Desktop Entry]\nType=Application\nName=HaltOS Agents\nGenericName=Claude Code grid\nComment=Open a grid of Claude Code agents\nExec=claudegrid\nTryExec=claudegrid\nIcon=haltos-agents\nTerminal=false\nCategories=Development;Utility;\nKeywords=claude;ai;agent;claudegrid;grid;\n' \
-        >"$share/applications/haltos-agents.desktop"
+    # The button brings back the open grid or the last one, and New grid starts from scratch.
+    printf '[Desktop Entry]\nType=Application\nName=HaltOS Agents\nGenericName=Claude Code grid\nComment=Open your last grid of Claude Code agents\nExec=/usr/bin/python3 %s/haltos_agents.py --open\nTryExec=claudegrid\nIcon=haltos-agents\nTerminal=false\nCategories=Development;Utility;\nKeywords=claude;ai;agent;claudegrid;grid;\nActions=new;\n\n[Desktop Action new]\nName=New grid\nExec=claudegrid\n' \
+        "$dir" >"$share/applications/haltos-agents.desktop"
+    printf '[Desktop Entry]\nType=Application\nName=New grid\nGenericName=Claude Code grid\nComment=Open a new grid of Claude Code agents\nExec=claudegrid\nTryExec=claudegrid\nIcon=claudegrid\nTerminal=false\nNoDisplay=true\n' \
+        >"$share/applications/haltos-agents-new.desktop"
     # Restart=always brings the tray back however it stops. KillMode=process spares the grids it opened.
     printf '[Unit]\nDescription=HaltOS Agents\nPartOf=graphical-session.target\nAfter=graphical-session.target\nStartLimitIntervalSec=0\n\n[Service]\nExecStart=/usr/bin/python3 %s/haltos_agents.py\nRestart=always\nRestartSec=2\nKillMode=process\n\n[Install]\nWantedBy=graphical-session.target\n' \
         "$dir" >"$units/haltos-agents.service"
@@ -277,7 +280,7 @@ undo_user() {
     # The tray restarts itself, so its service stops before its files go.
     systemctl --user disable --now haltos-agents.service 2>/dev/null || true
     rm -f "$conf/claude-vps/post-apply.d/50-haltos" "$conf/autostart/haltos-firstrun.desktop" \
-        "$conf/autostart/haltos-agents.desktop" "$share/applications/haltos-agents.desktop" \
+        "$conf/autostart/haltos-agents.desktop" "$share/applications/haltos-agents.desktop" "$share/applications/haltos-agents-new.desktop" \
         "$conf/systemd/user/haltos-agents.service" "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
     systemctl --user daemon-reload 2>/dev/null || true
     drop_local_only

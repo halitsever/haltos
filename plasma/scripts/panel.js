@@ -17,13 +17,19 @@ panels().forEach(function (p) {
         w.writeConfig("fontSize", 10);
         w.writeConfig("fontWeight", 400);
     });
-    // HaltOS Agents, the claudegrid button, stays pinned to the task bar.
+    // HaltOS Agents (the last grid) and New grid stay pinned to the task bar.
     ["org.kde.plasma.icontasks", "org.kde.plasma.taskmanager"].forEach(function (type) {
         p.widgets(type).forEach(function (w) {
             w.currentConfigGroup = ["General"];
             var launchers = [].concat(w.readConfig("launchers", []));
-            if (launchers.indexOf("applications:haltos-agents.desktop") < 0) {
-                launchers.push("applications:haltos-agents.desktop");
+            var changed = false;
+            ["applications:haltos-agents.desktop", "applications:haltos-agents-new.desktop"].forEach(function (l) {
+                if (launchers.indexOf(l) < 0) {
+                    launchers.push(l);
+                    changed = true;
+                }
+            });
+            if (changed) {
                 w.writeConfig("launchers", launchers);
             }
         });

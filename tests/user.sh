@@ -65,7 +65,8 @@ check "panel queued for the first login" test -f "$conf/autostart/haltos-firstru
 check "sync hook installed" test -x "$conf/claude-vps/post-apply.d/50-haltos"
 same "one local-only block" "$(blocks)" 1
 check "own local-only entry kept" grep -qx '.config/mine' "$conf/claude-vps/local-only"
-check "grid launcher in app menu" grep -qx "Exec=claudegrid" "$share/applications/haltos-agents.desktop"
+check "grid button reopens the last grid" grep -qx "Exec=/usr/bin/python3 $share/haltos/agents/haltos_agents.py --open" "$share/applications/haltos-agents.desktop"
+check "new grid button" grep -qx "Exec=claudegrid" "$share/applications/haltos-agents-new.desktop"
 check "grid launcher keeps the HaltOS icon" grep -qx "Icon=haltos-agents" "$share/applications/haltos-agents.desktop"
 check "grid launcher icon" test -f "$share/icons/hicolor/scalable/apps/haltos-agents.svg"
 check "old agents app removed" test ! -e "$share/haltos/agents/haltos-agents"
@@ -93,7 +94,7 @@ echo "== install.sh refresh"
 same "prompt hooked once after refresh" "$(hooks)" 1
 same "one local-only block after refresh" "$(blocks)" 1
 same "look and feel after refresh" "$(read_kde kdeglobals KDE LookAndFeelPackage)" org.haltos.mono
-check "grid launcher kept after refresh" grep -qx "Exec=claudegrid" "$share/applications/haltos-agents.desktop"
+check "grid launcher kept after refresh" test -f "$share/applications/haltos-agents.desktop"
 check "tray service kept after refresh" test -e "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
 
 echo "== install.sh undo-user"
@@ -111,6 +112,7 @@ check "kvantum theme removed" test ! -e "$conf/Kvantum/HaltMono"
 check "first-run entry removed" test ! -e "$conf/autostart/haltos-firstrun.desktop"
 check "sync hook removed" test ! -e "$conf/claude-vps/post-apply.d/50-haltos"
 check "grid launcher removed" test ! -e "$share/applications/haltos-agents.desktop"
+check "new grid button removed" test ! -e "$share/applications/haltos-agents-new.desktop"
 check "tray autostart removed" test ! -e "$conf/autostart/haltos-agents.desktop"
 check "tray service removed" test ! -e "$conf/systemd/user/haltos-agents.service"
 check "tray service link removed" test ! -L "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
