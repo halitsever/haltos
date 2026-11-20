@@ -1,7 +1,11 @@
 import json
 import os
+import subprocess
+import sys
 import tempfile
+import time
 import unittest
+from unittest import mock
 
 import haltos_agents as ha
 
@@ -127,6 +131,49 @@ class LabelTest(unittest.TestCase):
 
     def test_ago(self):
         self.assertEqual([ha.ago(x) for x in (5, 90, 5400, 200000)], ["just now", "1m ago", "1h ago", "2d ago"])
+
+
+def zombies() -> list[int]:
+    found = []
+    for name in os.listdir("/proc"):
+        if name.isdigit():
+            try:
+                stat = open(f"/proc/{name}/stat").read().rsplit(")", 1)[1].split()
+            except OSError:
+                continue
+            if stat[0] == "Z" and int(stat[1]) == os.getpid():
+                found.append(int(name))
+    return found
+
+
+class LaunchTest(unittest.TestCase):
+    def test_a_finished_claudegrid_is_reaped_and_leaves_no_zombie(self):
+        with tempfile.TemporaryDirectory() as d:
+            fake = os.path.join(d, "claudegrid")
+            with open(fake, "w") as f:
+                f.write("#!/bin/sh\nexit 0\n")
+            os.chmod(fake, 0o755)
+            with mock.patch.dict(os.environ, {"PATH": d + os.pathsep + os.environ["PATH"]}), \
+                    mock.patch.object(ha, "STATE", d):
+                ha.launch_grid()
+                ha.launch_grid({"saved": 0, "sessions": [s("a")]})
+                time.sleep(1.0)
+                self.assertEqual(zombies(), [])
+
+    def test_a_missing_claudegrid_does_not_raise(self):
+        with mock.patch.dict(os.environ, {"PATH": "/nonexistent"}):
+            self.assertFalse(ha.launch_grid())
+
+
+@unittest.skipUnless(os.environ.get("DISPLAY"), "needs an X display")
+class X11Test(unittest.TestCase):
+    def test_a_window_that_vanished_reads_as_empty_instead_of_killing_the_tray(self):
+        code = ("import haltos_agents as ha; x = ha.X11(); "
+                "print(repr(x.text(0x7ffffff, '_NET_WM_NAME')), x.wm_class(0x7ffffff) == '', x.pid(0x7ffffff))")
+        run = subprocess.run([sys.executable, "-c", code], cwd=os.path.dirname(os.path.abspath(__file__)),
+                             capture_output=True, text=True, timeout=20)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(run.stdout.strip(), "'' True 0")
 
 
 if __name__ == "__main__":

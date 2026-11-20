@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 
 APP = "haltos-agents"
@@ -147,7 +148,7 @@ def clean_env(environ) -> dict[str, str]:
     return {k: v for k, v in environ.items() if not k.startswith("CLAUDE") or k == "CLAUDE_CONFIG_DIR"}
 
 
-def launch_grid(grid: dict | None = None) -> None:
+def launch_grid(grid: dict | None = None) -> bool:
     args = ["claudegrid"]
     if grid:
         config = resume_config(grid)
@@ -156,9 +157,15 @@ def launch_grid(grid: dict | None = None) -> None:
         with open(path, "w") as f:
             json.dump(config, f)
         args += ["-c", path, "-l", str(len(config["panes"]))]
-    # Its own session, so a restart of the tray never takes the grid's Konsole down with it.
-    subprocess.Popen(args, cwd=HOME, start_new_session=True, env=clean_env(os.environ),
-                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        # Its own session, so a restart of the tray never takes the grid's Konsole down with it.
+        child = subprocess.Popen(args, cwd=HOME, start_new_session=True, env=clean_env(os.environ),
+                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        return False
+    # claudegrid exits once Konsole is up, and the tray lives for days, so nothing may stay unreaped.
+    threading.Thread(target=child.wait, daemon=True).start()
+    return True
 
 
 class X11:
@@ -169,6 +176,9 @@ class X11:
         self.x.XOpenDisplay.restype = ctypes.c_void_p
         self.x.XInternAtom.restype = ctypes.c_ulong
         self.x.XDefaultRootWindow.restype = ctypes.c_ulong
+        # Xlib's default handler exits the process, and a grid can close between listing windows and reading one.
+        self._ignore = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p)(lambda display, event: 0)
+        self.x.XSetErrorHandler(self._ignore)
         display = self.x.XOpenDisplay(None)
         if not display:
             raise OSError("no X display")
@@ -236,14 +246,14 @@ class X11:
         self.x.XFlush(self.d)
 
 
-def open_default(x11: "X11 | None") -> None:
+def open_default(x11: "X11 | None") -> bool:
     """The open grid comes to the front. With none open, the last grid comes back, and a new one starts only without either."""
     found = x11.grids() if x11 else []
     if found:
         x11.activate(found[-1])
-        return
+        return True
     grids = load_grids()
-    launch_grid(grids[0] if grids else None)
+    return launch_grid(grids[0] if grids else None)
 
 
 def tray() -> int:
@@ -273,6 +283,10 @@ def tray() -> int:
         p.end()
         return QIcon(pix)
 
+    def start(grid: dict | None = None) -> None:
+        if not launch_grid(grid):
+            icon.showMessage("HaltOS Agents", "claudegrid could not start. Is it installed?")
+
     def forget(index: int) -> None:
         grids = load_grids()
         if 0 <= index < len(grids):
@@ -300,7 +314,7 @@ def tray() -> int:
                 item = self.box.takeAt(0)
                 if item.widget():
                     item.widget().deleteLater()
-            actions = [("New grid", launch_grid)]
+            actions = [("New grid", start)]
             if x11 and x11.grids():
                 actions.insert(0, ("Show open grid", show_open))
             for text, act in actions:
@@ -323,7 +337,7 @@ def tray() -> int:
                 open_btn.setFlat(True)
                 open_btn.setStyleSheet("text-align: left; padding: 6px 10px;")
                 open_btn.setToolTip("\n".join(f"{s.get('name') or s['id'][:8]}  {s['cwd']}" for s in grid["sessions"]))
-                open_btn.clicked.connect(lambda _=False, g=grid: (self.hide(), launch_grid(g)))
+                open_btn.clicked.connect(lambda _=False, g=grid: (self.hide(), start(g)))
                 remove = QToolButton()
                 remove.setIcon(close_icon())
                 remove.setIconSize(QSize(16, 16))
@@ -387,14 +401,14 @@ def tray() -> int:
         context.clear()
         if x11 and x11.grids():
             context.addAction("Show open grid").triggered.connect(show_open)
-        context.addAction("New grid").triggered.connect(lambda: launch_grid())
+        context.addAction("New grid").triggered.connect(lambda: start())
         grids = load_grids()
         if grids:
             context.addSection("Recent grids")
         now = time.time()
         for i, grid in enumerate(grids):
             sub_menu = context.addMenu(label(grid, now))
-            sub_menu.addAction("Open").triggered.connect(lambda _=False, g=grid: launch_grid(g))
+            sub_menu.addAction("Open").triggered.connect(lambda _=False, g=grid: start(g))
             sub_menu.addAction("Remove").triggered.connect(lambda _=False, i=i: forget(i))
 
     context.aboutToShow.connect(fill_context)
@@ -424,12 +438,14 @@ def main(argv: list[str]) -> int:
             x11 = X11()
         except OSError:
             x11 = None
-        open_default(x11)
-        return 0
-    if "--new" in argv:
-        launch_grid()
-        return 0
-    return tray()
+        started = open_default(x11)
+    elif "--new" in argv:
+        started = launch_grid()
+    else:
+        return tray()
+    if not started:
+        print("haltos-agents: claudegrid could not start, is it installed?", file=sys.stderr)
+    return 0 if started else 1
 
 
 if __name__ == "__main__":
