@@ -60,19 +60,22 @@ gtk_import() {
 }
 
 # Writes every per-user HaltOS setting. Shared by install, refresh and the claude-code-vps sync hook.
-# The agents app is per user: its menu entry and tray autostart point into this account's share dir.
+# The agents app is per user: its menu entry and its service point into this account's share dir.
 install_agents() {
-    local share=$1 conf=$2 dir="$1/haltos/agents"
+    local share=$1 conf=$2 dir="$1/haltos/agents" units="$2/systemd/user"
     rm -rf "$dir"
-    install -d "$share/haltos" "$share/applications" "$conf/autostart"
+    install -d "$share/haltos" "$share/applications" "$units/graphical-session.target.wants"
     cp -r "$HERE/agents" "$dir"
     rm -rf "$dir/tests"
     find "$dir" -name __pycache__ -prune -exec rm -rf {} +
     local entry='[Desktop Entry]\nType=Application\nName=HaltOS Agents\nGenericName=Claude Code agents\nComment=Manage your Claude Code agents\nExec=%s\nIcon=haltos-agents\nTerminal=false\nCategories=Development;Utility;\nKeywords=claude;ai;agent;\n'
     # shellcheck disable=SC2059
     printf "$entry" "$dir/haltos-agents" >"$share/applications/haltos-agents.desktop"
-    # shellcheck disable=SC2059
-    printf "${entry}X-KDE-autostart-phase=2\n" "$dir/haltos-agents --tray" >"$conf/autostart/haltos-agents.desktop"
+    # A user service instead of an autostart entry, so the app comes back on its own if it crashes.
+    rm -f "$conf/autostart/haltos-agents.desktop"
+    printf '[Unit]\nDescription=HaltOS Agents\nPartOf=graphical-session.target\nAfter=graphical-session.target\n\n[Service]\nExecStart=%s --tray\nRestart=on-failure\nRestartSec=2\n\n[Install]\nWantedBy=graphical-session.target\n' \
+        "$dir/haltos-agents" >"$units/haltos-agents.service"
+    ln -sf ../haltos-agents.service "$units/graphical-session.target.wants/haltos-agents.service"
 }
 
 apply_user_config() {
@@ -260,7 +263,8 @@ undo_user() {
         "$share/wallpapers/HaltOS" "$share/plasma/look-and-feel/$LNF" "$share/plasma/desktoptheme/haltos" "$share/haltos" "$conf/Kvantum/HaltMono" \
         "$conf/gtk-3.0/haltos-adw.css" "$conf/gtk-4.0/haltos-adw.css"
     rm -f "$conf/claude-vps/post-apply.d/50-haltos" "$conf/autostart/haltos-firstrun.desktop" \
-        "$conf/autostart/haltos-agents.desktop" "$share/applications/haltos-agents.desktop"
+        "$conf/autostart/haltos-agents.desktop" "$share/applications/haltos-agents.desktop" \
+        "$conf/systemd/user/haltos-agents.service" "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
     drop_local_only
     find "$share/icons/hicolor" -name 'haltos-*' -delete 2>/dev/null || true
     drop_prompt_hook "$HOME/.bashrc"

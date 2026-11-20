@@ -59,7 +59,10 @@ check "own local-only entry kept" grep -qx '.config/mine' "$conf/claude-vps/loca
 check "agents app installed" test -x "$share/haltos/agents/haltos-agents"
 check "agents tests not shipped" test ! -e "$share/haltos/agents/tests"
 check "agents in app menu" grep -qx "Exec=$share/haltos/agents/haltos-agents" "$share/applications/haltos-agents.desktop"
-check "agents autostart in tray" grep -qx "Exec=$share/haltos/agents/haltos-agents --tray" "$conf/autostart/haltos-agents.desktop"
+check "agents runs as a user service" grep -qx "ExecStart=$share/haltos/agents/haltos-agents --tray" "$conf/systemd/user/haltos-agents.service"
+check "agents service restarts after a crash" grep -qx "Restart=on-failure" "$conf/systemd/user/haltos-agents.service"
+check "agents service starts with the session" test -L "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
+check "no second autostart for agents" test ! -e "$conf/autostart/haltos-agents.desktop"
 check "agents icon" test -f "$share/icons/hicolor/scalable/apps/haltos-agents.svg"
 
 echo "== install.sh user again"
@@ -91,6 +94,8 @@ check "first-run entry removed" test ! -e "$conf/autostart/haltos-firstrun.deskt
 check "sync hook removed" test ! -e "$conf/claude-vps/post-apply.d/50-haltos"
 check "agents menu entry removed" test ! -e "$share/applications/haltos-agents.desktop"
 check "agents autostart removed" test ! -e "$conf/autostart/haltos-agents.desktop"
+check "agents service removed" test ! -e "$conf/systemd/user/haltos-agents.service"
+check "agents service link removed" test ! -L "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
 same "no HaltOS icons left" "$(find "$share/icons/hicolor" -name 'haltos-*' 2>/dev/null | wc -l)" 0
 
 finish
