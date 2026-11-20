@@ -96,12 +96,22 @@ def settle(previous: dict[int, list[dict]], current: dict[int, list[dict]]) -> l
 
 
 def load_grids(path: str = GRIDS) -> list[dict]:
+    """Saved grids, keeping only well formed entries, so a hand edited or half written file never breaks the menu."""
     try:
         with open(path) as f:
             data = json.load(f)
-        return [g for g in data if isinstance(g, dict) and g.get("sessions")]
-    except (OSError, ValueError, TypeError):
+    except (OSError, ValueError):
         return []
+    grids = []
+    for g in data if isinstance(data, list) else []:
+        if not isinstance(g, dict) or not isinstance(g.get("saved"), (int, float)):
+            continue
+        sessions = [{"id": x["id"], "cwd": x["cwd"], "name": x.get("name") if isinstance(x.get("name"), str) else ""}
+                    for x in g.get("sessions") or []
+                    if isinstance(x, dict) and isinstance(x.get("id"), str) and isinstance(x.get("cwd"), str)]
+        if sessions:
+            grids.append({"saved": g["saved"], "sessions": sessions})
+    return grids
 
 
 def save_grids(grids: list[dict], path: str = GRIDS) -> None:

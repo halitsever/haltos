@@ -108,6 +108,23 @@ class StoreTest(unittest.TestCase):
                 f.write("{broken")
             self.assertEqual(ha.load_grids(path), [])
 
+    def test_entries_with_missing_or_wrong_fields_are_dropped(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "grids.json")
+            with open(path, "w") as f:
+                json.dump([
+                    {"saved": 1, "sessions": [{"id": "ok", "cwd": "/w", "name": "n"}]},
+                    {"saved": 2, "sessions": [{"id": "no-cwd"}]},
+                    {"saved": "x", "sessions": [{"id": "a", "cwd": "/w"}]},
+                    {"sessions": [{"id": 5, "cwd": "/w"}]},
+                    "junk",
+                    {"saved": 3, "sessions": [{"id": "b", "cwd": "/w"}, {"cwd": "/w"}]},
+                ], f)
+            grids = ha.load_grids(path)
+        self.assertEqual([[x["id"] for x in g["sessions"]] for g in grids], [["ok"], ["b"]])
+        self.assertEqual(grids[1]["sessions"][0]["name"], "")
+        ha.label(grids[1], 10)
+
 
 class ResumeTest(unittest.TestCase):
     def test_each_session_resumes_in_its_own_folder(self):
