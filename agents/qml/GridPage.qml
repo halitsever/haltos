@@ -66,6 +66,17 @@ Item {
                 border.width: focused ? 2 : 1
                 border.color: focused ? Ansi.accent : Ansi.rule
 
+                // Under the header's own buttons: a double click on the bar opens the agent in its own tab.
+                MouseArea {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    height: paneHeader.height + cell.border.width
+                    enabled: cell.key !== ""
+                    onClicked: if (cell.view) cell.view.forceActiveFocus()
+                    onDoubleClicked: page.maximize(cell.index + 1)
+                }
+
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: cell.border.width
@@ -73,6 +84,7 @@ Item {
                     visible: cell.key !== ""
 
                     RowLayout {
+                        id: paneHeader
                         Layout.fillWidth: true
                         Layout.leftMargin: Kirigami.Units.largeSpacing
                         Layout.rightMargin: Kirigami.Units.smallSpacing
@@ -105,6 +117,15 @@ Item {
                                     text: "Open in its own tab"
                                     onTriggered: page.maximize(cell.index + 1)
                                 }
+                                QQC2.MenuItem {
+                                    text: "Open folder"
+                                    onTriggered: page.controller.openFolder(cell.key)
+                                }
+                                QQC2.MenuItem {
+                                    text: "Open in VS Code"
+                                    onTriggered: page.controller.openInCode(cell.key)
+                                }
+                                QQC2.MenuSeparator {}
                                 QQC2.MenuItem {
                                     text: "Delete…"
                                     onTriggered: page.deleteRequested(cell.key, cell.agent.name ?? cell.key)

@@ -548,6 +548,30 @@ class ControllerTest(unittest.TestCase):
         self.assertEqual(calls, [("rm", "a")])
         self.assertEqual(hid, ["a", "t"])
 
+    def test_status_line_counts_who_waits(self):
+        self.assertEqual(self.c.statusLine, "HaltOS Agents")
+        need = dataclasses.replace(session("a"), status="waiting")
+        work = dataclasses.replace(session("b"), status="busy", state="")
+        self.c._on_polled([need, work], "")
+        self.assertEqual(self.c.statusLine, "HaltOS Agents · 1 waiting · 1 working")
+
+    def test_open_folder_and_code(self):
+        seen = []
+        orig = A.subprocess.Popen
+        A.subprocess.Popen = lambda argv, **kw: seen.append(argv)
+        self.addCleanup(setattr, A.subprocess, "Popen", orig)
+        self.c._on_polled([dataclasses.replace(session("a"), cwd="/srv/shop")], "")
+        self.c.openFolder("a")
+        self.c.openInCode("a")
+        self.assertEqual(seen, [["xdg-open", "/srv/shop"], ["code", "/srv/shop"]])
+
+    def test_clear_done_deletes_every_finished_agent(self):
+        calls, hid = self.deleting()
+        work = dataclasses.replace(session("w"), status="busy", state="")
+        self.c._on_polled([work, session("d1"), session("d2")], "")
+        self.c.clearDone()
+        self.assertEqual(calls, [("rm", "d1"), ("rm", "d2")])
+
     def test_drafts_kept_per_agent(self):
         self.c._on_polled([session("a"), session("b")], "")
         self.c.setDraft("a", "half typed")
@@ -1005,6 +1029,13 @@ class KeysTest(QmlCase):
         QMetaObject.invokeMethod(dialog, "accept")
         self.wait()
         self.assertEqual(removed, ["a"])
+
+    def test_window_title_and_clear_done_dialog(self):
+        self.poll(dataclasses.replace(session("a"), status="waiting"), session("d"))
+        self.assertEqual(self.root.property("title"), "HaltOS Agents · 1 waiting")
+        QMetaObject.invokeMethod(self.item("clearDone"), "clicked")
+        self.wait()
+        self.assertTrue(self.root.findChild(QObject, "clearDoneDialog").property("visible"))
 
     def test_grid_digit_answers(self):
         self.poll(dataclasses.replace(session("a"), status="waiting"))

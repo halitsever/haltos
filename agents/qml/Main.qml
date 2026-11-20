@@ -10,7 +10,7 @@ Kirigami.ApplicationWindow {
     required property bool hideOnClose
     required property bool startHidden
 
-    title: "HaltOS Agents"
+    title: controller.statusLine
     width: Kirigami.Units.gridUnit * 62
     height: Kirigami.Units.gridUnit * 40
     minimumWidth: Kirigami.Units.gridUnit * 36
@@ -523,6 +523,7 @@ Kirigami.ApplicationWindow {
                 onOpened: root.trigger("open")
                 onNewRequested: root.trigger("new")
                 onDeleteRequested: (key, name) => root.askDelete(key, name)
+                onClearDoneRequested: confirmClear.open()
             }
 
             GridPage {
@@ -574,6 +575,16 @@ Kirigami.ApplicationWindow {
         subtitle: "Delete " + targetName + "? It stops if it is running and leaves the list."
         standardButtons: Kirigami.Dialog.Ok | Kirigami.Dialog.Cancel
         onAccepted: root.controller.deleteAgent(target)
+        onClosed: root.focusTab()
+    }
+
+    Kirigami.PromptDialog {
+        id: confirmClear
+        objectName: "clearDoneDialog"
+        title: "Clear finished agents"
+        subtitle: "Delete all " + (root.controller.counts.done ?? 0) + " finished agents? Running and waiting ones stay."
+        standardButtons: Kirigami.Dialog.Ok | Kirigami.Dialog.Cancel
+        onAccepted: root.controller.clearDone()
         onClosed: root.focusTab()
     }
 

@@ -111,6 +111,15 @@ Item {
                     QQC2.Menu {
                         id: more
                         QQC2.MenuItem {
+                            text: "Open folder"
+                            onTriggered: tile.controller.openFolder(tile.key)
+                        }
+                        QQC2.MenuItem {
+                            text: "Open in VS Code"
+                            onTriggered: tile.controller.openInCode(tile.key)
+                        }
+                        QQC2.MenuSeparator {}
+                        QQC2.MenuItem {
                             text: "Archive"
                             enabled: tile.group === "done"
                             onTriggered: tile.act(() => tile.controller.archive())

@@ -698,6 +698,37 @@ class Controller(QObject):
 
         self.pool.start(Job(work, self.acted))
 
+    @Property(str, notify=changed)
+    def statusLine(self):
+        """Window title and tray tooltip, so who waits shows without opening the app."""
+        counts = self.counts
+        parts = [f"{counts[g]} {word}" for g, word in (("need", "waiting"), ("work", "working")) if counts[g]]
+        return " · ".join(["HaltOS Agents", *parts])
+
+    def _open_with(self, argv_head: list[str], key: str) -> None:
+        s = self.session(key)
+        if not s or not s.cwd:
+            return
+        try:
+            subprocess.Popen([*argv_head, s.cwd], env=clean_env(os.environ), start_new_session=True)
+        except OSError as e:
+            self._action_error = f"Could not run {argv_head[0]}: {e}"
+            self.changed.emit()
+
+    @Slot(str)
+    def openFolder(self, key):
+        self._open_with(["xdg-open"], key)
+
+    @Slot(str)
+    def openInCode(self, key):
+        self._open_with(["code"], key)
+
+    @Slot()
+    def clearDone(self):
+        for row in list(self._agents.rows):
+            if row["group"] == "done":
+                self.deleteAgent(row["key"])
+
     @Slot(str)
     def deleteAgent(self, key):
         """Stops the agent if it runs and removes it; what claude refuses to remove is hidden instead."""
@@ -988,7 +1019,8 @@ def run(args) -> int:
         menu.addAction("Open", controller.showRequested.emit)
         # No Quit: the app is meant to keep running, and its user service would start it again anyway.
         tray.setContextMenu(menu)
-        tray.setToolTip("HaltOS Agents")
+        tray.setToolTip(controller.statusLine)
+        controller.changed.connect(lambda: tray.setToolTip(controller.statusLine))
         tray.activated.connect(lambda reason: reason == QSystemTrayIcon.Trigger and controller.showRequested.emit())
         tray.show()
 

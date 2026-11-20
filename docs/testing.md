@@ -75,6 +75,10 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 - [ ] On an agent waiting with a question, `1`, `2`... on the grid answer it. `x` or Ctrl+K interrupts a working agent, `n` opens the new agent dialog and `/` jumps to search (Esc there goes back).
 - [ ] An agent that ran for over a minute raises a notification whose "Open" button brings the app up on that agent's tab.
 - [ ] Enter on a session that is already open in a terminal says so instead of opening a second one.
+- [ ] "Delete…" in a tile's or a pane's `⋮` menu, or Delete on a selected tile in Tasks, asks first, then stops the agent if it runs and removes it from the list and its tab.
+- [ ] "Clear" next to "Done" asks, then removes every finished agent and leaves the waiting and working ones.
+- [ ] "Open folder" and "Open in VS Code" in the `⋮` menus open the agent's folder. A double click on a pane's bar opens that agent in its own tab.
+- [ ] The window title and the tray tooltip read like "HaltOS Agents · 2 waiting · 1 working".
 - [ ] Tiles show `$` prompts and `⏺ Edit(file) +N -M` tool calls with `⎿` results under them, newest at the bottom.
 - [ ] Searching a word from an old session lists it, and clicking the result resumes it as an agent.
 

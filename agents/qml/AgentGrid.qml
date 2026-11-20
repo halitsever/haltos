@@ -11,6 +11,7 @@ Item {
     signal opened()
     signal newRequested()
     signal deleteRequested(string key, string name)
+    signal clearDoneRequested()
 
     function hint(text: string) {
         tip.show(text, 2000)
@@ -137,9 +138,21 @@ Item {
             color: Ansi.accent
         }
         SectionHeader {
+            id: doneHeader
             group: "done"
             title: "✓ Done"
             color: Ansi.faint
+        }
+        AccentButton {
+            objectName: "clearDone"
+            visible: doneHeader.visible
+            primary: false
+            compact: true
+            text: "Clear"
+            x: doneHeader.x + doneHeader.implicitWidth + Kirigami.Units.largeSpacing
+            // Centred on the header's text line, which sits at the bottom of the header.
+            y: doneHeader.y + doneHeader.height - doneHeader.bottomPadding - doneHeader.contentHeight / 2 - height / 2
+            onClicked: root.clearDoneRequested()
         }
 
         Repeater {
