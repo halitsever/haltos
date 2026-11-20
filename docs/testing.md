@@ -66,7 +66,9 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 - [ ] HaltOS Agents starts from the application menu with the A icon and sits in the tray. Closing its window keeps the tray icon.
 - [ ] HaltOS Agents is pinned to the task bar, uses the pixel creature icon and opens maximized. It is dark (HaltMono, JetBrains Mono) even when the desktop uses a light theme.
 - [ ] Agents sit in three sections, "Waiting for you", "Working" and "Done", each with its count. Every tile has the same size, and selecting one only moves the blue border.
-- [ ] "+ New agent" asks only for the task and the folder, with name, model and worktree under "More options". The new agent's tile shows a spinner in "Working" and its tab opens on its own.
+- [ ] "+ New agent" (or `n`, Ctrl+N) starts Claude Code at once in the last folder used and opens its tab, where the first message goes. The `▾` next to it opens the dialog with the task, folder, and name, model and worktree under "More options".
+- [ ] "▦ Grid" (or Ctrl+G) shows the open agents side by side like claudegrid. The `▾` next to it picks 1×2, 2×2, 3×2, 2×3, 3×3 or 4×2, and the choice is kept after a restart. A click or Ctrl+Tab picks the pane that gets the keys, `⤢` opens a pane in its own tab and empty panes offer "+ New agent".
+- [ ] HaltOS Agents runs as a user service: `systemctl --user status haltos-agents` is active after login, and after `kill -9` on it the app is back within a few seconds.
 - [ ] The arrow keys, W/A/S/D and h/j/k/l move the selection, and up/down cross sections. `?` shows every key and Esc closes it.
 - [ ] A click, Enter or `t` on a tile opens that agent's Claude Code in a new tab of the same window, drawn in HaltMono. Every key reaches Claude Code: slash commands, Shift+Tab, `@` files, Esc, Ctrl+R. Ctrl+Shift+V pastes and the mouse wheel scrolls back.
 - [ ] Ctrl+Tab and Ctrl+Shift+Tab move between tabs, Alt+0 goes back to "Agents" and Alt+1..9 jump to a tab. `×` or Ctrl+Shift+W closes a tab and the agent keeps running. Opening an agent that already has a tab switches to it.

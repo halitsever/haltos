@@ -16,6 +16,7 @@ from PySide6.QtCore import (
     QRunnable,
     Qt,
     QThreadPool,
+    QSettings,
     QTimer,
     Signal,
     Slot,
@@ -59,6 +60,8 @@ TILE_LINES = 16
 # Tiles are re-read every poll while agents work, so start small and read further only when a few
 # huge rows (tool output, attachments) leave the short tail empty.
 TILE_BYTES = (128_000, 512_000, 2_000_000)
+SETTINGS = Path.home() / ".config" / "haltos-agents.ini"
+GRID_LAYOUTS = ("1x2", "2x2", "3x2", "2x3", "3x3", "4x2")
 INDEX_DB = Path.home() / ".cache" / "haltos-agents" / "index.sqlite"
 
 
@@ -225,6 +228,7 @@ class Controller(QObject):
         self._feed = ListModel(["kind", "body", "name", "added", "removed", "error"], self)
         self._results = ListModel(["sessionId", "title", "cwd", "where", "date", "snippet"], self)
         self._tabs = ListModel(["key", "name", "group"], self)
+        self.settings = QSettings(os.environ.get("HALTOS_AGENTS_SETTINGS", str(SETTINGS)), QSettings.IniFormat)
         self.terminals: dict[str, Terminal] = {}
         self._current_tab = 0
         self._query = ""
@@ -766,8 +770,38 @@ class Controller(QObject):
         directory = os.path.expanduser(directory.strip())
         if not directory or not prompt.strip():
             return
+        self.settings.setValue("lastDir", directory)
         name = name.strip() or slug(prompt, {s.name for s in self.sessions})
         self._launch(start_argv(name, prompt, model or None, worktree), directory)
+
+    @Slot()
+    def newAgentQuick(self):
+        """One click: an idle agent in the last folder used, whose tab then takes the first message."""
+        last = self.settings.value("lastDir", "")
+        selected = self.session(self._selected)
+        directory = last if last and Path(last).is_dir() else selected.cwd if selected else str(Path.home())
+        self.settings.setValue("lastDir", directory)
+        self._launch(start_argv(slug(Path(directory).name, {s.name for s in self.sessions}), "", None, False), directory)
+
+    @Property(str, notify=changed)
+    def gridLayout(self):
+        layout = self.settings.value("gridLayout", "2x2")
+        return layout if layout in GRID_LAYOUTS else "2x2"
+
+    @Slot(str)
+    def setGridLayout(self, layout):
+        if layout in GRID_LAYOUTS:
+            self.settings.setValue("gridLayout", layout)
+            self.changed.emit()
+
+    @Slot(str, result="QVariantMap")
+    def agentInfo(self, key):
+        s = self.session(key)
+        return {"name": s.name, "group": s.group} if s else {"name": key, "group": "done"}
+
+    @Property(list, notify=changed)
+    def tabKeys(self):
+        return self._tab_keys()
 
     @Slot(str, str)
     def resume(self, session_id, cwd):

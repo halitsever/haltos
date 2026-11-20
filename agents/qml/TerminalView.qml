@@ -14,13 +14,15 @@ FocusScope {
     readonly property int cols: Math.max(10, Math.floor((width - Kirigami.Units.largeSpacing * 2) / cellWidth))
     readonly property int rows: Math.max(3, Math.floor((height - Kirigami.Units.largeSpacing * 2) / cellHeight))
 
+    // A terminal can show in its tab and in a grid pane; only the visible view sets its size.
     function sendSize() {
-        if (terminal && width > 0 && height > 0)
+        if (terminal && visible && width > 0 && height > 0)
             terminal.resize(cols, rows)
     }
 
     onColsChanged: Qt.callLater(sendSize)
     onRowsChanged: Qt.callLater(sendSize)
+    onVisibleChanged: Qt.callLater(sendSize)
     Component.onCompleted: Qt.callLater(sendSize)
 
     FontMetrics {

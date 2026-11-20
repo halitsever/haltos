@@ -97,7 +97,8 @@ def start_argv(name: str, prompt: str, model: str | None, worktree: bool) -> lis
         argv += ["--model", model]
     if worktree:
         argv += ["-w", name]
-    return argv + [prompt]
+    # Without a task the agent starts idle and takes its first message in its tab.
+    return argv + [prompt] if prompt else argv
 
 
 def resume_argv(session_id: str) -> list[str]:

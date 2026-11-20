@@ -32,6 +32,18 @@ Kirigami.ApplicationWindow {
     Kirigami.Theme.highlightedTextColor: Ansi.text
 
     readonly property bool searching: controller.query !== ""
+    property bool gridMode: false
+
+    function enterGrid() {
+        gridMode = true
+        Qt.callLater(() => gridPage.focusCell(0))
+    }
+
+    function leaveGrid(index: int) {
+        gridMode = false
+        controller.showTab(index)
+        Qt.callLater(focusTab)
+    }
 
     component TabChip: Item {
         id: chip
@@ -41,10 +53,11 @@ Kirigami.ApplicationWindow {
         property string label
         property color dot: "transparent"
         property int badge: 0
-        readonly property bool current: root.tab === at
+        property bool isGrid: false
+        readonly property bool current: isGrid ? root.gridMode : !root.gridMode && root.tab === at
         readonly property bool closable: agentKey !== ""
 
-        objectName: "tab:" + (agentKey || "agents")
+        objectName: "tab:" + (isGrid ? "grid" : agentKey || "agents")
         height: parent.height
         implicitWidth: row.implicitWidth + Kirigami.Units.largeSpacing * 2
 
@@ -75,8 +88,10 @@ Kirigami.ApplicationWindow {
             onClicked: mouse => {
                 if (mouse.button === Qt.MiddleButton && chip.closable)
                     root.controller.closeTab(chip.agentKey)
+                else if (chip.isGrid)
+                    root.enterGrid()
                 else
-                    root.controller.showTab(chip.at)
+                    root.leaveGrid(chip.at)
             }
         }
 
@@ -133,6 +148,10 @@ Kirigami.ApplicationWindow {
     function focusTab() {
         if (searching)
             return
+        if (gridMode) {
+            gridPage.focusCell(gridPage.focusedCell)
+            return
+        }
         const view = tab > 0 ? terminals.itemAt(tab - 1) : null
         if (view)
             view.forceActiveFocus()
@@ -151,7 +170,7 @@ Kirigami.ApplicationWindow {
 
     function trigger(action: string) {
         // With search results on screen the agents are hidden, so keys aimed at them wait.
-        if (searching && !["new", "search", "help", "escape"].includes(action))
+        if (searching && !["new", "newDialog", "grid", "search", "help", "escape"].includes(action))
             return
         if (action.startsWith("answer:")) {
             controller.answer(Number(action.slice(7)))
@@ -160,7 +179,9 @@ Kirigami.ApplicationWindow {
         switch (action) {
         case "open": openSelected(); break
         case "interrupt": controller.interrupt(); break
-        case "new": newAgent.open(); break
+        case "new": controller.newAgentQuick(); break
+        case "newDialog": newAgent.open(); break
+        case "grid": gridMode ? leaveGrid(0) : enterGrid(); break
         case "search": search.forceActiveFocus(); search.selectAll(); break
         case "help": help.open = !help.open; break
         case "prev": controller.step(-1); break
@@ -198,8 +219,9 @@ Kirigami.ApplicationWindow {
     Shortcut { sequence: "Ctrl+K"; enabled: root.tab === 0; onActivated: root.trigger("interrupt") }
 
     // Tab keys Claude Code does not use, so they work everywhere.
-    Shortcut { sequence: "Ctrl+Tab"; onActivated: root.cycleTab(1) }
-    Shortcut { sequences: ["Ctrl+Shift+Tab", "Ctrl+Backtab"]; onActivated: root.cycleTab(-1) }
+    Shortcut { sequence: "Ctrl+Tab"; onActivated: root.gridMode ? gridPage.cycle(1) : root.cycleTab(1) }
+    Shortcut { sequences: ["Ctrl+Shift+Tab", "Ctrl+Backtab"]; onActivated: root.gridMode ? gridPage.cycle(-1) : root.cycleTab(-1) }
+    Shortcut { sequence: "Ctrl+G"; enabled: root.tab === 0 || root.gridMode; onActivated: root.gridMode ? root.leaveGrid(0) : root.enterGrid() }
     Shortcut {
         sequence: "Ctrl+Shift+W"
         enabled: root.tab > 0
@@ -210,7 +232,7 @@ Kirigami.ApplicationWindow {
         delegate: Shortcut {
             required property int index
             sequence: "Alt+" + index
-            onActivated: root.controller.showTab(index)
+            onActivated: root.leaveGrid(index)
         }
     }
 
@@ -365,6 +387,37 @@ Kirigami.ApplicationWindow {
                         label: "Agents"
                         badge: root.controller.counts.need ?? 0
                     }
+                    TabChip {
+                        id: gridChip
+                        at: -1
+                        isGrid: true
+                        label: "▦ Grid " + root.controller.gridLayout.replace("x", "×")
+                    }
+                    TabChip {
+                        objectName: "gridLayouts"
+                        at: -2
+                        isGrid: false
+                        label: "▾"
+                        width: implicitWidth
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: layoutMenu.popup()
+                        }
+                        QQC2.Menu {
+                            id: layoutMenu
+                            Repeater {
+                                model: ["1x2", "2x2", "3x2", "2x3", "3x3", "4x2"]
+                                QQC2.MenuItem {
+                                    required property string modelData
+                                    text: modelData.replace("x", " × ") + (modelData === root.controller.gridLayout ? "  ✓" : "")
+                                    onTriggered: {
+                                        root.controller.setGridLayout(modelData)
+                                        root.enterGrid()
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Repeater {
                         id: tabs
                         model: root.controller.tabs
@@ -399,9 +452,18 @@ Kirigami.ApplicationWindow {
                 objectName: "newButton"
                 text: "+ New agent"
                 Layout.preferredHeight: search.implicitHeight
-                QQC2.ToolTip.text: "ctrl+n"
+                QQC2.ToolTip.text: "Starts Claude Code in your last folder (ctrl+n)"
                 QQC2.ToolTip.visible: hovered
-                onClicked: newAgent.open()
+                onClicked: root.trigger("new")
+            }
+            AccentButton {
+                objectName: "newOptions"
+                text: "▾"
+                primary: false
+                Layout.preferredHeight: search.implicitHeight
+                QQC2.ToolTip.text: "Pick folder, task, model or worktree"
+                QQC2.ToolTip.visible: hovered
+                onClicked: root.trigger("newDialog")
             }
         }
 
@@ -422,7 +484,7 @@ Kirigami.ApplicationWindow {
         StackLayout {
             id: stack
             visible: !root.searching
-            currentIndex: root.tab
+            currentIndex: root.gridMode ? 1 : root.tab === 0 ? 0 : root.tab + 1
             Layout.fillWidth: true
             Layout.fillHeight: true
 
@@ -430,7 +492,15 @@ Kirigami.ApplicationWindow {
                 id: agentGrid
                 controller: root.controller
                 onOpened: root.trigger("open")
-                onNewRequested: newAgent.open()
+                onNewRequested: root.trigger("new")
+            }
+
+            GridPage {
+                id: gridPage
+                controller: root.controller
+                termFont: root.font
+                onMaximize: tab => root.leaveGrid(tab)
+                onNewAgent: root.trigger("new")
             }
 
             Repeater {
@@ -454,7 +524,8 @@ Kirigami.ApplicationWindow {
         KeyBar {
             objectName: "keyBar"
             Layout.fillWidth: true
-            agentTab: root.tab > 0
+            agentTab: root.tab > 0 && !root.gridMode
+            gridMode: root.gridMode
             canInterrupt: root.controller.selected.group === "work" && root.controller.selected.attachable === true
             onTriggered: action => root.trigger(action)
         }

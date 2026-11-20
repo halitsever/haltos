@@ -117,6 +117,8 @@ class CliTest(unittest.TestCase):
             ["claude", "--bg", "--permission-mode", "auto", "--name", "seo-fix", "--model", "opus", "-w", "seo-fix", "fix meta"],
         )
         self.assertEqual(start_argv("x", "p", None, False), ["claude", "--bg", "--permission-mode", "auto", "--name", "x", "p"])
+        # Without a task the agent starts idle and takes its first message in its tab.
+        self.assertEqual(start_argv("x", "", None, False), ["claude", "--bg", "--permission-mode", "auto", "--name", "x"])
 
     def test_launch_returns_background_id_and_uses_cwd(self):
         seen = {}

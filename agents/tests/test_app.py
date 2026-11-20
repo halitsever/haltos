@@ -23,6 +23,9 @@ except ImportError:  # CI runners have no PySide6; the Qt layer is checked on a 
     A = None
 
 
+# Settings go to a scratch file, never the user's ~/.config.
+os.environ["HALTOS_AGENTS_SETTINGS"] = os.path.join(tempfile.mkdtemp(), "agents.ini")
+
 # Controllers live for the whole app, and freeing one between Qt tests crashed the run at random.
 KEEP = []
 
@@ -87,6 +90,7 @@ class ControllerTest(unittest.TestCase):
         cls.app = QApplication.instance() or QApplication(sys.argv)
 
     def setUp(self):
+        os.environ["HALTOS_AGENTS_SETTINGS"] = os.path.join(tempfile.mkdtemp(), "agents.ini")
         self.c = keep(A.Controller())
         self.started = []
         self.c.pool.start = lambda job: self.started.append(job)
@@ -465,6 +469,35 @@ class ControllerTest(unittest.TestCase):
         self.assertEqual(made["a"].sizes[-1], (100, 30))
         self.assertEqual(len(term.rows.rows), 30)
 
+    def launches(self):
+        seen = []
+        self.c._launch = lambda argv, cwd: seen.append((argv, cwd))
+        return seen
+
+    def test_quick_agent_starts_in_the_last_folder(self):
+        seen = self.launches()
+        folder = tempfile.mkdtemp(prefix="shop-")
+        self.c.newAgent(folder, "", "", False, "first task")
+        base = A.slug(Path(folder).name, set())
+        self.c._on_polled([dataclasses.replace(session("a"), name=base)], "")
+        self.c.newAgentQuick()
+        argv, cwd = seen[-1]
+        self.assertEqual(cwd, folder)
+        self.assertEqual(argv[-2:], ["--name", base + "-2"])
+
+    def test_quick_agent_without_history_uses_the_selected_agent_folder(self):
+        seen = self.launches()
+        folder = tempfile.mkdtemp()
+        self.c._on_polled([dataclasses.replace(session("a"), cwd=folder)], "")
+        self.c.newAgentQuick()
+        self.assertEqual(seen[-1][1], folder)
+
+    def test_grid_layout_is_remembered(self):
+        self.assertEqual(self.c.gridLayout, "2x2")
+        self.c.setGridLayout("3x2")
+        self.c.setGridLayout("9x9")
+        self.assertEqual(A.Controller().gridLayout, "3x2")
+
     def test_drafts_kept_per_agent(self):
         self.c._on_polled([session("a"), session("b")], "")
         self.c.setDraft("a", "half typed")
@@ -523,10 +556,11 @@ class BannerTest(unittest.TestCase):
             "key:open": "enter open in Claude Code",
             "key:1 2": "1 2 answer",
             "key:new": "n new agent",
+            "key:grid": "ctrl+g grid",
             "key:search": "/ search",
             "key:help": "? keys",
         })
-        QMetaObject.invokeMethod(root, "trigger", Q_ARG(str, "new"))
+        QMetaObject.invokeMethod(root, "trigger", Q_ARG(str, "newDialog"))
         self.assertTrue(root.findChild(QObject, "newAgentDialog").property("visible"))
         self.assertTrue(QFontInfo(root.property("font")).fixedPitch())
         wait(300)
@@ -830,7 +864,7 @@ class KeysTest(QmlCase):
         calls = self.konsoles()
         fake_attachments(self.c)
         self.poll(session("a"))
-        self.trigger("new")
+        self.trigger("newDialog")
         self.wait()
         self.c._want = "b"
         self.poll(session("a"), session("b"))
@@ -839,6 +873,36 @@ class KeysTest(QmlCase):
         self.c._want = "c"
         self.poll(session("a"), session("b"), session("c"))
         self.assertEqual((calls, self.c.currentTab), ([], 0))
+
+    @unittest.skipIf(A is not None and A.screen.pyte is None, NO_PYTE)
+    def test_grid_mode_shows_open_tabs_side_by_side(self):
+        fake_attachments(self.c)
+        self.poll(session("a"), session("b"))
+        self.c.openTab("a")
+        self.c.openTab("b")
+        self.trigger("grid")
+        self.wait(300)
+        page = self.item("gridPage")
+        self.assertTrue(page.isVisible())
+        self.assertEqual(page.property("keys"), ["a", "b"])
+        self.assertEqual((page.property("cols"), page.property("rows")), (2, 2))
+        self.assertEqual(self.root.property("activeFocusItem").objectName(), "terminalView")
+        self.c.setGridLayout("3x2")
+        self.wait()
+        self.assertEqual((page.property("cols"), page.property("rows")), (3, 2))
+        self.trigger("grid")
+        self.wait()
+        self.assertFalse(page.isVisible())
+        self.assertTrue(self.navigating())
+
+    def test_new_button_starts_an_agent_at_once(self):
+        seen = []
+        self.c._launch = lambda argv, cwd: seen.append(argv)
+        self.poll(session("a"))
+        QMetaObject.invokeMethod(self.item("newButton"), "clicked")
+        self.wait()
+        self.assertEqual(len(seen), 1)
+        self.assertFalse(self.root.findChild(QObject, "newAgentDialog").property("visible"))
 
     def test_grid_digit_answers(self):
         self.poll(dataclasses.replace(session("a"), status="waiting"))
@@ -852,7 +916,7 @@ class KeysTest(QmlCase):
         self.letter("x")
         self.assertEqual(self.item("searchField").property("text"), "x")
         self.press(Qt.Key_Escape)
-        self.trigger("new")
+        self.trigger("newDialog")
         self.wait()
         self.letter("x")
         self.assertFalse(self.navigating())
