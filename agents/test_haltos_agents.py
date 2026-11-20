@@ -85,6 +85,18 @@ class RememberTest(unittest.TestCase):
         self.assertEqual(grids[0]["sessions"][0]["id"], str(ha.KEEP + 2))
 
 
+class SettleTest(unittest.TestCase):
+    def test_a_grid_is_saved_once_the_same_sessions_are_seen_twice(self):
+        first = ha.settle({}, {1: [s("a"), s("b")]})
+        self.assertEqual(first, [])
+        self.assertEqual(ha.settle({1: [s("a"), s("b")]}, {1: [s("a"), s("b")]}), [[s("a"), s("b")]])
+
+    def test_a_grid_caught_while_closing_is_not_saved_short(self):
+        # Konsole is closing: one pane already died, then the whole window goes.
+        self.assertEqual(ha.settle({1: [s("a"), s("b")]}, {1: [s("a")]}), [])
+        self.assertEqual(ha.settle({1: [s("a")]}, {}), [])
+
+
 class StoreTest(unittest.TestCase):
     def test_saved_grids_load_back_and_junk_is_ignored(self):
         with tempfile.TemporaryDirectory() as d:
@@ -105,6 +117,20 @@ class ResumeTest(unittest.TestCase):
             {"dir": "/w/one", "name": "one-1", "args": ["--resume", "a"]},
             {"dir": "/w/two"},
         ]})
+
+    def test_a_session_already_running_is_not_opened_twice(self):
+        grid = {"saved": 1, "sessions": [s("a", "/w/one"), s("b", "/w/two")]}
+        config = ha.resume_config(grid, transcript=lambda sid: True, running={"a"})
+        self.assertEqual(config, {"panes": [{"dir": "/w/two", "args": ["--resume", "b"]}]})
+
+    def test_live_sessions_skip_files_of_processes_that_ended(self):
+        with tempfile.TemporaryDirectory() as d:
+            for pid, sid in ((os.getpid(), "alive"), (2 ** 22 + 7, "gone")):
+                with open(os.path.join(d, f"{pid}.json"), "w") as f:
+                    json.dump({"pid": pid, "sessionId": sid}, f)
+            with open(os.path.join(d, "junk.json"), "w") as f:
+                f.write("{")
+            self.assertEqual(ha.live_sessions(d), {"alive"})
 
     def test_has_transcript_finds_the_session_in_any_project(self):
         with tempfile.TemporaryDirectory() as claude:

@@ -89,6 +89,12 @@ def remember(grids: list[dict], sessions: list[dict], now: float, transcript=Non
     return ([{"saved": now, "sessions": sessions}] + [g for g in grids if g is not match])[:KEEP]
 
 
+def settle(previous: dict[int, list[dict]], current: dict[int, list[dict]]) -> list[list[dict]]:
+    """The sessions of each grid window that look the same as one look earlier. A closing window loses its panes
+    one by one, and saving it halfway would drop the rest from the saved grid."""
+    return [sessions for window, sessions in current.items() if sessions and previous.get(window) == sessions]
+
+
 def load_grids(path: str = GRIDS) -> list[dict]:
     try:
         with open(path) as f:
@@ -110,10 +116,27 @@ def has_transcript(session_id: str, claude: str = CLAUDE) -> bool:
     return bool(glob.glob(os.path.join(glob.escape(claude), "projects", "*", glob.escape(session_id) + ".jsonl")))
 
 
-def resume_config(grid: dict, transcript=has_transcript) -> dict:
-    """A claudegrid config with one pane per session. A session that never got a message opens fresh in its folder."""
+def live_sessions(sessions_dir: str = os.path.join(CLAUDE, "sessions")) -> set[str]:
+    """Session ids whose Claude Code process still runs. A file can outlive a process that was killed."""
+    live = set()
+    for path in glob.glob(os.path.join(glob.escape(sessions_dir), "*.json")):
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            if data.get("sessionId") and os.path.exists(f"/proc/{int(data['pid'])}"):
+                live.add(data["sessionId"])
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+    return live
+
+
+def resume_config(grid: dict, transcript=has_transcript, running: set[str] = frozenset()) -> dict:
+    """A claudegrid config with one pane per session. A session that never got a message opens fresh in its folder,
+    and one that runs somewhere already stays out, since two processes on one session overwrite each other."""
     panes = []
     for s in grid["sessions"]:
+        if s["id"] in running:
+            continue
         pane = {"dir": s["cwd"]}
         if s.get("name"):
             pane["name"] = s["name"]
@@ -151,7 +174,9 @@ def clean_env(environ) -> dict[str, str]:
 def launch_grid(grid: dict | None = None) -> bool:
     args = ["claudegrid"]
     if grid:
-        config = resume_config(grid)
+        config = resume_config(grid, running=live_sessions())
+        if not config["panes"]:
+            return True
         path = os.path.join(STATE, "resume.json")
         os.makedirs(STATE, exist_ok=True)
         with open(path, "w") as f:
@@ -284,6 +309,13 @@ def tray() -> int:
         return QIcon(pix)
 
     def start(grid: dict | None = None) -> None:
+        if grid:
+            ids = {x["id"] for x in grid["sessions"]}
+            # A grid that is still open comes to the front instead of opening again.
+            window = next((w for w, sessions in seen.items() if ids & {x["id"] for x in sessions}), None)
+            if window is not None and ids <= live_sessions():
+                x11.activate(window)
+                return
         if not launch_grid(grid):
             icon.showMessage("HaltOS Agents", "claudegrid could not start. Is it installed?")
 
@@ -376,20 +408,27 @@ def tray() -> int:
         tagged.intersection_update(found)
         tagged.update(found)
 
+    seen: dict[int, list[dict]] = {}
+
     def record() -> None:
+        nonlocal seen
         if x11 is None:
             return
         found = x11.grids()
-        if not found:
+        current: dict[int, list[dict]] = {}
+        if found:
+            parent_of = parents()
+            for w in found:
+                pid = x11.pid(w)
+                if pid:
+                    current[w] = running_sessions(descendants(pid, parent_of), os.path.join(CLAUDE, "sessions"))
+        steady, seen = settle(seen, current), current
+        if not steady:
             return
-        parent_of = parents()
         grids = load_grids()
         before = json.dumps(grids)
-        for w in found:
-            pid = x11.pid(w)
-            if pid:
-                grids = remember(grids, running_sessions(descendants(pid, parent_of), os.path.join(CLAUDE, "sessions")),
-                                 time.time())
+        for sessions in steady:
+            grids = remember(grids, sessions, time.time())
         # Only a change in sessions is written, so an idle grid does not rewrite the file every few seconds.
         if json.dumps([g["sessions"] for g in grids]) != json.dumps([g["sessions"] for g in json.loads(before)]):
             save_grids(grids)
