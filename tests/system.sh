@@ -43,9 +43,7 @@ check "originals kept beside the diversions" cmp "$orig/os-release" /usr/lib/os-
 check "login banner runs" sh /etc/update-motd.d/00-haltos
 check "Ubuntu's banners are off" test ! -x /etc/update-motd.d/00-header
 check "look and feel is the default" grep -q '^LookAndFeelPackage=org.haltos.mono$' /etc/xdg/kdeglobals
-for p in python3-pyside6.qtqml python3-pyside6.qtquick python3-pyside6.qtwidgets qml6-module-org-kde-kirigami qml6-module-qtquick-dialogs; do
-    check "$p installed for the agents app" dpkg -s "$p"
-done
+check "python3-pyside6.qtwidgets installed for the tray" dpkg -s python3-pyside6.qtwidgets
 check "kvantum theme installed" test -f /usr/share/Kvantum/HaltMono/HaltMono.kvconfig
 same "installed VERSION" "$(cat /usr/share/haltos/VERSION)" "$release"
 check "fastfetch banner matches VERSION" grep -q "v${release%.*} // $codename" /usr/share/haltos/fastfetch/haltos.txt

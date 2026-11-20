@@ -38,6 +38,10 @@ install -d "$vsext/someone.theirs-1.0.0" "$vsext/haltos.haltmono-0.0.1"
 haltmono=$vsext/haltos.haltmono-$(sed -n 's/^ *"version": "\(.*\)",$/\1/p' "$REPO/vscode/haltmono/package.json")
 vsthemes() { find "$vsext" -maxdepth 1 -name 'haltos.haltmono-*' | wc -l; }
 
+# Files of the Kirigami agents app an older HaltOS installed.
+install -d "$share/haltos/agents/qml"
+touch "$share/haltos/agents/haltos-agents"
+
 echo "== install.sh user"
 "$haltos" user
 backup=$HOME/.haltos-backup/kde-config-original.tar.gz
@@ -61,18 +65,19 @@ check "panel queued for the first login" test -f "$conf/autostart/haltos-firstru
 check "sync hook installed" test -x "$conf/claude-vps/post-apply.d/50-haltos"
 same "one local-only block" "$(blocks)" 1
 check "own local-only entry kept" grep -qx '.config/mine' "$conf/claude-vps/local-only"
-check "agents app installed" test -x "$share/haltos/agents/haltos-agents"
-check "agents tests not shipped" test ! -e "$share/haltos/agents/tests"
-check "agents in app menu" grep -qx "Exec=$share/haltos/agents/haltos-agents" "$share/applications/haltos-agents.desktop"
-check "agents runs as a user service" grep -qx "ExecStart=$share/haltos/agents/haltos-agents --tray" "$conf/systemd/user/haltos-agents.service"
-check "agents service always comes back" grep -qx "Restart=always" "$conf/systemd/user/haltos-agents.service"
-check "agents service never gives up restarting" grep -qx "StartLimitIntervalSec=0" "$conf/systemd/user/haltos-agents.service"
-check "agents service starts with the session" test -L "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
-check "agents service leaves the agents it started alone" grep -qx "KillMode=process" "$conf/systemd/user/haltos-agents.service"
-check "agents service does not restart a copy that handed over" grep -qx "RestartPreventExitStatus=3" "$conf/systemd/user/haltos-agents.service"
-check "agents service link resolves" test -e "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
-check "agents autostart only starts the service" grep -qx "Exec=systemctl --user start haltos-agents.service" "$conf/autostart/haltos-agents.desktop"
-check "agents icon" test -f "$share/icons/hicolor/scalable/apps/haltos-agents.svg"
+check "grid button reopens the last grid" grep -qx "Exec=/usr/bin/python3 $share/haltos/agents/haltos_agents.py --open" "$share/applications/haltos-agents.desktop"
+check "new grid button" grep -qx "Exec=claudegrid" "$share/applications/haltos-agents-new.desktop"
+check "grid launcher keeps the HaltOS icon" grep -qx "Icon=haltos-agents" "$share/applications/haltos-agents.desktop"
+check "grid launcher icon" test -f "$share/icons/hicolor/scalable/apps/haltos-agents.svg"
+check "old agents app removed" test ! -e "$share/haltos/agents/haltos-agents"
+check "tray app installed" test -f "$share/haltos/agents/haltos_agents.py"
+check "tray runs as a user service" grep -qx "ExecStart=/usr/bin/python3 $share/haltos/agents/haltos_agents.py" "$conf/systemd/user/haltos-agents.service"
+check "tray service always comes back" grep -qx "Restart=always" "$conf/systemd/user/haltos-agents.service"
+check "tray service never gives up restarting" grep -qx "StartLimitIntervalSec=0" "$conf/systemd/user/haltos-agents.service"
+check "tray service rests when there is no desktop" grep -qx "RestartPreventExitStatus=3" "$conf/systemd/user/haltos-agents.service"
+check "tray service leaves the grids it opened alone" grep -qx "KillMode=process" "$conf/systemd/user/haltos-agents.service"
+check "tray service starts with the session" test -e "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
+check "tray autostart only starts the service" grep -qx "Exec=systemctl --user start haltos-agents.service" "$conf/autostart/haltos-agents.desktop"
 check "vscode theme installed" test -f "$haltmono/themes/haltmono-color-theme.json"
 check "vscode opens with HaltMono" grep -q '"workbench.colorTheme": "HaltMono"' "$haltmono/package.json"
 same "one vscode theme" "$(vsthemes)" 1
@@ -90,8 +95,8 @@ echo "== install.sh refresh"
 same "prompt hooked once after refresh" "$(hooks)" 1
 same "one local-only block after refresh" "$(blocks)" 1
 same "look and feel after refresh" "$(read_kde kdeglobals KDE LookAndFeelPackage)" org.haltos.mono
-check "agents still installed after refresh" test -x "$share/haltos/agents/haltos-agents"
-check "agents service kept after refresh" test -e "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
+check "grid launcher kept after refresh" test -f "$share/applications/haltos-agents.desktop"
+check "tray service kept after refresh" test -e "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
 
 echo "== install.sh undo-user"
 "$haltos" undo-user
@@ -107,10 +112,11 @@ check "global theme removed" test ! -e "$share/plasma/look-and-feel/org.haltos.m
 check "kvantum theme removed" test ! -e "$conf/Kvantum/HaltMono"
 check "first-run entry removed" test ! -e "$conf/autostart/haltos-firstrun.desktop"
 check "sync hook removed" test ! -e "$conf/claude-vps/post-apply.d/50-haltos"
-check "agents menu entry removed" test ! -e "$share/applications/haltos-agents.desktop"
-check "agents autostart removed" test ! -e "$conf/autostart/haltos-agents.desktop"
-check "agents service removed" test ! -e "$conf/systemd/user/haltos-agents.service"
-check "agents service link removed" test ! -L "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
+check "grid launcher removed" test ! -e "$share/applications/haltos-agents.desktop"
+check "new grid button removed" test ! -e "$share/applications/haltos-agents-new.desktop"
+check "tray autostart removed" test ! -e "$conf/autostart/haltos-agents.desktop"
+check "tray service removed" test ! -e "$conf/systemd/user/haltos-agents.service"
+check "tray service link removed" test ! -L "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
 same "no HaltOS icons left" "$(find "$share/icons/hicolor" -name 'haltos-*' 2>/dev/null | wc -l)" 0
 same "vscode theme removed" "$(vsthemes)" 0
 check "own vscode extension kept" test -d "$vsext/someone.theirs-1.0.0"

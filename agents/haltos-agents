@@ -1,4 +1,0 @@
-#!/bin/sh
-# Runs from wherever install.sh copied the app, so the package path follows the script.
-dir=$(dirname "$(readlink -f "$0")")
-PYTHONPATH="$dir${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m haltos_agents "$@"
