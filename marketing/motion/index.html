@@ -130,8 +130,7 @@ const BOOT = [
 const SHOTS = [
   ["desktop", "Your desktop, over RDP, from anywhere"],
   ["widgets", "Every Qt and KDE widget in one palette"],
-  ["terminal", "Claude Code in a focused terminal"],
-  ["splash", "Boot and login, in character"],
+  ["libadwaita", "GTK apps in the same palette"],
 ].map(([n, cap]) => { const i = new Image(); i.src = `../../docs/screenshots/${n}.png`; return { i, cap }; });
 const GRID = new Image();
 GRID.src = "../../docs/screenshots/claudegrid.png";
@@ -155,7 +154,7 @@ function scene(t, frame) {
   if (a2 > 0) {
     const m = wordmark(W / 2, 420, 19.5, clamp((t - 2.8) / 1.3), a2, frame);
     cursor(m.right + m.cw, m.bottom - m.ch * 1.5, m.cw * 1.6, m.ch / 2, t, a2);
-    text("v1.2   SIGKILL", W / 2, 600, { font: `22px ${MONO}`, color: C.muted, align: "center", alpha: a2 * ease((t - 4.0) / 0.4) });
+    text("root@haltos:~# shutdown -h never", W / 2, 600, { font: `22px ${MONO}`, color: C.muted, align: "center", alpha: a2 * ease((t - 4.0) / 0.4) });
     const line = "A Claude Code workstation OS";
     const line2 = "for your VPS.";
     const typed = (t - 4.5) * 34;
@@ -209,7 +208,7 @@ function scene(t, frame) {
     const out = [
       ["[1/4]", "Plasma 6 found, nothing touched yet"],
       ["[2/4]", "claude-code-vps: SSH, ufw, xrdp, Docker, Claude Code"],
-      ["[3/4]", "this system is now HaltOS 1.2 (SIGKILL)"],
+      ["[3/4]", "this system is now HaltOS"],
       ["[4/4]", "desktop ready, connect over RDP"],
     ];
     out.forEach(([n, msg], k) => {
@@ -229,14 +228,16 @@ function scene(t, frame) {
     ctx.fillStyle = C.panel; ctx.strokeStyle = C.rule; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.roundRect(fx - 12, fy - 12, fw + 24, fh + 24, 20); ctx.fill(); ctx.stroke();
     ctx.restore();
+    // The shots share the scene's six seconds, however many there are.
+    const step = 6 / SHOTS.length;
     SHOTS.forEach(({ i, cap }, k) => {
-      const a = a4 * win(t, 17.3 + k * 1.5, 18.95 + k * 1.5, 0.3);
+      const a = a4 * win(t, 17.3 + k * step, 17.45 + (k + 1) * step, 0.3);
       if (a <= 0 || !i.complete) return;
       const s = Math.min(fw / i.width, fh / i.height), w = i.width * s, h = i.height * s;
       ctx.save(); ctx.globalAlpha = a;
       ctx.beginPath(); ctx.roundRect(fx, fy, fw, fh, 8); ctx.clip();
       ctx.fillStyle = C.void; ctx.fillRect(fx, fy, fw, fh);
-      const zoom = 1 + 0.03 * clamp((t - 17.3 - k * 1.5) / 1.65);
+      const zoom = 1 + 0.03 * clamp((t - 17.3 - k * step) / (step + 0.15));
       ctx.translate(fx + fw / 2, fy + fh / 2); ctx.scale(zoom, zoom);
       ctx.drawImage(i, -w / 2, -h / 2, w, h);
       ctx.restore();

@@ -28,7 +28,6 @@ STAMPED = [
     "sddm/haltos/Main.qml",
     "plasma/look-and-feel/org.haltos.mono/contents/splash/Splash.qml",
     "system/xdg/kcm-about-distrc",
-    "marketing/motion/index.html",
 ]
 STAMPS = [
     (r"HaltOS \d+\.\d+ \([A-Z]+\)", f"HaltOS {VER} ({CODENAME})"),
