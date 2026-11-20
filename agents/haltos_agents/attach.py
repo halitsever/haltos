@@ -31,6 +31,8 @@ class Attachment:
         self.ready = False
         self.pending: list[bytes] = []
         self.lock = threading.Lock()
+        # Called on the reader thread with every chunk Claude Code draws; None drops the output.
+        self.listener = None
 
     def start(self) -> None:
         master, slave = os.openpty()
@@ -52,7 +54,7 @@ class Attachment:
         self.reader.start()
 
     def _drain(self) -> None:
-        """Claude Code blocks once the PTY buffer fills, so its screen output is read and dropped."""
+        """Claude Code blocks once the PTY buffer fills, so its output is always read, then drawn or dropped."""
         tail = b""
         while self.fd >= 0:
             try:
@@ -67,6 +69,13 @@ class Attachment:
                 return
             if not data:
                 return
+            listener = self.listener
+            if listener is not None:
+                # A broken screen must not stop the reading, or Claude Code blocks on a full PTY.
+                try:
+                    listener(data)
+                except Exception:  # noqa: BLE001
+                    pass
             if not self.ready and READY in tail + data:
                 self._flush()
             tail = data[-len(READY) :]
@@ -105,6 +114,18 @@ class Attachment:
 
     def key(self, data: bytes) -> bool:
         return self._write(data)
+
+    def type_paste(self, text: str) -> bool:
+        """A paste from a tab: bracketed like a terminal does it, left for the user to send."""
+        return self._write(PASTE_START + text.encode("utf8") + PASTE_END)
+
+    def resize(self, cols: int, rows: int) -> None:
+        self.size = (rows, cols)
+        if self.fd >= 0:
+            try:
+                fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+            except OSError:
+                pass
 
     def close(self) -> None:
         if self.proc is not None and self.proc.poll() is None:

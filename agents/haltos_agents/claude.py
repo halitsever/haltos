@@ -17,7 +17,7 @@ class UntrustedDir(ClaudeError):
     """`claude --bg` cannot show the trust prompt, so the owner has to accept it once in a terminal."""
 
     def __init__(self, cwd: str):
-        super().__init__(f"{cwd} klasörüne henüz güvenilmedi.")
+        super().__init__(f"{cwd} is not trusted yet.")
         self.cwd = cwd
 
 
@@ -97,7 +97,8 @@ def start_argv(name: str, prompt: str, model: str | None, worktree: bool) -> lis
         argv += ["--model", model]
     if worktree:
         argv += ["-w", name]
-    return argv + [prompt]
+    # Without a task the agent starts idle and takes its first message in its tab.
+    return argv + [prompt] if prompt else argv
 
 
 def resume_argv(session_id: str) -> list[str]:
@@ -136,7 +137,7 @@ def remove(key: str, run=subprocess.run) -> bool:
 def launch(argv: list[str], cwd: str, run=subprocess.run) -> str:
     """Starts a background session and returns the id `claude attach` takes."""
     if not os.path.isdir(cwd):
-        raise ClaudeError(f"{cwd} klasörü yok.")
+        raise ClaudeError(f"{cwd} does not exist.")
     p = _call(argv, run, cwd=cwd)
     out = (p.stdout or "") + (p.stderr or "")
     if p.returncode != 0:

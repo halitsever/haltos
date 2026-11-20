@@ -331,7 +331,7 @@ def main():
         os.makedirs(out, exist_ok=True)
         mark_png(size, tile=size <= 32).save(os.path.join(out, "haltos-logo.png"))
     write(os.path.join(icons, "scalable", "apps", "haltos-logo.svg"), grid_svg(MARK, 10, 20, 6))
-    write(os.path.join(icons, "scalable", "apps", "haltos-agents.svg"), grid_svg([f"  {row}  " for row in FONT["A"]], 10, 20, 6))
+    write(os.path.join(icons, "scalable", "apps", "haltos-agents.svg"), grid_svg(MARK, 10, 20, 18, bg="#09090b"))
 
     for size in (16, 22, 24, 32, 48, 64, 128, 256):
         start_png(size).save(os.path.join(icons, f"{size}x{size}", "apps", "haltos-start.png"))

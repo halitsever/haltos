@@ -10,20 +10,20 @@ Kirigami.Dialog {
     required property QtObject controller
     readonly property bool ready: dir.editText.trim() !== "" && prompt.text.trim() !== ""
 
-    title: "Yeni ajan"
+    title: "New agent"
     padding: Kirigami.Units.largeSpacing
     preferredWidth: Kirigami.Units.gridUnit * 32
     standardButtons: Kirigami.Dialog.NoButton
 
     customFooterActions: [
         Kirigami.Action {
-            text: "Başlat"
+            text: "Start"
             icon.name: "media-playback-start"
             enabled: dialog.ready
             onTriggered: dialog.launch()
         },
         Kirigami.Action {
-            text: "İptal"
+            text: "Cancel"
             icon.name: "dialog-cancel"
             onTriggered: dialog.close()
         }
@@ -46,9 +46,24 @@ Kirigami.Dialog {
         prompt.forceActiveFocus()
     }
 
+    // The task and the folder are all most people need; the rest waits behind "More options".
     Kirigami.FormLayout {
+        QQC2.TextArea {
+            id: prompt
+            Kirigami.FormData.label: "Task:"
+            Layout.fillWidth: true
+            implicitHeight: Kirigami.Units.gridUnit * 6
+            wrapMode: TextEdit.Wrap
+            placeholderText: "What should it do? Ctrl+Enter starts it."
+            Keys.onReturnPressed: event => {
+                if (event.modifiers & Qt.ControlModifier)
+                    dialog.launch()
+                else
+                    event.accepted = false
+            }
+        }
         RowLayout {
-            Kirigami.FormData.label: "Klasör:"
+            Kirigami.FormData.label: "Folder:"
             Layout.fillWidth: true
             QQC2.ComboBox {
                 id: dir
@@ -60,40 +75,33 @@ Kirigami.Dialog {
             }
             QQC2.Button {
                 icon.name: "document-open-folder"
-                QQC2.ToolTip.text: "Klasör seç"
+                QQC2.ToolTip.text: "Pick a folder"
                 QQC2.ToolTip.visible: hovered
                 onClicked: dialog.folderPicker.createObject(dialog).open()
             }
         }
+        QQC2.CheckBox {
+            id: more
+            text: "More options"
+        }
         QQC2.TextField {
             id: name
-            Kirigami.FormData.label: "Ad:"
+            visible: more.checked
+            Kirigami.FormData.label: "Name:"
             Layout.fillWidth: true
-            placeholderText: "otomatik"
+            placeholderText: "automatic"
         }
         QQC2.ComboBox {
             id: model
+            visible: more.checked
             Kirigami.FormData.label: "Model:"
-            model: ["varsayılan", "opus", "sonnet", "haiku"]
+            model: ["default", "opus", "sonnet", "haiku"]
         }
         QQC2.Switch {
             id: worktree
+            visible: more.checked
             Kirigami.FormData.label: "Worktree:"
-            text: "Ayrı bir git worktree'de çalışsın"
-        }
-        QQC2.TextArea {
-            id: prompt
-            Kirigami.FormData.label: "Görev:"
-            Layout.fillWidth: true
-            implicitHeight: Kirigami.Units.gridUnit * 6
-            wrapMode: TextEdit.Wrap
-            placeholderText: "Ne yapsın? Ctrl+Enter başlatır."
-            Keys.onReturnPressed: event => {
-                if (event.modifiers & Qt.ControlModifier)
-                    dialog.launch()
-                else
-                    event.accepted = false
-            }
+            text: "Run in its own git worktree"
         }
     }
 

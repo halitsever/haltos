@@ -179,4 +179,4 @@ def pending_question(path: Path, waiting: bool, tail_bytes: int = 512_000) -> Qu
         return Question(str(first.get("question", "")), options)
     if not waiting:
         return None
-    return Question(tool_summary(str(call.get("name", "?")), args), [("İzin ver", APPROVE), ("Reddet", CANCEL)])
+    return Question(tool_summary(str(call.get("name", "?")), args), [("Allow", APPROVE), ("Deny", CANCEL)])

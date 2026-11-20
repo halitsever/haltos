@@ -33,10 +33,10 @@ class NotifyPolicy:
             if first or group == old or s.key == focused_key:
                 continue
             if group == "need":
-                notices.append(Notice(s.key, f"{s.name} seni bekliyor", "Cevabını bekliyor."))
+                notices.append(Notice(s.key, f"{s.name} is waiting", "It needs your answer."))
             elif group == "done" and old == "work" and started is not None and now - started >= self.min_busy:
                 minutes = max(1, int((now - started) // 60))
-                notices.append(Notice(s.key, f"{s.name} bitti", f"{minutes} dk çalıştı."))
+                notices.append(Notice(s.key, f"{s.name} is done", f"It ran for {minutes} min."))
         for key in set(self.work_since) - set(self.groups):
             del self.work_since[key]
         return notices
@@ -56,7 +56,7 @@ def notify_argv(notice: Notice) -> list[str]:
         "--method", "org.freedesktop.Notifications.Notify",
         gvariant_str("HaltOS Agents"), "0", gvariant_str("haltos-agents"),
         gvariant_str(notice.title), gvariant_str(notice.body),
-        "['default', 'Aç', 'open', 'Aç']", "{'desktop-entry': <'haltos-agents'>}", "int32 -1",
+        "['default', 'Open', 'open', 'Open']", "{'desktop-entry': <'haltos-agents'>}", "int32 -1",
     ]
 
 
