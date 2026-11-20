@@ -63,12 +63,14 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 - [ ] About This System (kinfocenter) shows the HaltOS name and logo.
 - [ ] VS Code starts from the application menu, in the HaltMono theme with JetBrains Mono in the editor and its terminal.
 - [ ] After `claude` is logged in, `claudegrid -l 2x2` opens four Claude Code panes.
-- [ ] HaltOS Agents is pinned to the task bar with the HaltOS H icon. A click opens the same claudegrid grid as typing `claudegrid` in Konsole: Claude Code panes in the home folder.
-- [ ] After an update from a HaltOS that shipped the old agents app, `systemctl --user status haltos-agents` reports no such unit and the pinned button still opens claudegrid.
+- [ ] HaltOS Agents is pinned to the task bar with the HaltOS H icon. A click opens the same claudegrid grid as typing `claudegrid` in Konsole: Claude Code panes in the home folder. The grid window sits under the H button, not under Konsole.
+- [ ] The H icon is in the system tray. A click brings the open grid to the front, or opens one when none is open. Its menu has "Open claudegrid" and "New grid".
+- [ ] The tray is always running: `systemctl --user status haltos-agents` is active after login, and after `kill -9` on it the icon is back within a few seconds while the grids stay open.
 
 ## 5. Second login
 
 - [ ] Log out and back in. The bar, wallpaper and theme are unchanged.
+- [ ] HaltOS Agents is back in the tray without being opened by hand.
 
 ## 6. Sync
 

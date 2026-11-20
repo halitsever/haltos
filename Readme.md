@@ -24,7 +24,7 @@ A Claude Code VPS workstation with a full Ubuntu desktop: a monochrome, terminal
 
 - **OS identity**: `/etc/os-release`, `lsb_release`, `/etc/issue` and the KDE About page report HaltOS with its release number and codename. `ID=ubuntu` is kept, so apt, PPAs and vendor scripts keep working. Ubuntu's files are preserved with `dpkg-divert`.
 - **Claude Code**: [claudegrid](https://github.com/halitsever/claudegrid) opens a grid of Claude Code agents in one window, with a prompt, model and git worktree per pane.
-- **Agents**: HaltOS Agents is pinned to the task bar with the HaltOS icon and opens a claudegrid grid of Claude Code agents in one click.
+- **Agents**: HaltOS Agents is claudegrid as a system app. It is pinned to the task bar and always in the tray with the HaltOS icon, one click opens a claudegrid grid of Claude Code agents or brings the open one back, and every grid window sits under that icon instead of Konsole's.
 - **Editor**: the latest VS Code from Microsoft's apt repository, so `apt upgrade` keeps it current. It opens in the HaltMono theme with JetBrains Mono and the terminal's colours. Any theme or font you pick yourself still wins.
 - **Plasma**: `HaltMono` colour scheme (shadcn zinc palette), JetBrains Mono everywhere, ASCII splash with a fake boot log, a translucent floating top bar with a dot start icon, flat Breeze titlebars.
 - **Widgets**: `HaltMono` Kvantum theme with shadcn-style outline buttons, inputs, menus, tabs, checkboxes and thin auto-hiding scrollbars.
