@@ -17,7 +17,7 @@ panels().forEach(function (p) {
         w.writeConfig("fontSize", 10);
         w.writeConfig("fontWeight", 400);
     });
-    // HaltOS Agents stays pinned to the task bar, so it is one click away even before it runs.
+    // HaltOS Agents, the claudegrid button, stays pinned to the task bar.
     ["org.kde.plasma.icontasks", "org.kde.plasma.taskmanager"].forEach(function (type) {
         p.widgets(type).forEach(function (w) {
             w.currentConfigGroup = ["General"];

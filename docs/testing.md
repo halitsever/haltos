@@ -63,30 +63,10 @@ curl -fsSL https://raw.githubusercontent.com/halitsever/haltos/main/bootstrap.sh
 - [ ] About This System (kinfocenter) shows the HaltOS name and logo.
 - [ ] VS Code starts from the application menu, in the HaltMono theme with JetBrains Mono in the editor and its terminal.
 - [ ] After `claude` is logged in, `claudegrid -l 2x2` opens four Claude Code panes.
-- [ ] HaltOS Agents starts from the application menu with the A icon and sits in the tray. Closing its window keeps the tray icon.
-- [ ] HaltOS Agents is pinned to the task bar, uses the pixel creature icon and opens maximized. It is dark (HaltMono, JetBrains Mono) even when the desktop uses a light theme.
-- [ ] In "Tasks", agents sit in three sections, "Waiting for you", "Working" and "Done", each with its count. A tile shows the name on its own row, the folder and age under it, and "Waiting for your first message" when an agent has no output yet. Every tile has the same size, and selecting one only moves the blue border.
-- [ ] "+ New agent" (or `n`, Ctrl+N) starts Claude Code at once in the last folder used and opens its tab, where the first message goes. The `▾` next to it opens the dialog with the task, folder, and name, model and worktree under "More options".
-- [ ] The app opens on "▦ Grid": the agents that need a look most fill the panes side by side like claudegrid, waiting ones first. "Tasks" (or Ctrl+G) switches to the grouped overview and back. The `▾` next to it picks 1×2, 2×2, 3×2, 2×3, 3×3 or 4×2, and the choice is kept after a restart. A click or Ctrl+Tab picks the pane that gets the keys, `⤢` opens a pane in its own tab and empty panes offer "+ New agent".
-- [ ] HaltOS Agents is always running: `systemctl --user status haltos-agents` is active after login, the tray menu has no Quit, closing the window keeps it in the tray, and after `kill` or `kill -9` on it the app is back within a few seconds. Agents it started keep running through that restart (`claude agents` still lists them as working).
-- [ ] In a grid pane or a tab, Ctrl+K, Ctrl+G, Ctrl+N and Ctrl+F reach Claude Code. Alt+0 goes to Tasks from anywhere. A tab closed with `×` stays closed on the grid.
-- [ ] The arrow keys, W/A/S/D and h/j/k/l move the selection, and up/down cross sections. `?` shows every key and Esc closes it.
-- [ ] A click, Enter or `t` on a tile opens that agent's Claude Code in a new tab of the same window, drawn in HaltMono. Every key reaches Claude Code: slash commands, Shift+Tab, `@` files, Esc, Ctrl+R. Ctrl+Shift+V pastes and the mouse wheel scrolls back.
-- [ ] Ctrl+Tab and Ctrl+Shift+Tab move between tabs, Alt+0 goes back to "Agents" and Alt+1..9 jump to a tab. `×` or Ctrl+Shift+W closes a tab and the agent keeps running. Opening an agent that already has a tab switches to it.
-- [ ] On an agent waiting with a question, `1`, `2`... on the grid answer it. `x` or Ctrl+K interrupts a working agent, `n` opens the new agent dialog and `/` jumps to search (Esc there goes back).
-- [ ] An agent that ran for over a minute raises a notification whose "Open" button brings the app up on that agent's tab.
-- [ ] Enter on a session that is already open in a terminal says so instead of opening a second one.
-- [ ] "Delete…" in a tile's or a pane's `⋮` menu, or Delete on a selected tile in Tasks, asks first, then stops the agent if it runs and removes it from the list and its tab.
-- [ ] "Clear" next to "Done" asks, then removes every finished agent and leaves the waiting and working ones.
-- [ ] A right click on a tile, a pane's bar or a tab opens its menu. Ctrl+click marks several tiles, Delete or "Delete N selected…" removes them after one question, and Esc clears the marks. A right click on a section title offers "Delete all N in …".
-- [ ] "Open folder" and "Open in VS Code" in the `⋮` menus open the agent's folder. A double click on a pane's bar opens that agent in its own tab.
-- [ ] The window title and the tray tooltip read like "HaltOS Agents · 2 waiting · 1 working".
-- [ ] Tiles show `$` prompts and `⏺ Edit(file) +N -M` tool calls with `⎿` results under them, newest at the bottom.
-- [ ] Searching a word from an old session lists it, and clicking the result resumes it as an agent.
+- [ ] HaltOS Agents is pinned to the task bar with the HaltOS H icon. A click opens the same claudegrid grid as typing `claudegrid` in Konsole: Claude Code panes in the home folder.
+- [ ] After an update from a HaltOS that shipped the old agents app, `systemctl --user status haltos-agents` reports no such unit and the pinned button still opens claudegrid.
 
 ## 5. Second login
-
-- [ ] HaltOS Agents is back in the tray without being opened by hand.
 
 - [ ] Log out and back in. The bar, wallpaper and theme are unchanged.
 

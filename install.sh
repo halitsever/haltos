@@ -59,28 +59,18 @@ gtk_import() {
     grep -q haltos-adw.css "$dir/gtk.css" || printf "\n@import 'haltos-adw.css';\n" >>"$dir/gtk.css"
 }
 
-# Writes every per-user HaltOS setting. Shared by install, refresh and the claude-code-vps sync hook.
-# The agents app is per user: its menu entry and its service point into this account's share dir.
-install_agents() {
-    local share=$1 conf=$2 dir="$1/haltos/agents" units="$2/systemd/user"
-    rm -rf "$dir"
-    install -d "$share/haltos" "$share/applications" "$units/graphical-session.target.wants"
-    cp -r "$HERE/agents" "$dir"
-    rm -rf "$dir/tests"
-    find "$dir" -name __pycache__ -prune -exec rm -rf {} +
-    local entry='[Desktop Entry]\nType=Application\nName=HaltOS Agents\nGenericName=Claude Code agents\nComment=Manage your Claude Code agents\nExec=%s\nIcon=haltos-agents\nTerminal=false\nCategories=Development;Utility;\nKeywords=claude;ai;agent;\n'
-    # shellcheck disable=SC2059
-    printf "$entry" "$dir/haltos-agents" >"$share/applications/haltos-agents.desktop"
-    # A user service keeps the app running and brings it back however it stops. KillMode=process
-    # spares the agents it started, and exit 3 (another copy already runs) is not restarted.
-    printf '[Unit]\nDescription=HaltOS Agents\nPartOf=graphical-session.target\nAfter=graphical-session.target\nStartLimitIntervalSec=0\n\n[Service]\nExecStart=%s --tray\nRestart=always\nRestartSec=2\nRestartPreventExitStatus=3\nKillMode=process\n\n[Install]\nWantedBy=graphical-session.target\n' \
-        "$dir/haltos-agents" >"$units/haltos-agents.service"
-    ln -sf ../haltos-agents.service "$units/graphical-session.target.wants/haltos-agents.service"
-    # Some sessions never reach graphical-session.target, so login also asks for the service.
-    install -d "$conf/autostart"
-    printf '[Desktop Entry]\nType=Application\nName=HaltOS Agents service\nExec=systemctl --user start haltos-agents.service\nNoDisplay=true\nX-KDE-autostart-phase=2\n' \
-        >"$conf/autostart/haltos-agents.desktop"
+# The pinned HaltOS Agents button opens a claudegrid grid, as typing claudegrid would. claude-code-vps installs claudegrid.
+install_grid_launcher() {
+    local share=$1 conf=$2
+    # Older HaltOS shipped its own agents app as an always-on user service, which this replaces.
+    systemctl --user disable --now haltos-agents.service 2>/dev/null || true
+    rm -rf "$share/haltos/agents"
+    rm -f "$conf/systemd/user/haltos-agents.service" "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service" \
+        "$conf/autostart/haltos-agents.desktop"
     systemctl --user daemon-reload 2>/dev/null || true
+    install -d "$share/applications"
+    printf '[Desktop Entry]\nType=Application\nName=HaltOS Agents\nGenericName=Claude Code grid\nComment=Open a grid of Claude Code agents\nExec=claudegrid\nTryExec=claudegrid\nIcon=haltos-agents\nTerminal=false\nCategories=Development;Utility;\nKeywords=claude;ai;agent;claudegrid;grid;\n' \
+        >"$share/applications/haltos-agents.desktop"
 }
 
 # VS Code loads an unpacked extension folder on its next start, so neither the code CLI nor a network is needed.
@@ -92,10 +82,11 @@ install_vscode_theme() {
     cp -r "$HERE/vscode/haltmono" "$dir/haltos.haltmono-$ver"
 }
 
+# Writes every per-user HaltOS setting. Shared by install, refresh and the claude-code-vps sync hook.
 apply_user_config() {
     local share=$1 conf=$2
     copy_assets "$share"
-    install_agents "$share" "$conf"
+    install_grid_launcher "$share" "$conf"
     install_vscode_theme
 
     install -d "$conf/fastfetch"
@@ -277,7 +268,7 @@ undo_user() {
     rm -rf "$share/color-schemes/HaltMono.colors" "$share/konsole/HaltOS.profile" "$share/konsole/HaltMono.colorscheme" \
         "$share/wallpapers/HaltOS" "$share/plasma/look-and-feel/$LNF" "$share/plasma/desktoptheme/haltos" "$share/haltos" "$conf/Kvantum/HaltMono" \
         "$conf/gtk-3.0/haltos-adw.css" "$conf/gtk-4.0/haltos-adw.css"
-    # The app has no Quit and restarts itself, so the service is stopped before its files go.
+    # A server still on the old agents app has it running as a service, which stops before its files go.
     systemctl --user disable --now haltos-agents.service 2>/dev/null || true
     rm -f "$conf/claude-vps/post-apply.d/50-haltos" "$conf/autostart/haltos-firstrun.desktop" \
         "$conf/autostart/haltos-agents.desktop" "$share/applications/haltos-agents.desktop" \
@@ -353,9 +344,8 @@ install_system() {
     [ "$EUID" -eq 0 ] || die "system mode needs root: sudo $0 system"
     need dpkg-divert apt-get kwriteconfig6 curl gpg
 
-    log "installing fastfetch, kvantum and the agents app's Qt modules"
-    apt-get install -y -qq fastfetch qt6-style-kvantum python3-pyside6.qtqml python3-pyside6.qtquick \
-        python3-pyside6.qtwidgets python3-pyte qml6-module-org-kde-kirigami qml6-module-qtquick-dialogs libglib2.0-bin >/dev/null
+    log "installing fastfetch and kvantum"
+    apt-get install -y -qq fastfetch qt6-style-kvantum libglib2.0-bin >/dev/null
     install_vscode
 
     copy_assets /usr/share
