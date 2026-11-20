@@ -32,6 +32,11 @@ printf '[General]\nfixed=Hack,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1\n\n[Mine]\nkeep=
 printf '.config/mine\n' >"$conf/claude-vps/local-only"
 orig=$(mktemp -d)
 cp -a "$HOME/.bashrc" "$conf/kdeglobals" "$conf/claude-vps/local-only" "$orig/"
+# An extension of their own, and a HaltMono left behind by an older HaltOS.
+vsext=$HOME/.vscode/extensions
+install -d "$vsext/someone.theirs-1.0.0" "$vsext/haltos.haltmono-0.0.1"
+haltmono=$vsext/haltos.haltmono-$(sed -n 's/^ *"version": "\(.*\)",$/\1/p' "$REPO/vscode/haltmono/package.json")
+vsthemes() { find "$vsext" -maxdepth 1 -name 'haltos.haltmono-*' | wc -l; }
 
 echo "== install.sh user"
 "$haltos" user
@@ -68,12 +73,17 @@ check "agents service does not restart a copy that handed over" grep -qx "Restar
 check "agents service link resolves" test -e "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
 check "agents autostart only starts the service" grep -qx "Exec=systemctl --user start haltos-agents.service" "$conf/autostart/haltos-agents.desktop"
 check "agents icon" test -f "$share/icons/hicolor/scalable/apps/haltos-agents.svg"
+check "vscode theme installed" test -f "$haltmono/themes/haltmono-color-theme.json"
+check "vscode opens with HaltMono" grep -q '"workbench.colorTheme": "HaltMono"' "$haltmono/package.json"
+same "one vscode theme" "$(vsthemes)" 1
+check "older vscode theme removed" test ! -e "$vsext/haltos.haltmono-0.0.1"
 
 echo "== install.sh user again"
 "$haltos" user >/dev/null
 same "first backup untouched" "$(sha256sum "$backup")" "$backup_sum"
 same "prompt still hooked once" "$(hooks)" 1
 same "still one local-only block" "$(blocks)" 1
+same "still one vscode theme" "$(vsthemes)" 1
 
 echo "== install.sh refresh"
 "$haltos" refresh >/dev/null
@@ -102,5 +112,7 @@ check "agents autostart removed" test ! -e "$conf/autostart/haltos-agents.deskto
 check "agents service removed" test ! -e "$conf/systemd/user/haltos-agents.service"
 check "agents service link removed" test ! -L "$conf/systemd/user/graphical-session.target.wants/haltos-agents.service"
 same "no HaltOS icons left" "$(find "$share/icons/hicolor" -name 'haltos-*' 2>/dev/null | wc -l)" 0
+same "vscode theme removed" "$(vsthemes)" 0
+check "own vscode extension kept" test -d "$vsext/someone.theirs-1.0.0"
 
 finish

@@ -1,0 +1,42 @@
+{
+    "name": "haltmono",
+    "displayName": "HaltMono",
+    "description": "The HaltOS desktop theme for VS Code: shadcn zinc, JetBrains Mono and the HaltMono terminal colours.",
+    "publisher": "haltos",
+    "version": "1.0.0",
+    "license": "MIT",
+    "engines": {
+        "vscode": "^1.80.0"
+    },
+    "categories": [
+        "Themes"
+    ],
+    "contributes": {
+        "themes": [
+            {
+                "label": "HaltMono",
+                "uiTheme": "vs-dark",
+                "path": "./themes/haltmono-color-theme.json"
+            }
+        ],
+        "configurationDefaults": {
+            "workbench.colorTheme": "HaltMono",
+            "workbench.preferredDarkColorTheme": "HaltMono",
+            "workbench.startupEditor": "none",
+            "editor.fontFamily": "'JetBrains Mono', monospace",
+            "editor.fontSize": 14,
+            "editor.lineHeight": 1.6,
+            "editor.minimap.enabled": false,
+            "editor.renderLineHighlight": "all",
+            "editor.cursorBlinking": "phase",
+            "editor.guides.bracketPairs": false,
+            "editor.bracketPairColorization.enabled": false,
+            "terminal.integrated.fontFamily": "'JetBrains Mono', monospace",
+            "terminal.integrated.fontSize": 13,
+            "terminal.integrated.cursorStyle": "block",
+            "debug.console.fontFamily": "'JetBrains Mono', monospace",
+            "chat.editor.fontFamily": "'JetBrains Mono', monospace",
+            "markdown.preview.fontFamily": "'JetBrains Mono', monospace"
+        }
+    }
+}
