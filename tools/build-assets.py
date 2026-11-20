@@ -54,16 +54,15 @@ FONT = {
     "S": ["███████╗", "██╔════╝", "███████╗", "╚════██║", "███████║", "╚══════╝"],
 }
 
-# The HaltOS Agents icon: a small pixel creature with an antenna, two eyes and three feet.
-CREATURE = [
-    "     ██     ",
-    "      █     ",
-    " ▄████████▄ ",
-    "██▀▀████▀▀██",
-    "██▄▄████▄▄██",
-    "▀██████████▀",
-    " ██  ██  ██ ",
-]
+# The HaltOS Agents icon: a dark terminal face, white eyes and a blue prompt for a mouth.
+AGENTS_ICON = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">'
+    '<rect x="14" y="14" width="100" height="100" rx="28" fill="#09090b" stroke="#3f3f46" stroke-width="3"/>'
+    '<rect x="38" y="42" width="12" height="18" rx="4" fill="#fafafa"/>'
+    '<rect x="78" y="42" width="12" height="18" rx="4" fill="#fafafa"/>'
+    '<path d="M44 76 l10 8 -10 8" fill="none" stroke="#3b82f6" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>'
+    '<rect x="62" y="88" width="22" height="7" rx="3.5" fill="#3b82f6"/></svg>\n'
+)
 
 MARK = [
     "██╗  ██╗    ",
@@ -113,7 +112,6 @@ def cell_rects(ch, x, y, w, h):
     return {
         "█": [(x, y, x + w, y + h)],
         "▄": [(x, y + h / 2, x + w, y + h)],
-        "▀": [(x, y, x + w, y + h / 2)],
         "═": [hl(x, x + w, cy - d), hl(x, x + w, cy + d)],
         "║": [vl(cx - d, y, y + h), vl(cx + d, y, y + h)],
         "╗": [hl(x, cx + d + e, cy - d), vl(cx + d, cy - d - e, y + h), hl(x, cx - d + e, cy + d), vl(cx - d, cy + d - e, y + h)],
@@ -343,7 +341,7 @@ def main():
         os.makedirs(out, exist_ok=True)
         mark_png(size, tile=size <= 32).save(os.path.join(out, "haltos-logo.png"))
     write(os.path.join(icons, "scalable", "apps", "haltos-logo.svg"), grid_svg(MARK, 10, 20, 6))
-    write(os.path.join(icons, "scalable", "apps", "haltos-agents.svg"), grid_svg([f" {row} " for row in CREATURE], 10, 20, 18, bg="#09090b"))
+    write(os.path.join(icons, "scalable", "apps", "haltos-agents.svg"), AGENTS_ICON)
 
     for size in (16, 22, 24, 32, 48, 64, 128, 256):
         start_png(size).save(os.path.join(icons, f"{size}x{size}", "apps", "haltos-start.png"))
