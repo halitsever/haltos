@@ -7,7 +7,6 @@ Install on a fresh Ubuntu 25.04 or newer server, as root: `curl -fsSL https://ra
 ## Docs
 
 - [HaltOS home](https://halitsever.github.io/haltos/): what HaltOS installs, the one-command install, removal and FAQ
-- [A full Ubuntu desktop for Claude Code on your VPS](https://halitsever.github.io/haltos/run-claude-code-on-a-vps.html): a Claude Code workstation on a VPS with KDE Plasma over RDP, built on claude-code-vps
 - [README](https://github.com/halitsever/haltos/blob/main/Readme.md): features, install on an existing Plasma 6 machine, updates, removal and known limits
 - [Testing a release](https://github.com/halitsever/haltos/blob/main/docs/testing.md): step-by-step checks on a fresh server
 - [Releasing](https://github.com/halitsever/haltos/blob/main/docs/releasing.md): how versions are tagged and published
