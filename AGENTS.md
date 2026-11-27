@@ -24,7 +24,7 @@ The install itself is tested only by hand, on a fresh Ubuntu 25.04+ server, foll
 - Plasma 6 is required. `bootstrap.sh` stops before installing anything on releases without it (Ubuntu 24.04).
 - Servers follow published releases, not `main`. Only `haltos update --edge` follows `main`.
 - Pushing a `v*` tag publishes a GitHub Release. The workflow fails when the tag does not match `VERSION`, and it takes the notes from the matching `CHANGELOG.md` section.
-- The site has no build step. The Pages workflow copies `docs/screenshots/*.png` into `site/assets/screens/` at deploy time, so that folder is absent in the repo.
+- The site has no build step. At deploy time the Pages workflow copies `docs/screenshots/*.png` into `site/assets/screens/`, so that folder is absent in the repo, and minifies `site/main.js` and `site/styles.css` with esbuild.
 - `marketing/motion/out/` is ignored. It holds recordings saved by `marketing/motion/serve.py`.
 - HaltOS Agents is claudegrid (installed by claude-code-vps) as a system app: the pinned `haltos-agents.desktop` runs `claudegrid`, and `agents/haltos_agents.py` is an always-on tray icon in a user service. Every 5 s it saves the Claude Code sessions running in each grid window (from `~/.claude/sessions/<pid>.json`) to `~/.local/state/haltos-agents/grids.json`, and reopening a grid runs claudegrid with a generated config whose panes pass `--resume <id>`. On X11 it retags claudegrid's Konsole windows (title starting with `▦`) with `_KDE_NET_WM_DESKTOP_FILE=haltos-agents` and remaps them, because the task bar reads that property only when a window appears. Only `main()` imports PySide6, so CI tests the rest without Qt.
 
