@@ -1,60 +1,60 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://halitsever.github.io/haltos/</loc>
+    <loc>https://projects.halit.org/haltos/</loc>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://halitsever.github.io/haltos/blog/</loc>
+    <loc>https://projects.halit.org/haltos/blog/</loc>
     <lastmod>2026-11-16</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://halitsever.github.io/haltos/blog/dotfiles-sync-without-leaks.html</loc>
+    <loc>https://projects.halit.org/haltos/blog/dotfiles-sync-without-leaks.html</loc>
     <lastmod>2026-11-16</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://halitsever.github.io/haltos/blog/kde-plasma-over-rdp-xrdp.html</loc>
+    <loc>https://projects.halit.org/haltos/blog/kde-plasma-over-rdp-xrdp.html</loc>
     <lastmod>2026-11-16</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://halitsever.github.io/haltos/blog/kvantum-theme-from-design-tokens.html</loc>
+    <loc>https://projects.halit.org/haltos/blog/kvantum-theme-from-design-tokens.html</loc>
     <lastmod>2026-11-16</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://halitsever.github.io/haltos/blog/monochrome-desktop-for-ai-coding.html</loc>
+    <loc>https://projects.halit.org/haltos/blog/monochrome-desktop-for-ai-coding.html</loc>
     <lastmod>2026-11-16</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://halitsever.github.io/haltos/blog/parallel-claude-code-agents-git-worktrees.html</loc>
+    <loc>https://projects.halit.org/haltos/blog/parallel-claude-code-agents-git-worktrees.html</loc>
     <lastmod>2026-11-16</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://halitsever.github.io/haltos/blog/rebrand-ubuntu-os-release-dpkg-divert.html</loc>
+    <loc>https://projects.halit.org/haltos/blog/rebrand-ubuntu-os-release-dpkg-divert.html</loc>
     <lastmod>2026-11-16</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://halitsever.github.io/haltos/blog/safe-self-updating-shell-scripts.html</loc>
+    <loc>https://projects.halit.org/haltos/blog/safe-self-updating-shell-scripts.html</loc>
     <lastmod>2026-11-16</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://halitsever.github.io/haltos/blog/secure-vps-remote-development.html</loc>
+    <loc>https://projects.halit.org/haltos/blog/secure-vps-remote-development.html</loc>
     <lastmod>2026-11-16</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>

@@ -38,5 +38,5 @@ The install itself is tested only by hand, on a fresh Ubuntu 25.04+ server, foll
 
 ## Site
 
-- The plain HTML site lives in `site/`, with blog posts in `site/blog/`. `.github/workflows/pages.yml` deploys it to https://halitsever.github.io/haltos/ on pushes to `main` that touch `site/`, `docs/screenshots/` or that workflow.
+- The plain HTML site lives in `site/`, with blog posts in `site/blog/`. `.github/workflows/pages.yml` deploys it to https://projects.halit.org/haltos/ on pushes to `main` that touch `site/`, `docs/screenshots/` or that workflow.
 - When you add a page, also add it to `site/sitemap.xml` and `site/llms.txt`.

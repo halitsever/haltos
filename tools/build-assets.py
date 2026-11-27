@@ -277,7 +277,7 @@ def og_image(path):
     small = ImageFont.truetype(os.path.join(FONT_DIR, "JetBrainsMono-Regular.ttf"), 22)
     line = "A Claude Code workstation on your VPS"
     d.text(((w - d.textlength(line, font=title)) / 2, oy + bh + 54), line, font=title, fill=(212, 212, 216, 255))
-    url = "halitsever.github.io/haltos"
+    url = "projects.halit.org/haltos"
     d.text(((w - d.textlength(url, font=small)) / 2, oy + bh + 112), url, font=small, fill=DIM + (255,))
     img = Image.alpha_composite(img, glow(fg, 8, strength=1))
     img.convert("RGB").save(path, optimize=True)
