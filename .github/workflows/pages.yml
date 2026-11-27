@@ -28,6 +28,9 @@ jobs:
         run: |
           mkdir -p site/assets/screens
           cp docs/screenshots/*.png site/assets/screens/
+      # The repo keeps readable CSS and JS. Pages gets minified copies because Semrush flags unminified files.
+      - name: minify
+        run: npx --yes esbuild@0.28.2 site/main.js site/styles.css --minify --outdir=site --allow-overwrite
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
