@@ -59,7 +59,7 @@
 <main id="main" class="post">
   <article>
     <p class="post-meta">16 November 2026, Halit Sever</p>
-    <h1>Self-updating shell scripts without the footguns</h1>
+    <h1>How HaltOS updates itself without running half a script</h1>
     <figure class="post-cover"><img src="covers/safe-self-updating-shell-scripts.png" width="1200" height="630" alt=""></figure>
 <p class="post-lede">HaltOS is mostly a shell script, and <code>sudo haltos update</code> replaces that script while it runs. That is more dangerous than it sounds. These are the patterns that make it safe.</p>
 <h2>Bash reads your script while it runs</h2>
@@ -80,6 +80,7 @@ exec "$HERE/install.sh" finish-update "$old"</code></pre>
 <p>Before switching versions, the update checks that the checkout has no local changes and stops with a clear message if it does. An update that silently throws away someone's edits is worse than no update.</p>
 <h2>Releasing is one command</h2>
 <p>On the other side, <code>tools/release.sh 1.1.0</code> checks that the <code>VERSION</code> file and the changelog agree, tags and pushes, and a GitHub Actions workflow publishes the release. The whole flow is in the <a href="https://github.com/halitsever/haltos">HaltOS repository</a>.</p>
+    <p>The daily release check described above runs from a systemd timer: <a href="systemd-timer.html">Scheduling a daily job with a systemd timer instead of cron</a>.</p>
     <p class="post-links"><a href="./">All posts</a> <a href="parallel-claude-code-agents-git-worktrees.html">Next: Run several Claude Code agents in parallel with git worktrees</a></p>
   </article>
 </main>

@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>systemd Timer vs Cron: A Daily Job, Explained</title>
+<meta name="description" content="How a systemd timer works next to its service: OnCalendar vs OnBootSec, RandomizedDelaySec, Persistent, list-timers, and a real timer from a HaltOS server.">
+<link rel="canonical" href="https://projects.halit.org/haltos/blog/systemd-timer.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="systemd Timer vs Cron: A Daily Job, Explained">
+<meta property="og:description" content="How a systemd timer works next to its service: OnCalendar vs OnBootSec, RandomizedDelaySec, Persistent, list-timers, and a real timer from a HaltOS server.">
+<meta property="og:url" content="https://projects.halit.org/haltos/blog/systemd-timer.html">
+<meta property="og:image" content="https://projects.halit.org/haltos/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://projects.halit.org/haltos/og.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "headline": "Scheduling a daily job with a systemd timer instead of cron",
+      "description": "How a systemd timer works next to its service: OnCalendar vs OnBootSec, RandomizedDelaySec, Persistent, list-timers, and a real timer from a HaltOS server.",
+      "image": "https://projects.halit.org/haltos/og.png",
+      "datePublished": "2026-11-28",
+      "dateModified": "2026-11-28",
+      "inLanguage": "en",
+      "keywords": "systemd timer",
+      "author": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "mainEntityOfPage": "https://projects.halit.org/haltos/blog/systemd-timer.html"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "HaltOS",
+          "item": "https://projects.halit.org/haltos/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://projects.halit.org/haltos/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Scheduling a daily job with a systemd timer instead of cron",
+          "item": "https://projects.halit.org/haltos/blog/systemd-timer.html"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the difference between a systemd timer and cron?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A cron line runs a command. A systemd timer starts a service unit, so the job gets the journal, systemctl status, dependencies, resource limits and an exact record of the last and next run. Cron is shorter to write."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Persistent=true work with OnBootSec?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The systemd.timer manual says Persistent= only has an effect on timers configured with OnCalendar=. Timers built from OnBootSec and OnUnitActiveSec ignore it."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I see when a systemd timer runs next?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "systemctl list-timers shows the next and last run of every active timer. systemd-analyze calendar shows when an OnCalendar expression would fire."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dd7e54d3f48841c187d72d9dbb92a6b6"}'></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../kde-plasma-theme/">Theme</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta"><time datetime="2026-11-28">28 November 2026</time>, <a href="https://halit.org">Halit Sever</a></p>
+    <h1>Scheduling a daily job with a systemd timer instead of cron</h1>
+<p class="post-lede">A systemd timer is a unit that starts another unit on a schedule. It does what a cron line does, with logs in the journal, a status you can query and options for random delays and missed runs. This post explains the pieces using the timer HaltOS installs to check for new releases once a day, read from a running HaltOS 1.2 server.</p>
+<h2 id="two-units">Two units</h2>
+<p>A timer never runs a command itself. It starts a service with the same name. HaltOS writes both in <code>install_update_check</code> (<a href="https://github.com/halitsever/haltos/blob/main/install.sh">install.sh</a>).</p>
+<p><code>/etc/systemd/system/haltos-update-check.service</code>:</p>
+<pre class="post-code"><code>[Unit]
+Description=Check for a newer HaltOS release
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/haltos/install.sh check-update</code></pre>
+<p><code>/etc/systemd/system/haltos-update-check.timer</code>, as <code>systemctl cat</code> printed it on a HaltOS 1.2 server:</p>
+<pre class="post-code"><code>[Unit]
+Description=Check for a newer HaltOS release every day
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1d
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target</code></pre>
+<p><code>Type=oneshot</code> means the service runs to completion and stops. The check writes the newest release tag to <code>/var/lib/haltos/latest</code>, and the SSH login banner reads that file, so logging in never waits for the network.</p>
+<p>Enable the timer, not the service:</p>
+<pre class="post-code"><code>sudo systemctl daemon-reload
+sudo systemctl enable --now haltos-update-check.timer</code></pre>
+<h2 id="monotonic-and-calendar-timers">Monotonic and calendar timers</h2>
+<p>The <a href="https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html">systemd.timer manual</a> has two kinds of trigger.</p>
+<p><strong>Monotonic</strong>, relative to an event: <code>OnBootSec=</code> counts from boot, <code>OnUnitActiveSec=</code> from the last time the service was started, and <code>OnActiveSec=</code>, <code>OnStartupSec=</code> and <code>OnUnitInactiveSec=</code> from other points. The HaltOS timer fires five minutes after boot, then a day after each run.</p>
+<p><strong>Calendar</strong>, wall-clock times with <code>OnCalendar=</code>:</p>
+<pre class="post-code"><code>$ systemd-analyze calendar daily "Mon..Fri 09:00"
+  Original form: daily
+Normalized form: *-*-* 00:00:00
+    Next elapse: Sun 2026-11-29 00:00:00 UTC
+
+  Original form: Mon..Fri 09:00
+Normalized form: Mon..Fri *-*-* 09:00:00
+    Next elapse: Mon 2026-11-30 09:00:00 UTC</code></pre>
+<p><code>systemd-analyze calendar</code> is the quickest way to check an expression before you put it in a unit.</p>
+<h2 id="randomizeddelaysec">RandomizedDelaySec</h2>
+<p>The manual describes it as a random delay between 0 and the given time, evenly distributed. With <code>1h</code>, a thousand servers that booted at the same moment do not all ask GitHub for the latest release in the same second. On the HaltOS server the next run was listed at 03:18:42, not at a round hour.</p>
+<h2 id="persistent-and-a-detail-in-this-timer">Persistent, and a detail in this timer</h2>
+<p><code>Persistent=true</code> stores the time of the last run on disk and, after downtime, starts the service right away if a run was missed. The manual is specific: it only has an effect on timers configured with <code>OnCalendar=</code>. The HaltOS timer uses only <code>OnBootSec</code> and <code>OnUnitActiveSec</code>, so its <code>Persistent=true</code> does nothing. In practice <code>OnBootSec=5min</code> already covers a machine that was off, since the check runs shortly after every boot. If you copy this timer with an <code>OnCalendar=</code> line instead, <code>Persistent=</code> starts to matter.</p>
+<h2 id="checking-on-a-timer">Checking on a timer</h2>
+<pre class="post-code"><code>$ systemctl list-timers haltos-update-check.timer --all
+NEXT                        LEFT LAST                        PASSED UNIT                      ACTIVATES
+Sun 2026-11-29 03:18:42 UTC  16h Sat 2026-11-28 03:01:34 UTC 8h ago haltos-update-check.timer haltos-update-check.service</code></pre>
+<p>Output of the service goes to the journal:</p>
+<pre class="post-code"><code>journalctl -u haltos-update-check.service --since today</code></pre>
+<p>Run the job by hand by starting the service: <code>sudo systemctl start haltos-update-check.service</code>.</p>
+<h2 id="timer-or-cron">Timer or cron</h2>
+<div class="post-table"><table><thead><tr><th></th><th>cron</th><th>systemd timer</th></tr></thead><tbody><tr><td>Definition</td><td>One line in a crontab</td><td>A <code>.timer</code> and a <code>.service</code> file</td></tr><tr><td>Logs</td><td>Mail or your own redirect</td><td>The journal, per unit</td></tr><tr><td>Last and next run</td><td>Not shown</td><td><code>systemctl list-timers</code></td></tr><tr><td>Random spread</td><td>By hand with <code>sleep</code></td><td><code>RandomizedDelaySec=</code></td></tr><tr><td>Missed runs</td><td>anacron, separately</td><td><code>Persistent=</code> for calendar timers</td></tr><tr><td>Dependencies</td><td>None</td><td><code>After=</code>, <code>Wants=</code>, any unit option</td></tr></tbody></table></div>
+<p>For a one-line personal job, cron is fine. For something you ship to other machines, like HaltOS's update check, a timer gives you status and logs without extra code. The update itself never runs from the timer: the <a href="safe-self-updating-shell-scripts.html">self-updating scripts post</a> explains why HaltOS only reports new releases and waits for <code>sudo haltos update</code>.</p>
+<p>User timers work the same way under <code>~/.config/systemd/user/</code> with <code>systemctl --user</code>.</p>
+<h2 id="faq">Questions</h2>
+<h3>What is the difference between a systemd timer and cron?</h3>
+<p>A cron line runs a command. A systemd timer starts a service unit, so the job gets the journal, systemctl status, dependencies, resource limits and an exact record of the last and next run. Cron is shorter to write.</p>
+<h3>Does Persistent=true work with OnBootSec?</h3>
+<p>No. The systemd.timer manual says Persistent= only has an effect on timers configured with OnCalendar=. Timers built from OnBootSec and OnUnitActiveSec ignore it.</p>
+<h3>How do I see when a systemd timer runs next?</h3>
+<p>systemctl list-timers shows the next and last run of every active timer. systemd-analyze calendar shows when an OnCalendar expression would fire.</p>
+<h2 id="related">Related posts</h2>
+<ul><li><a href="safe-self-updating-shell-scripts.html">How HaltOS updates itself without running half a script</a></li><li><a href="what-is-motd.html">MOTD on Linux servers, and how to write your own</a></li><li><a href="secure-vps-remote-development.html">Locking down a remote development VPS: SSH keys, ufw and RDP</a></li></ul>
+    <p class="post-links"><a href="./">All posts</a> <a href="../kde-plasma-theme/">The HaltOS KDE Plasma theme</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

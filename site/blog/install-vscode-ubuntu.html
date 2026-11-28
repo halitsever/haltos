@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install VS Code on Ubuntu: apt Repo, .deb or Snap</title>
+<meta name="description" content="Install VS Code on Ubuntu from Microsoft&#x27;s apt repository, the .deb or the snap. The deb822 sources file, the debconf question and how updates arrive.">
+<link rel="canonical" href="https://projects.halit.org/haltos/blog/install-vscode-ubuntu.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="Install VS Code on Ubuntu: apt Repo, .deb or Snap">
+<meta property="og:description" content="Install VS Code on Ubuntu from Microsoft&#x27;s apt repository, the .deb or the snap. The deb822 sources file, the debconf question and how updates arrive.">
+<meta property="og:url" content="https://projects.halit.org/haltos/blog/install-vscode-ubuntu.html">
+<meta property="og:image" content="https://projects.halit.org/haltos/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://projects.halit.org/haltos/og.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "headline": "Three ways to get VS Code on Ubuntu, and the one HaltOS uses",
+      "description": "Install VS Code on Ubuntu from Microsoft's apt repository, the .deb or the snap. The deb822 sources file, the debconf question and how updates arrive.",
+      "image": "https://projects.halit.org/haltos/og.png",
+      "datePublished": "2026-11-28",
+      "dateModified": "2026-11-28",
+      "inLanguage": "en",
+      "keywords": "install vscode on ubuntu",
+      "author": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "mainEntityOfPage": "https://projects.halit.org/haltos/blog/install-vscode-ubuntu.html"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "HaltOS",
+          "item": "https://projects.halit.org/haltos/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://projects.halit.org/haltos/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Three ways to get VS Code on Ubuntu, and the one HaltOS uses",
+          "item": "https://projects.halit.org/haltos/blog/install-vscode-ubuntu.html"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the best way to install VS Code on Ubuntu?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Microsoft's apt repository. VS Code then updates with the rest of the system through apt. The .deb from the website can add the same repository for you, and the snap updates itself in the background."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is VS Code in the Ubuntu repositories?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. In ubuntu:24.04 and ubuntu:26.04 containers, apt had no candidate for the package code until Microsoft's repository was added."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does VS Code ask about adding the Microsoft repository?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The .deb package offers to install the apt repository and signing key so that VS Code updates through apt. Answer code code/add-microsoft-repo with debconf-set-selections to skip the prompt in scripts."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dd7e54d3f48841c187d72d9dbb92a6b6"}'></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../kde-plasma-theme/">Theme</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta"><time datetime="2026-11-28">28 November 2026</time>, <a href="https://halit.org">Halit Sever</a></p>
+    <h1>Three ways to get VS Code on Ubuntu, and the one HaltOS uses</h1>
+<p class="post-lede">Visual Studio Code is not in Ubuntu's own archive, so every install route starts at Microsoft. The VS Code docs describe three: a .deb you download, Microsoft's apt repository, and a snap. This post covers each one, then shows the exact commands HaltOS runs on a server, tested in an Ubuntu 26.04 container on 28 November 2026.</p>
+<h2 id="option-1-the-deb-file">Option 1: the .deb file</h2>
+<p>The <a href="https://code.visualstudio.com/docs/setup/linux">VS Code Linux docs</a> link a .deb download. Install it with apt so dependencies are resolved:</p>
+<pre class="post-code"><code>sudo apt install ./code_*.deb</code></pre>
+<p>During the install the package asks whether to add Microsoft's apt repository and signing key. Say yes and you end up with option 2. For scripts, the docs give a debconf answer to set first:</p>
+<pre class="post-code"><code>echo "code code/add-microsoft-repo boolean true" | sudo debconf-set-selections</code></pre>
+<h2 id="option-2-microsoft-s-apt-repository">Option 2: Microsoft's apt repository</h2>
+<p>This is what the docs describe as the manual setup. Install the key:</p>
+<pre class="post-code"><code>sudo apt install wget gpg
+wget -qO- https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft.gpg</code></pre>
+<p>Create <code>/etc/apt/sources.list.d/vscode.sources</code> in the deb822 format:</p>
+<pre class="post-code"><code>Types: deb
+URIs: https://packages.microsoft.com/repos/code
+Suites: stable
+Components: main
+Architectures: amd64,arm64,armhf
+Signed-By: /usr/share/keyrings/microsoft.gpg</code></pre>
+<p>Then:</p>
+<pre class="post-code"><code>sudo apt update
+sudo apt install code</code></pre>
+<p><code>Signed-By</code> ties the repository to that one key, instead of trusting it for every source on the system. The docs add that the repository can lag a new release by up to three hours because of manual signing.</p>
+<h2 id="option-3-the-snap">Option 3: the snap</h2>
+<pre class="post-code"><code>sudo snap install --classic code</code></pre>
+<p><code>--classic</code> gives the snap normal access to the file system, which an editor needs. The docs say the snap daemon updates VS Code in the background.</p>
+<h2 id="how-haltos-installs-it">How HaltOS installs it</h2>
+<p>HaltOS installs VS Code on the server during <code>install.sh system</code>, with the repository route (<a href="https://github.com/halitsever/haltos/blob/main/install.sh">install.sh</a>):</p>
+<pre class="post-code"><code>command -v code &gt;/dev/null &amp;&amp; return 0
+[ -f /usr/share/keyrings/microsoft.gpg ] ||
+    curl -fsSL --retry 5 --retry-delay 10 https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor --yes -o /usr/share/keyrings/microsoft.gpg
+printf 'Types: deb\nURIs: https://packages.microsoft.com/repos/code\n...' &gt;/etc/apt/sources.list.d/vscode.sources
+echo "code code/add-microsoft-repo boolean false" | debconf-set-selections
+apt-get update -qq
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq code</code></pre>
+<p>Three details. It skips everything when <code>code</code> is already on the <code>PATH</code>. It retries the key download, because packages.microsoft.com answers bursts of requests with HTTP 429. And it answers the debconf question with <strong>false</strong>: the sources file is already written, and the package would otherwise add a second copy of the same repository.</p>
+<h2 id="tested-in-a-container">Tested in a container</h2>
+<p>The same steps ran in an <code>ubuntu:26.04</code> container. Before the repository was added, <code>apt-cache policy code</code> showed no candidate. After it:</p>
+<pre class="post-code"><code>code:
+  Installed: (none)
+  Candidate: 1.148.0-1795526052</code></pre>
+<p>The install succeeded, <code>code --version</code> printed <code>1.148.0</code>, and <code>/etc/apt/sources.list.d/</code> held only <code>ubuntu.sources</code> and <code>vscode.sources</code>, so the debconf answer did its job.</p>
+<h2 id="over-rdp">Over RDP</h2>
+<p>On a HaltOS server VS Code runs inside the KDE Plasma session you reach over RDP. HaltOS also copies its HaltMono colour theme into <code>~/.vscode/extensions</code>, which VS Code loads on its next start without the <code>code</code> command or a network connection. For the desktop itself, see <a href="kde-plasma-over-rdp-xrdp.html">KDE Plasma over RDP with xrdp</a>, and for the editor font, <a href="install-fonts-ubuntu.html">installing fonts on Ubuntu</a>.</p>
+<h2 id="removing-it">Removing it</h2>
+<pre class="post-code"><code>sudo apt remove code
+sudo rm /etc/apt/sources.list.d/vscode.sources /usr/share/keyrings/microsoft.gpg
+sudo apt update</code></pre>
+<p>For the snap, <code>sudo snap remove code</code>.</p>
+<h2 id="faq">Questions</h2>
+<h3>What is the best way to install VS Code on Ubuntu?</h3>
+<p>Microsoft's apt repository. VS Code then updates with the rest of the system through apt. The .deb from the website can add the same repository for you, and the snap updates itself in the background.</p>
+<h3>Is VS Code in the Ubuntu repositories?</h3>
+<p>No. In ubuntu:24.04 and ubuntu:26.04 containers, apt had no candidate for the package code until Microsoft's repository was added.</p>
+<h3>Why does VS Code ask about adding the Microsoft repository?</h3>
+<p>The .deb package offers to install the apt repository and signing key so that VS Code updates through apt. Answer code code/add-microsoft-repo with debconf-set-selections to skip the prompt in scripts.</p>
+<h2 id="related">Related posts</h2>
+<ul><li><a href="kubuntu-vs-ubuntu.html">What actually differs between Kubuntu and Ubuntu</a></li><li><a href="install-fonts-ubuntu.html">Adding a font on Ubuntu so every app can use it</a></li><li><a href="rebrand-ubuntu-os-release-dpkg-divert.html">Rebrand Ubuntu without breaking apt: os-release and dpkg-divert</a></li></ul>
+    <p class="post-links"><a href="./">All posts</a> <a href="../kde-plasma-theme/">The HaltOS KDE Plasma theme</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>
