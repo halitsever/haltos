@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bash vs sh on Ubuntu: Why Scripts Break in dash</title>
+<meta name="description" content="bash vs sh on Ubuntu: /bin/sh is dash, so bash-only syntax fails under sh. Real dash errors, the common bashisms, shebangs, and finding them with ShellCheck.">
+<link rel="canonical" href="https://projects.halit.org/haltos/blog/bash-vs-sh.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="bash vs sh on Ubuntu: Why Scripts Break in dash">
+<meta property="og:description" content="bash vs sh on Ubuntu: /bin/sh is dash, so bash-only syntax fails under sh. Real dash errors, the common bashisms, shebangs, and finding them with ShellCheck.">
+<meta property="og:url" content="https://projects.halit.org/haltos/blog/bash-vs-sh.html">
+<meta property="og:image" content="https://projects.halit.org/haltos/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://projects.halit.org/haltos/og.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "headline": "sh is not bash on Ubuntu: what breaks and how to tell",
+      "description": "bash vs sh on Ubuntu: /bin/sh is dash, so bash-only syntax fails under sh. Real dash errors, the common bashisms, shebangs, and finding them with ShellCheck.",
+      "image": "https://projects.halit.org/haltos/og.png",
+      "datePublished": "2026-11-28",
+      "dateModified": "2026-11-28",
+      "inLanguage": "en",
+      "keywords": "bash vs sh",
+      "author": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "mainEntityOfPage": "https://projects.halit.org/haltos/blog/bash-vs-sh.html"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "HaltOS",
+          "item": "https://projects.halit.org/haltos/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://projects.halit.org/haltos/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "sh is not bash on Ubuntu: what breaks and how to tell",
+          "item": "https://projects.halit.org/haltos/blog/bash-vs-sh.html"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is sh the same as bash on Ubuntu?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. On Ubuntu 24.04 and 26.04, /bin/sh is a symbolic link to dash. Scripts run with sh or with a #!/bin/sh shebang are interpreted by dash, which lacks many bash features."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my script say [[: not found?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It is running in dash, which has no [[ ]] keyword. Run it with bash, change the shebang to #!/usr/bin/env bash, or rewrite the test with [ ] and POSIX operators."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Should I write scripts for sh or bash?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Use bash when you need its features and can rely on bash being installed. Use POSIX sh for scripts other programs run with sh, such as files in /etc/update-motd.d, and check them with shellcheck -s sh."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dd7e54d3f48841c187d72d9dbb92a6b6"}'></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../kde-plasma-theme/">Theme</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta"><time datetime="2026-11-28">28 November 2026</time>, <a href="https://halit.org">Halit Sever</a></p>
+    <h1>sh is not bash on Ubuntu: what breaks and how to tell</h1>
+<p class="post-lede">On Ubuntu, sh and bash are two different programs. A script that works when you type bash script.sh can fail with a syntax error under sh script.sh, because Ubuntu's /bin/sh is dash, a smaller shell that only does what POSIX requires. This post shows the errors dash really prints, and how HaltOS keeps one of its scripts POSIX on purpose.</p>
+<h2 id="what-bin-sh-is-on-ubuntu">What /bin/sh is on Ubuntu</h2>
+<pre class="post-code"><code>$ ls -l /bin/sh
+lrwxrwxrwx 1 root root 4 Feb  2  2026 /bin/sh -&gt; dash</code></pre>
+<p>That is from an <code>ubuntu:26.04</code> container; 24.04 shows the same link. <a href="https://manpages.ubuntu.com/manpages/resolute/man1/dash.1.html">dash</a> is a small shell that implements the POSIX shell language and little more. bash, version 5.3 on Ubuntu 26.04, implements POSIX plus a lot of extensions.</p>
+<p>So the shebang decides:</p>
+<div class="post-table"><table><thead><tr><th>First line</th><th>Runs in</th></tr></thead><tbody><tr><td><code>#!/bin/sh</code></td><td>dash</td></tr><tr><td><code>#!/bin/bash</code></td><td>bash</td></tr><tr><td><code>#!/usr/bin/env bash</code></td><td>the first bash on <code>PATH</code></td></tr><tr><td>none, started with <code>sh file</code></td><td>dash</td></tr><tr><td>none, started with <code>bash file</code></td><td>bash</td></tr></tbody></table></div>
+<h2 id="the-same-script-in-both">The same script in both</h2>
+<pre class="post-code"><code>greet() { local name="$1"; echo "hi $name"; }
+greet you
+if [[ "abc" == a* ]]; then echo "match"; fi
+arr=(one two); echo "${arr[1]}"
+echo {1..3}
+echo "$((2**3))"</code></pre>
+<p>Under bash:</p>
+<pre class="post-code"><code>hi you
+match
+two
+1 2 3
+8</code></pre>
+<p>Under <code>sh</code>, which is dash:</p>
+<pre class="post-code"><code>hi you
+bashisms.sh: 3: [[: not found
+bashisms.sh: 4: Syntax error: "(" unexpected</code></pre>
+<p>The exit code was 2. The <code>[[</code> line only printed an error and carried on, which is worse than stopping, since the <code>if</code> silently took the false branch. The array on line 4 was a syntax error that ended the script. Run one at a time, the other two lines also differ: dash printed <code>{1..3}</code> literally, and <code>$((2**3))</code> failed with <code>arithmetic expression: expecting primary: "2**3"</code>.</p>
+<p><code>local</code> worked. dash supports it even though POSIX does not define it, which is why ShellCheck still warns about it in sh mode.</p>
+<h2 id="common-bashisms-and-posix-versions">Common bashisms and POSIX versions</h2>
+<div class="post-table"><table><thead><tr><th>bash</th><th>POSIX sh</th></tr></thead><tbody><tr><td><code>[[ $a == b* ]]</code></td><td><code>case $a in b*) ... ;; esac</code></td></tr><tr><td><code>[ "$a" == "$b" ]</code></td><td><code>[ "$a" = "$b" ]</code></td></tr><tr><td>arrays <code>arr=(a b)</code></td><td><code>set -- a b</code> and <code>"$@"</code>, or separate variables</td></tr><tr><td><code>{1..3}</code></td><td><code>seq 1 3</code> or a <code>while</code> loop</td></tr><tr><td><code>$((2**3))</code></td><td><code>$((2*2*2))</code></td></tr><tr><td><code>function f { }</code></td><td><code>f() { }</code></td></tr><tr><td><code>source file</code></td><td><code>. file</code></td></tr><tr><td><code>echo -e</code></td><td><code>printf</code></td></tr><tr><td><code>$'\n'</code></td><td><code>printf '\n'</code></td></tr></tbody></table></div>
+<p>The <a href="https://pubs.opengroup.org/onlinepubs/9799919799/utilities/V3_chap02.html">POSIX shell command language</a> is the reference for what sh must support.</p>
+<h2 id="when-to-choose-which">When to choose which</h2>
+<p>Write for bash when the script is yours to run and bash is guaranteed, which it is on Ubuntu. Say so with <code>#!/usr/bin/env bash</code> and use the features freely. HaltOS's <code>install.sh</code> and <code>bootstrap.sh</code> do that, and turn on bash's strict mode near the top (<code>set -euo pipefail</code> and <code>set -Eeuo pipefail</code>).</p>
+<p>Write for POSIX sh when another program starts the script with <code>sh</code>. HaltOS's SSH login banner, <code>system/motd/00-haltos</code>, is that case: Ubuntu's <code>update-motd</code> runs the files in <code>/etc/update-motd.d</code>, so the script starts with <code>#!/bin/sh</code> and sticks to <code>[ ]</code>, <code>$(...)</code>, <code>case</code> and <code>printf</code>. The <a href="what-is-motd.html">MOTD post</a> shows the full script.</p>
+<h2 id="catching-bashisms-automatically">Catching bashisms automatically</h2>
+<p>ShellCheck knows both dialects. On a <code>#!/bin/sh</code> script, or with <code>-s sh</code>, it flags bash-only syntax with SC3xxx codes, for example SC3014 for <code>==</code> in <code>[ ]</code> and SC3043 for <code>local</code>. HaltOS's CI runs <code>shellcheck -S warning -s sh system/motd/00-haltos</code> to keep the banner POSIX. The <a href="shellcheck.html">ShellCheck post</a> has the full setup.</p>
+<p>Ubuntu also packages <code>checkbashisms</code> in <code>devscripts</code>, a narrower tool that does only this one job.</p>
+<h2 id="faq">Questions</h2>
+<h3>Is sh the same as bash on Ubuntu?</h3>
+<p>No. On Ubuntu 24.04 and 26.04, /bin/sh is a symbolic link to dash. Scripts run with sh or with a #!/bin/sh shebang are interpreted by dash, which lacks many bash features.</p>
+<h3>Why does my script say [[: not found?</h3>
+<p>It is running in dash, which has no [[ ]] keyword. Run it with bash, change the shebang to #!/usr/bin/env bash, or rewrite the test with [ ] and POSIX operators.</p>
+<h3>Should I write scripts for sh or bash?</h3>
+<p>Use bash when you need its features and can rely on bash being installed. Use POSIX sh for scripts other programs run with sh, such as files in /etc/update-motd.d, and check them with shellcheck -s sh.</p>
+<h2 id="related">Related posts</h2>
+<ul><li><a href="shellcheck.html">Finding shell script bugs before they run, with ShellCheck</a></li><li><a href="what-is-motd.html">MOTD on Linux servers, and how to write your own</a></li><li><a href="safe-self-updating-shell-scripts.html">How HaltOS updates itself without running half a script</a></li></ul>
+    <p class="post-links"><a href="./">All posts</a> <a href="../kde-plasma-theme/">The HaltOS KDE Plasma theme</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

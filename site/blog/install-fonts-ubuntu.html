@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install Fonts on Ubuntu: apt, ~/.local and fc-cache</title>
+<meta name="description" content="How font installation works on Ubuntu: apt font packages, ~/.local/share/fonts for one user, fc-cache and fc-list, with JetBrains Mono as the example.">
+<link rel="canonical" href="https://projects.halit.org/haltos/blog/install-fonts-ubuntu.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="Install Fonts on Ubuntu: apt, ~/.local and fc-cache">
+<meta property="og:description" content="How font installation works on Ubuntu: apt font packages, ~/.local/share/fonts for one user, fc-cache and fc-list, with JetBrains Mono as the example.">
+<meta property="og:url" content="https://projects.halit.org/haltos/blog/install-fonts-ubuntu.html">
+<meta property="og:image" content="https://projects.halit.org/haltos/assets/screens/terminal.png">
+<meta property="og:image:width" content="1110">
+<meta property="og:image:height" content="380">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://projects.halit.org/haltos/assets/screens/terminal.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "headline": "Adding a font on Ubuntu so every app can use it",
+      "description": "How font installation works on Ubuntu: apt font packages, ~/.local/share/fonts for one user, fc-cache and fc-list, with JetBrains Mono as the example.",
+      "image": "https://projects.halit.org/haltos/assets/screens/terminal.png",
+      "datePublished": "2026-11-28",
+      "dateModified": "2026-11-28",
+      "inLanguage": "en",
+      "keywords": "ubuntu font installation",
+      "author": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "mainEntityOfPage": "https://projects.halit.org/haltos/blog/install-fonts-ubuntu.html"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "HaltOS",
+          "item": "https://projects.halit.org/haltos/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://projects.halit.org/haltos/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Adding a font on Ubuntu so every app can use it",
+          "item": "https://projects.halit.org/haltos/blog/install-fonts-ubuntu.html"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Where do I put fonts on Ubuntu?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "For your user only, in ~/.local/share/fonts. For every user, in /usr/local/share/fonts. Ubuntu's /etc/fonts/fonts.conf lists both, together with /usr/share/fonts for packaged fonts and the older ~/.fonts."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I refresh the font cache on Ubuntu?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Run fc-cache -f, optionally with a folder, for example fc-cache -f ~/.local/share/fonts. Then check with fc-list or fc-match."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I install JetBrains Mono on Ubuntu?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "sudo apt install fonts-jetbrains-mono. On 28 November 2026 Ubuntu 24.04 and 26.04 both shipped version 2.304, with the files in /usr/share/fonts/truetype/jetbrains-mono."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dd7e54d3f48841c187d72d9dbb92a6b6"}'></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../kde-plasma-theme/">Theme</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta"><time datetime="2026-11-28">28 November 2026</time>, <a href="https://halit.org">Halit Sever</a></p>
+    <h1>Adding a font on Ubuntu so every app can use it</h1>
+    <figure class="post-figure"><img src="../assets/screens/terminal.png" width="1110" height="380" alt="Konsole on HaltOS: fastfetch with the HALTOS banner, then the two-line prompt with the git branch"><figcaption>Konsole on HaltOS: fastfetch with the HALTOS banner, then the two-line prompt with the git branch</figcaption></figure>
+<p class="post-lede">Linux applications find fonts through fontconfig, so installing a font means putting the file where fontconfig looks and letting it update its cache. On Ubuntu the easiest route is often an apt package. This post covers apt, the per-user folder and the system folder, with JetBrains Mono, the font HaltOS uses everywhere, as the example.</p>
+<h2 id="where-fontconfig-looks">Where fontconfig looks</h2>
+<p>Ubuntu's <code>/etc/fonts/fonts.conf</code> lists the font folders (<a href="https://www.freedesktop.org/wiki/Software/fontconfig/">fontconfig</a>):</p>
+<pre class="post-code"><code>&lt;dir&gt;/usr/share/fonts&lt;/dir&gt;
+&lt;dir&gt;/usr/local/share/fonts&lt;/dir&gt;
+&lt;dir prefix="xdg"&gt;fonts&lt;/dir&gt;
+&lt;!-- the following element will be removed in the future --&gt;
+&lt;dir&gt;~/.fonts&lt;/dir&gt;</code></pre>
+<p><code>prefix="xdg"</code> means <code>fonts</code> inside your XDG data folder, normally <code>~/.local/share/fonts</code>. So:</p>
+<div class="post-table"><table><thead><tr><th>Folder</th><th>For</th><th>Managed by</th></tr></thead><tbody><tr><td><code>/usr/share/fonts</code></td><td>All users</td><td>apt packages</td></tr><tr><td><code>/usr/local/share/fonts</code></td><td>All users</td><td>You, with sudo</td></tr><tr><td><code>~/.local/share/fonts</code></td><td>You</td><td>You</td></tr><tr><td><code>~/.fonts</code></td><td>You</td><td>Old location, being phased out</td></tr></tbody></table></div>
+<h2 id="with-apt">With apt</h2>
+<p>Many fonts are packaged, with names starting <code>fonts-</code>:</p>
+<pre class="post-code"><code>apt search '^fonts-'
+sudo apt install fonts-jetbrains-mono</code></pre>
+<p>In an <code>ubuntu:26.04</code> container on 28 November 2026, <code>fc-list</code> found no JetBrains font before the install and 32 font files after it, in <code>/usr/share/fonts/truetype/jetbrains-mono/</code>. The package version was 2.304 on both 24.04 and 26.04. It contains two families, <code>JetBrains Mono</code> and <code>JetBrains Mono NL</code>, the second without ligatures, each in weights from Thin to ExtraBold.</p>
+<p>apt updates the font cache itself, so the font is usable right away. Packaged fonts also update and uninstall cleanly, which is the reason to prefer them.</p>
+<h2 id="a-font-file-you-downloaded">A font file you downloaded</h2>
+<pre class="post-code"><code>mkdir -p ~/.local/share/fonts
+cp MyFont-Regular.ttf ~/.local/share/fonts/
+fc-cache -f ~/.local/share/fonts</code></pre>
+<p>In the same container, a TTF copied into <code>~/.local/share/fonts</code> showed up in <code>fc-list</code> after <code>fc-cache -f</code>. For all users, copy into <code>/usr/local/share/fonts</code> with sudo and run <code>sudo fc-cache -f</code>. Subfolders are fine, so a folder per family keeps things tidy.</p>
+<h2 id="check-that-it-worked">Check that it worked</h2>
+<pre class="post-code"><code>$ fc-match "JetBrains Mono"
+JetBrainsMono-Regular.ttf: "JetBrains Mono" "Regular"
+
+$ fc-list : family | grep -i jetbrains
+JetBrains Mono
+JetBrains Mono NL
+...</code></pre>
+<p>If <code>fc-match</code> returns a different font, fontconfig did not find yours: check the folder, the file permissions and run <code>fc-cache -f</code> again. Applications that were open during the install may need a restart.</p>
+<h2 id="using-it">Using it</h2>
+<p>Each desktop sets fonts in its own settings. In KDE Plasma it is System Settings, Text and Fonts. In GNOME, <code>gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrains Mono 11'</code>. Editors and terminals have their own setting, for example <code>editor.fontFamily</code> in VS Code.</p>
+<h2 id="how-haltos-does-it">How HaltOS does it</h2>
+<p>HaltOS does not download fonts. <a href="https://projects.halit.org/claude-code-vps/">claude-code-vps</a>, which it runs on, installs <code>fonts-jetbrains-mono</code> with apt when it sets up the desktop. HaltOS then writes the family into KDE's settings for the user with <code>kwriteconfig6</code> (<a href="https://github.com/halitsever/haltos/blob/main/install.sh">install.sh</a>):</p>
+<pre class="post-code"><code>local mono="JetBrains Mono" tail=",-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
+kwriteconfig6 --file kdeglobals --group General --key fixed "$mono,11$tail"
+kwriteconfig6 --file kdeglobals --group General --key font "$mono,10$tail"</code></pre>
+<p>and sets the same font for GTK applications through <code>gsettings</code>. That gives one typeface across Plasma, Konsole, GTK apps and VS Code, which the <a href="konsole-theme.html">Konsole post</a> shows in the terminal. On a running HaltOS server, <code>dpkg -l fonts-jetbrains-mono</code> reports version <code>2.304+ds-6</code>.</p>
+<h2 id="removing-a-font">Removing a font</h2>
+<p>Delete the file and run <code>fc-cache -f</code>, or <code>sudo apt remove fonts-jetbrains-mono</code> for a packaged one.</p>
+<h2 id="faq">Questions</h2>
+<h3>Where do I put fonts on Ubuntu?</h3>
+<p>For your user only, in ~/.local/share/fonts. For every user, in /usr/local/share/fonts. Ubuntu's /etc/fonts/fonts.conf lists both, together with /usr/share/fonts for packaged fonts and the older ~/.fonts.</p>
+<h3>How do I refresh the font cache on Ubuntu?</h3>
+<p>Run fc-cache -f, optionally with a folder, for example fc-cache -f ~/.local/share/fonts. Then check with fc-list or fc-match.</p>
+<h3>How do I install JetBrains Mono on Ubuntu?</h3>
+<p>sudo apt install fonts-jetbrains-mono. On 28 November 2026 Ubuntu 24.04 and 26.04 both shipped version 2.304, with the files in /usr/share/fonts/truetype/jetbrains-mono.</p>
+<h2 id="related">Related posts</h2>
+<ul><li><a href="konsole-theme.html">Konsole colour schemes and profiles, with a monochrome example</a></li><li><a href="install-vscode-ubuntu.html">Three ways to get VS Code on Ubuntu, and the one HaltOS uses</a></li><li><a href="kubuntu-vs-ubuntu.html">What actually differs between Kubuntu and Ubuntu</a></li></ul>
+    <p class="post-links"><a href="./">All posts</a> <a href="../kde-plasma-theme/">The HaltOS KDE Plasma theme</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

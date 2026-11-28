@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShellCheck: Lint Bash and sh Scripts, Locally and in CI</title>
+<meta name="description" content="How to use ShellCheck on bash and POSIX sh scripts: severity levels, -s sh, disable directives, reading the SC codes, and the CI setup HaltOS uses.">
+<link rel="canonical" href="https://projects.halit.org/haltos/blog/shellcheck.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="ShellCheck: Lint Bash and sh Scripts, Locally and in CI">
+<meta property="og:description" content="How to use ShellCheck on bash and POSIX sh scripts: severity levels, -s sh, disable directives, reading the SC codes, and the CI setup HaltOS uses.">
+<meta property="og:url" content="https://projects.halit.org/haltos/blog/shellcheck.html">
+<meta property="og:image" content="https://projects.halit.org/haltos/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://projects.halit.org/haltos/og.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "headline": "Finding shell script bugs before they run, with ShellCheck",
+      "description": "How to use ShellCheck on bash and POSIX sh scripts: severity levels, -s sh, disable directives, reading the SC codes, and the CI setup HaltOS uses.",
+      "image": "https://projects.halit.org/haltos/og.png",
+      "datePublished": "2026-11-28",
+      "dateModified": "2026-11-28",
+      "inLanguage": "en",
+      "keywords": "shellcheck",
+      "author": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "mainEntityOfPage": "https://projects.halit.org/haltos/blog/shellcheck.html"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "HaltOS",
+          "item": "https://projects.halit.org/haltos/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://projects.halit.org/haltos/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Finding shell script bugs before they run, with ShellCheck",
+          "item": "https://projects.halit.org/haltos/blog/shellcheck.html"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do I install ShellCheck on Ubuntu?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "sudo apt install shellcheck. On 28 November 2026 Ubuntu 24.04 offered version 0.9.0 and Ubuntu 26.04 version 0.11.0. The koalaman/shellcheck Docker image works without installing anything."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I ignore a ShellCheck warning?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Put a directive comment on the line before the command, for example # shellcheck disable=SC2086. Add a short reason after it so the next reader knows why."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does ShellCheck check POSIX sh?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. It reads the shebang, and -s sh forces POSIX mode. In that mode it flags bash-only features such as [[ ]], arrays and local."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dd7e54d3f48841c187d72d9dbb92a6b6"}'></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../kde-plasma-theme/">Theme</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta"><time datetime="2026-11-28">28 November 2026</time>, <a href="https://halit.org">Halit Sever</a></p>
+    <h1>Finding shell script bugs before they run, with ShellCheck</h1>
+<p class="post-lede">ShellCheck is a static analyser for shell scripts. It reads a script without running it and points at quoting mistakes, commands whose failure is ignored and features your shell does not have. HaltOS runs it on every pull request. This post shows its output on a small broken script and the exact settings HaltOS uses, all run with ShellCheck 0.11.0.</p>
+<h2 id="run-it">Run it</h2>
+<pre class="post-code"><code>sudo apt install shellcheck
+shellcheck script.sh</code></pre>
+<p>or without installing:</p>
+<pre class="post-code"><code>docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable script.sh</code></pre>
+<p>In Ubuntu containers on 28 November 2026, apt offered ShellCheck 0.9.0 on 24.04 and 0.11.0 on 26.04. The Docker image <code>stable</code> was 0.11.0.</p>
+<h2 id="a-broken-script">A broken script</h2>
+<pre class="post-code"><code>#!/bin/sh
+dir=$1
+files=$(ls $dir)
+if [ $files == "" ]; then
+  echo "empty"
+fi
+cd $dir
+rm -rf $dir/tmp/*</code></pre>
+<p>ShellCheck's report, shortened to one line per finding with <code>-f gcc</code>:</p>
+<pre class="post-code"><code>demo.sh:3:12: note: Double quote to prevent globbing and word splitting. [SC2086]
+demo.sh:4:6: note: Double quote to prevent globbing and word splitting. [SC2086]
+demo.sh:4:13: warning: In POSIX sh, == in place of = is undefined. [SC3014]
+demo.sh:7:1: warning: Use 'cd ... || exit' or 'cd ... || return' in case cd fails. [SC2164]
+demo.sh:7:4: note: Double quote to prevent globbing and word splitting. [SC2086]
+demo.sh:8:8: note: Double quote to prevent globbing and word splitting. [SC2086]</code></pre>
+<p>The default output prints each line with a caret under the problem and a suggested fix, such as <code>cd "$dir" || exit</code>. The exit code was 1, which is what fails a CI job.</p>
+<p>The worst bug here is the pair on lines 7 and 8. If <code>cd</code> fails, the script keeps going and <code>rm -rf</code> runs from wherever it was. If <code>$dir</code> is empty, the path becomes <code>/tmp/*</code>. Quoting and <code>|| exit</code> fix both.</p>
+<h2 id="severity-levels">Severity levels</h2>
+<p>Every finding has a level: <code>error</code>, <code>warning</code>, <code>info</code> (shown as <code>note</code> in gcc format) or <code>style</code>. <code>-S</code> sets the minimum:</p>
+<pre class="post-code"><code>$ shellcheck -S warning -f gcc demo.sh
+demo.sh:4:13: warning: In POSIX sh, == in place of = is undefined. [SC3014]
+demo.sh:7:1: warning: Use 'cd ... || exit' or 'cd ... || return' in case cd fails. [SC2164]</code></pre>
+<p>The quoting notes disappear. That trade-off is why many projects start with <code>-S warning</code> on old code and tighten it later.</p>
+<h2 id="pick-the-shell-s">Pick the shell: -s</h2>
+<p>ShellCheck reads the shebang. Forcing another dialect changes the rules. With <code>-s bash</code> the <code>==</code> warning goes away, because bash accepts <code>==</code> inside <code>[ ]</code>. HaltOS's <code>install.sh</code> is bash; checked as POSIX sh with <code>-s sh</code> it produced 24 SC3043 findings, one for every <code>local</code>, plus others for <code>[[ ]]</code> and similar. That is the difference the <a href="bash-vs-sh.html">bash vs sh post</a> is about.</p>
+<h2 id="directives">Directives</h2>
+<p>To accept a finding on purpose, put a comment on the line before:</p>
+<pre class="post-code"><code># shellcheck disable=SC1090  # written at runtime on the server, not part of the repo
+[ -r "$CONF" ] &amp;&amp; c=$(. "$CONF" &amp;&amp; echo "${CHANNEL:-stable}")</code></pre>
+<p>That line is from <a href="https://github.com/halitsever/haltos/blob/main/install.sh">install.sh</a>. SC1090 means ShellCheck cannot follow a <code>source</code> whose path is a variable. HaltOS also uses <code># shellcheck shell=bash</code> at the top of <code>shell/haltos-prompt.sh</code>, a file that is sourced and has no shebang, to tell ShellCheck which dialect it is.</p>
+<p>Each code has a wiki page, for example <a href="https://github.com/koalaman/shellcheck/wiki/SC2086">SC2086</a>, with the reasoning and the fix.</p>
+<h2 id="how-haltos-runs-it-in-ci">How HaltOS runs it in CI</h2>
+<p>The <code>ci.yml</code> workflow runs two commands:</p>
+<pre class="post-code"><code>shellcheck -S warning install.sh bootstrap.sh shell/haltos-prompt.sh plasma/scripts/windeco.sh tools/clean-shot.sh tools/release.sh tests/system.sh tests/user.sh tests/lib.sh
+shellcheck -S warning -s sh system/motd/00-haltos</code></pre>
+<p>The second line exists because the SSH login banner, <code>00-haltos</code>, is a POSIX sh script: Ubuntu runs the files in <code>/etc/update-motd.d</code> with its default shell, and HaltOS keeps that one free of bashisms. The <a href="what-is-motd.html">MOTD post</a> shows what the script prints. Both commands passed with ShellCheck 0.11.0 on the current <code>main</code>.</p>
+<p>The list is explicit, so a new script is not checked until someone adds it. The repository's AGENTS.md tells contributors to do exactly that.</p>
+<h2 id="in-the-editor">In the editor</h2>
+<p>The VS Code extension "ShellCheck" and most other editors run the same binary while you type, which catches the quoting notes long before CI does.</p>
+<h2 id="faq">Questions</h2>
+<h3>How do I install ShellCheck on Ubuntu?</h3>
+<p>sudo apt install shellcheck. On 28 November 2026 Ubuntu 24.04 offered version 0.9.0 and Ubuntu 26.04 version 0.11.0. The koalaman/shellcheck Docker image works without installing anything.</p>
+<h3>How do I ignore a ShellCheck warning?</h3>
+<p>Put a directive comment on the line before the command, for example # shellcheck disable=SC2086. Add a short reason after it so the next reader knows why.</p>
+<h3>Does ShellCheck check POSIX sh?</h3>
+<p>Yes. It reads the shebang, and -s sh forces POSIX mode. In that mode it flags bash-only features such as [[ ]], arrays and local.</p>
+<h2 id="related">Related posts</h2>
+<ul><li><a href="bash-vs-sh.html">sh is not bash on Ubuntu: what breaks and how to tell</a></li><li><a href="safe-self-updating-shell-scripts.html">How HaltOS updates itself without running half a script</a></li><li><a href="what-is-motd.html">MOTD on Linux servers, and how to write your own</a></li></ul>
+    <p class="post-links"><a href="./">All posts</a> <a href="../kde-plasma-theme/">The HaltOS KDE Plasma theme</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>
