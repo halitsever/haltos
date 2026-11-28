@@ -7,7 +7,7 @@
   </url>
   <url>
     <loc>https://projects.halit.org/haltos/blog/</loc>
-    <lastmod>2026-11-16</lastmod>
+    <lastmod>2026-11-28</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -56,6 +56,60 @@
   <url>
     <loc>https://projects.halit.org/haltos/blog/secure-vps-remote-development.html</loc>
     <lastmod>2026-11-16</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://projects.halit.org/haltos/kde-plasma-theme/</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://projects.halit.org/haltos/blog/install-fastfetch-ubuntu.html</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://projects.halit.org/haltos/blog/fastfetch-config.html</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://projects.halit.org/haltos/blog/sddm-themes.html</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://projects.halit.org/haltos/blog/fastfetch-vs-neofetch.html</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://projects.halit.org/haltos/blog/what-is-motd.html</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://projects.halit.org/haltos/blog/plymouth-themes.html</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://projects.halit.org/haltos/blog/xrdp-session-theme.html</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://projects.halit.org/haltos/blog/konsole-theme.html</loc>
+    <lastmod>2026-11-28</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>

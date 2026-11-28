@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fastfetch Config: Custom Logo and ASCII Banner</title>
+<meta name="description" content="A fastfetch config explained line by line: where config.jsonc lives, a custom ASCII logo file with colour slots, module keys, separators and presets.">
+<link rel="canonical" href="https://projects.halit.org/haltos/blog/fastfetch-config.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="fastfetch Config: Custom Logo and ASCII Banner">
+<meta property="og:description" content="A fastfetch config explained line by line: where config.jsonc lives, a custom ASCII logo file with colour slots, module keys, separators and presets.">
+<meta property="og:url" content="https://projects.halit.org/haltos/blog/fastfetch-config.html">
+<meta property="og:image" content="https://projects.halit.org/haltos/assets/screens/terminal.png">
+<meta property="og:image:width" content="1110">
+<meta property="og:image:height" content="380">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://projects.halit.org/haltos/assets/screens/terminal.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "headline": "Writing a fastfetch config with your own logo and colours",
+      "description": "A fastfetch config explained line by line: where config.jsonc lives, a custom ASCII logo file with colour slots, module keys, separators and presets.",
+      "image": "https://projects.halit.org/haltos/assets/screens/terminal.png",
+      "datePublished": "2026-11-28",
+      "dateModified": "2026-11-28",
+      "inLanguage": "en",
+      "keywords": "fastfetch config",
+      "author": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "mainEntityOfPage": "https://projects.halit.org/haltos/blog/fastfetch-config.html"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "HaltOS",
+          "item": "https://projects.halit.org/haltos/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://projects.halit.org/haltos/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Writing a fastfetch config with your own logo and colours",
+          "item": "https://projects.halit.org/haltos/blog/fastfetch-config.html"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Where is the fastfetch config file?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The default user config is ~/.config/fastfetch/config.jsonc. fastfetch --list-config-paths prints every folder it searches, including /etc/xdg/fastfetch for system-wide configs."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I create a fastfetch config?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Run fastfetch --gen-config for a minimal file, or --gen-config-full for one with every option. Then edit ~/.config/fastfetch/config.jsonc."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I use my own ASCII art as the fastfetch logo?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Save the art in a text file, set logo.type to file and logo.source to its path. Put $1, $2 and so on in the file to switch between the colours set in logo.color."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dd7e54d3f48841c187d72d9dbb92a6b6"}'></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../kde-plasma-theme/">Theme</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta"><time datetime="2026-11-28">28 November 2026</time>, <a href="https://halit.org">Halit Sever</a></p>
+    <h1>Writing a fastfetch config with your own logo and colours</h1>
+    <figure class="post-figure"><img src="../assets/screens/terminal.png" width="1110" height="380" alt="Konsole on HaltOS: fastfetch with the HALTOS banner, then the two-line prompt with the git branch"><figcaption>Konsole on HaltOS: fastfetch with the HALTOS banner, then the two-line prompt with the git branch</figcaption></figure>
+<p class="post-lede">fastfetch does not create a config file on its own. Without one you get the defaults: your distribution's logo and a long list of modules. With one, you choose the logo, the colours, the labels and which lines appear. This post goes through the config HaltOS ships, which replaces the logo with a generated HALTOS banner.</p>
+<h2 id="where-fastfetch-looks">Where fastfetch looks</h2>
+<pre class="post-code"><code>fastfetch --list-config-paths</code></pre>
+<p>On a HaltOS machine this prints, in order:</p>
+<pre class="post-code"><code>/home/halit/.config/fastfetch/ (*)
+/home/halit/fastfetch/
+/home/halit/.config/kdedefaults/fastfetch/
+/etc/xdg/fastfetch/ (*)
+/usr/share/desktop-base/kf5-settings/fastfetch/
+/etc/fastfetch/</code></pre>
+<p>The asterisk marks folders that exist. A user file in <code>~/.config/fastfetch/config.jsonc</code> takes precedence over the system one in <code>/etc/xdg/fastfetch/</code>. HaltOS writes both: the system file is the default for every account, and each user it themes gets a copy.</p>
+<p>To start from scratch:</p>
+<pre class="post-code"><code>fastfetch --gen-config        # minimal
+fastfetch --gen-config-full   # every option, commented</code></pre>
+<p>The file is JSONC: JSON that allows comments. The first line of HaltOS's file points at fastfetch's JSON schema, so an editor such as VS Code autocompletes every key.</p>
+<h2 id="the-haltos-config">The HaltOS config</h2>
+<p>From <a href="https://github.com/halitsever/haltos/blob/main/system/fastfetch/config.jsonc">system/fastfetch/config.jsonc</a>, the logo part:</p>
+<pre class="post-code"><code>"logo": {
+  "type": "file",
+  "source": "/usr/share/haltos/fastfetch/haltos.txt",
+  "color": { "1": "38;2;250;250;250", "2": "38;2;113;113;122" },
+  "padding": { "right": 3, "top": 1 }
+}</code></pre>
+<ul><li><code>type: file</code> reads the logo from a text file instead of the built-in list.</li><li><code>color</code> defines colour slots. Each value is an ANSI SGR sequence: <code>38;2;R;G;B</code> is a 24-bit foreground colour. Slot 1 is near-white (250, 250, 250), slot 2 is the grey of the palette (113, 113, 122).</li><li><code>padding</code> puts three columns between logo and text and one line above.</li></ul>
+<h2 id="the-logo-file-and-its-colour-slots">The logo file and its colour slots</h2>
+<p>The banner file is generated by <code>tools/build-assets.py</code> and looks like this:</p>
+<pre class="post-code"><code>$1██╗  ██╗ █████╗ ██╗  ████████╗ ██████╗ ███████╗
+$1██║  ██║██╔══██╗██║  ╚══██╔══╝██╔═══██╗██╔════╝
+$1███████║███████║██║     ██║   ██║   ██║███████╗
+$1██╔══██║██╔══██║██║     ██║   ██║   ██║╚════██║
+$1██║  ██║██║  ██║███████╗██║   ╚██████╔╝███████║
+$1╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝    ╚═════╝ ╚══════╝
+$2  v1.3 // SIGKILL</code></pre>
+<p><code>$1</code> and <code>$2</code> switch to colour slots 1 and 2. The banner is white and the version tag underneath is grey. Generating it from a script means the version and codename update with each release instead of being edited by hand.</p>
+<p>To use your own art, save it to a file, add <code>$1</code> (and more slots if you want), and point <code>logo.source</code> at it. To try a file without editing the config: <code>fastfetch -l /path/to/logo.txt</code>. To pick a built-in logo instead: <code>fastfetch --list-logos</code>, then <code>"logo": "arch"</code> or any other name.</p>
+<h2 id="display-settings">Display settings</h2>
+<pre class="post-code"><code>"display": {
+  "separator": "  ",
+  "color": { "keys": "38;2;113;113;122", "title": "38;2;250;250;250", "output": "38;2;228;228;231" }
+}</code></pre>
+<p>Two spaces between key and value instead of the default colon, grey keys, white title and light grey values. Three colours, all from the same zinc palette the <a href="konsole-theme.html">Konsole theme</a> uses.</p>
+<h2 id="modules">Modules</h2>
+<pre class="post-code"><code>"modules": [
+  "title",
+  { "type": "custom", "format": "\u001b[38;2;113;113;122m────────────────────────────" },
+  { "type": "command", "key": "os    ", "text": ". /etc/os-release &amp;&amp; echo \"$PRETTY_NAME $(uname -m)\"" },
+  { "type": "kernel", "key": "kernel" },
+  { "type": "uptime", "key": "uptime" },
+  { "type": "packages", "key": "pkgs  " },
+  { "type": "shell", "key": "shell " },
+  { "type": "de", "key": "de    " },
+  { "type": "cpu", "key": "cpu   " },
+  { "type": "memory", "key": "mem   " },
+  { "type": "disk", "key": "disk  ", "folders": "/" },
+  { "type": "localip", "key": "net   ", "compact": true },
+  "break",
+  { "type": "colors", "symbol": "block" }
+]</code></pre>
+<p>Things worth noting:</p>
+<ul><li><strong>Keys are padded by hand</strong> to six characters, so values line up in a column without a separator character.</li><li>**<code>custom</code>** prints any text. Here it draws a grey rule under the title.</li><li>**<code>command</code>** runs a shell command and prints its output. HaltOS uses it for the OS line so it reads <code>PRETTY_NAME</code> from <code>/etc/os-release</code> (which HaltOS rebrands) plus the architecture.</li><li>**<code>disk</code> with <code>folders: "/"</code>** shows only the root filesystem instead of every mount.</li><li>**<code>break</code><strong> is an empty line, and </strong><code>colors</code>** prints the terminal's 16-colour palette as blocks.</li></ul>
+<p><code>fastfetch --list-modules</code> lists all of them.</p>
+<h2 id="presets">Presets</h2>
+<p>fastfetch ships example configs. List them with <code>fastfetch --list-presets</code> and try one with <code>-c</code>:</p>
+<pre class="post-code"><code>fastfetch -c neofetch      # neofetch-like layout
+fastfetch -c all           # every module
+fastfetch -c examples/8    # one of the numbered examples</code></pre>
+<p>Copy one from <code>/usr/share/fastfetch/presets/</code> into <code>~/.config/fastfetch/config.jsonc</code> and edit from there.</p>
+<h2 id="get-the-haltos-look-without-haltos">Get the HaltOS look without HaltOS</h2>
+<p>On any Plasma 6 machine, <code>install.sh user</code> from the <a href="../kde-plasma-theme/">HaltOS repository</a> installs the banner and writes this config into your home folder, along with the rest of the theme. Or copy the two files above by hand: the config into <code>~/.config/fastfetch/</code>, the banner anywhere, with <code>logo.source</code> pointing at it.</p>
+<h2 id="faq">Questions</h2>
+<h3>Where is the fastfetch config file?</h3>
+<p>The default user config is ~/.config/fastfetch/config.jsonc. fastfetch --list-config-paths prints every folder it searches, including /etc/xdg/fastfetch for system-wide configs.</p>
+<h3>How do I create a fastfetch config?</h3>
+<p>Run fastfetch --gen-config for a minimal file, or --gen-config-full for one with every option. Then edit ~/.config/fastfetch/config.jsonc.</p>
+<h3>How do I use my own ASCII art as the fastfetch logo?</h3>
+<p>Save the art in a text file, set logo.type to file and logo.source to its path. Put $1, $2 and so on in the file to switch between the colours set in logo.color.</p>
+<h2 id="related">Related posts</h2>
+<ul><li><a href="install-fastfetch-ubuntu.html">How to install fastfetch on any current Ubuntu release</a></li><li><a href="fastfetch-vs-neofetch.html">fastfetch or neofetch: the differences that matter now</a></li><li><a href="konsole-theme.html">Konsole colour schemes and profiles, with a monochrome example</a></li></ul>
+    <p class="post-links"><a href="./">All posts</a> <a href="../kde-plasma-theme/">The HaltOS KDE Plasma theme</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

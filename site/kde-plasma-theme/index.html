@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KDE Plasma Theme: HaltOS Monochrome for Plasma 6</title>
+<meta name="description" content="HaltOS is a free monochrome KDE Plasma theme: colour scheme, Kvantum widgets, Konsole, splash and login. Install it on any Plasma 6 desktop without root.">
+<link rel="canonical" href="https://projects.halit.org/haltos/kde-plasma-theme/">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="KDE Plasma Theme: HaltOS Monochrome for Plasma 6">
+<meta property="og:description" content="HaltOS is a free monochrome KDE Plasma theme: colour scheme, Kvantum widgets, Konsole, splash and login. Install it on any Plasma 6 desktop without root.">
+<meta property="og:url" content="https://projects.halit.org/haltos/kde-plasma-theme/">
+<meta property="og:image" content="https://projects.halit.org/haltos/assets/screens/desktop.png">
+<meta property="og:image:width" content="1800">
+<meta property="og:image:height" content="1130">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://projects.halit.org/haltos/assets/screens/desktop.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "name": "KDE Plasma Theme: HaltOS Monochrome for Plasma 6",
+      "description": "HaltOS is a free monochrome KDE Plasma theme: colour scheme, Kvantum widgets, Konsole, splash and login. Install it on any Plasma 6 desktop without root.",
+      "url": "https://projects.halit.org/haltos/kde-plasma-theme/",
+      "inLanguage": "en",
+      "primaryImageOfPage": "https://projects.halit.org/haltos/assets/screens/desktop.png",
+      "author": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "HaltOS",
+          "item": "https://projects.halit.org/haltos/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "KDE Plasma theme",
+          "item": "https://projects.halit.org/haltos/kde-plasma-theme/"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does the HaltOS theme work on Kubuntu, Fedora KDE or Arch?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The user install needs Plasma 6 and the kwriteconfig6, qdbus6, plasma-apply-colorscheme and plasma-apply-wallpaperimage commands, which Plasma 6 ships. It is tested on Ubuntu 25.04 and newer. On other distributions the user part should apply, but only Ubuntu is tested."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need root to install it?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. install.sh user writes only into your home folder. Root is only needed for install.sh system, which adds the login screen, MOTD, OS identity and defaults for new accounts."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I go back to my old theme?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Run install.sh undo-user. It restores the KDE config saved in ~/.haltos-backup/kde-config-original.tar.gz before the first install and removes the HaltOS files from your home folder."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does the user install affect other accounts?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. install.sh user changes only the account that runs it. Other users keep their own theme unless you also run install.sh system, which sets defaults for accounts created afterwards."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dd7e54d3f48841c187d72d9dbb92a6b6"}'></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="./">Theme</a>
+    <a href="../blog/">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <h1>A monochrome KDE Plasma 6 theme you can install without root</h1>
+    <p class="post-lede">HaltOS started as the look of a Claude Code server reached over RDP. The theme part works on any KDE Plasma 6 desktop: one command themes your account without root, and one command puts your old setup back. Everything below is from the repository and its own screenshots.</p>
+    <div class="post-figure-grid">
+      <figure class="post-figure"><img src="../assets/screens/desktop.png" width="1800" height="1130" alt="The HaltOS desktop: HALTOS in ASCII block letters on a black wallpaper with a floating panel and a dot start button" loading="eager"><figcaption>The HaltOS desktop: HALTOS in ASCII block letters on a black wallpaper with a floating panel and a dot start button</figcaption></figure>
+      <figure class="post-figure"><img src="../assets/screens/widgets.png" width="1005" height="765" alt="Kvantum widget preview: outline push buttons, a white toggled button and rounded inputs" loading="lazy"><figcaption>Kvantum widget preview: outline push buttons, a white toggled button and rounded inputs</figcaption></figure>
+      <figure class="post-figure"><img src="../assets/screens/terminal.png" width="1110" height="380" alt="Konsole running fastfetch with the HALTOS banner, then the two-line HaltOS prompt" loading="lazy"><figcaption>Konsole running fastfetch with the HALTOS banner, then the two-line HaltOS prompt</figcaption></figure>
+      <figure class="post-figure"><img src="../assets/screens/splash.png" width="1512" height="949" alt="Plasma splash screen with the HALTOS wordmark and a systemd-style boot log" loading="lazy"><figcaption>Plasma splash screen with the HALTOS wordmark and a systemd-style boot log</figcaption></figure>
+      <figure class="post-figure"><img src="../assets/screens/login.png" width="1512" height="949" alt="SDDM login card with username and password fields and a white sign in button" loading="lazy"><figcaption>SDDM login card with username and password fields and a white sign in button</figcaption></figure>
+      <figure class="post-figure"><img src="../assets/screens/libadwaita.png" width="410" height="666" alt="GNOME Calculator in the HaltOS palette with a white equals key" loading="lazy"><figcaption>GNOME Calculator in the HaltOS palette with a white equals key</figcaption></figure>
+    </div>
+<h2 id="install-it-on-your-plasma-6-desktop">Install it on your Plasma 6 desktop</h2>
+<pre class="post-code"><code>git clone https://github.com/halitsever/haltos ~/haltos
+~/haltos/install.sh user</code></pre>
+<p>Then log out and back in once, so running apps pick up the widget style. That is the whole install for your account. It needs Plasma 6; on Ubuntu that means 25.04 or newer.</p>
+<p><code>install.sh user</code> installs no packages. For the complete look, have these installed (Ubuntu package names):</p>
+<pre class="post-code"><code>sudo apt install qt6-style-kvantum fonts-jetbrains-mono fastfetch</code></pre>
+<p>Kvantum draws the widgets, JetBrains Mono is the font everywhere, and fastfetch prints the banner in new terminals. Without them the theme still applies, with Plasma's defaults in their place.</p>
+<p>Optional, with root, for the parts outside your account:</p>
+<pre class="post-code"><code>sudo ~/haltos/install.sh system</code></pre>
+<p>That adds the SDDM login theme, the SSH login banner, the OS name in About this System and fastfetch, and makes HaltOS the default for accounts created later. Skip it on a machine you share.</p>
+<h2 id="what-it-changes">What it changes</h2>
+<div class="post-table"><table><thead><tr><th>Part</th><th>What you get</th><th>Installed by</th></tr></thead><tbody><tr><td>Colour scheme</td><td><code>HaltMono</code>, a zinc palette from near-black to near-white</td><td><code>user</code></td></tr><tr><td>Widget style</td><td><code>HaltMono</code> Kvantum theme: outline buttons, inputs, menus, tabs, thin auto-hiding scrollbars</td><td><code>user</code></td></tr><tr><td>Plasma style</td><td><code>haltos</code> desktop theme for panels and popups, a translucent floating top panel with a dot start icon</td><td><code>user</code></td></tr><tr><td>Global theme</td><td><code>org.haltos.mono</code> look-and-feel package, with the ASCII splash and fake boot log</td><td><code>user</code></td></tr><tr><td>Window decorations</td><td>Flat Breeze titlebars</td><td><code>user</code></td></tr><tr><td>Fonts</td><td>JetBrains Mono for every UI font</td><td><code>user</code></td></tr><tr><td>Terminal</td><td>Konsole <code>HaltOS</code> profile with the <code>HaltMono</code> scheme, a two-line bash prompt, fastfetch banner</td><td><code>user</code></td></tr><tr><td>GTK and libadwaita</td><td>Breeze GTK follows the colours; libadwaita apps get the same tokens</td><td><code>user</code></td></tr><tr><td>VS Code</td><td><code>HaltMono</code> colour theme, loaded on the next start; your own choice still wins</td><td><code>user</code></td></tr><tr><td>Login screen</td><td>SDDM card theme</td><td><code>system</code></td></tr><tr><td>SSH banner</td><td>ASCII MOTD with uptime, load, memory, disk and updates</td><td><code>system</code></td></tr></tbody></table></div>
+<p>The posts on <a href="../blog/konsole-theme.html">Konsole themes</a>, the <a href="../blog/fastfetch-config.html">fastfetch config</a>, <a href="../blog/sddm-themes.html">SDDM themes</a> and <a href="../blog/kvantum-theme-from-design-tokens.html">Kvantum from design tokens</a> explain the individual parts.</p>
+<h2 id="undo">Undo</h2>
+<p>The first <code>install.sh user</code> saves your KDE config to <code>~/.haltos-backup/kde-config-original.tar.gz</code> and never overwrites that file. To restore it:</p>
+<pre class="post-code"><code>~/haltos/install.sh undo-user
+sudo ~/haltos/install.sh undo-system   # only if you ran the system install</code></pre>
+<p><code>undo-user</code> unpacks the saved config, removes the HaltOS colour scheme, Konsole files, wallpaper, Plasma and Kvantum themes, the VS Code theme and the prompt line in <code>~/.bashrc</code>, then asks you to log out. <code>undo-system</code> restores Ubuntu's identity files, login banner and defaults.</p>
+<h2 id="known-limits">Known limits</h2>
+<p>From the README:</p>
+<ul><li>The SDDM theme shows only when SDDM is the active display manager. Ubuntu flavours often ship GDM, and RDP sessions skip the login screen entirely.</li><li>Kvantum has no keyboard-only focus, so the focus frame is off to avoid boxes on every click. Inputs still show a ring when focused.</li><li>Chromium-based browsers keep their own theme unless <strong>Use GTK</strong> is selected in their appearance settings.</li><li>The Plymouth boot splash in the repository is not installed on Ubuntu today, because the installer looks for a tool Ubuntu does not ship. <a href="../blog/plymouth-themes.html">Plymouth themes</a> shows how to set it by hand.</li></ul>
+<h2 id="the-whole-haltos">The whole HaltOS</h2>
+<p>On a fresh Ubuntu 25.04 or newer server, one command installs <a href="https://projects.halit.org/claude-code-vps/">claude-code-vps</a> (Plasma over RDP, hardened SSH, Docker, Claude Code) and this theme on top. The <a href="../">HaltOS home page</a> covers that setup, and <a href="../blog/xrdp-session-theme.html">xrdp looks different from your desktop?</a> explains how the theme reaches an RDP session.</p>
+<h2 id="faq">Questions</h2>
+<h3>Does the HaltOS theme work on Kubuntu, Fedora KDE or Arch?</h3>
+<p>The user install needs Plasma 6 and the kwriteconfig6, qdbus6, plasma-apply-colorscheme and plasma-apply-wallpaperimage commands, which Plasma 6 ships. It is tested on Ubuntu 25.04 and newer. On other distributions the user part should apply, but only Ubuntu is tested.</p>
+<h3>Do I need root to install it?</h3>
+<p>No. install.sh user writes only into your home folder. Root is only needed for install.sh system, which adds the login screen, MOTD, OS identity and defaults for new accounts.</p>
+<h3>How do I go back to my old theme?</h3>
+<p>Run install.sh undo-user. It restores the KDE config saved in ~/.haltos-backup/kde-config-original.tar.gz before the first install and removes the HaltOS files from your home folder.</p>
+<h3>Does the user install affect other accounts?</h3>
+<p>No. install.sh user changes only the account that runs it. Other users keep their own theme unless you also run install.sh system, which sets defaults for accounts created afterwards.</p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

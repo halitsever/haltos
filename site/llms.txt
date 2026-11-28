@@ -7,6 +7,7 @@ Install on a fresh Ubuntu 25.04 or newer server, as root: `curl -fsSL https://ra
 ## Docs
 
 - [HaltOS home](https://projects.halit.org/haltos/): what HaltOS installs, the one-command install, removal and FAQ
+- [KDE Plasma theme](https://projects.halit.org/haltos/kde-plasma-theme/): screenshots, what the theme changes, installing it on any Plasma 6 desktop without root, and undo
 - [README](https://github.com/halitsever/haltos/blob/main/Readme.md): features, install on an existing Plasma 6 machine, updates, removal and known limits
 - [Testing a release](https://github.com/halitsever/haltos/blob/main/docs/testing.md): step-by-step checks on a fresh server
 - [Releasing](https://github.com/halitsever/haltos/blob/main/docs/releasing.md): how versions are tagged and published
@@ -14,6 +15,14 @@ Install on a fresh Ubuntu 25.04 or newer server, as root: `curl -fsSL https://ra
 ## Optional
 
 - [Blog](https://projects.halit.org/haltos/blog/): all posts
+- [How to install fastfetch on any current Ubuntu release](https://projects.halit.org/haltos/blog/install-fastfetch-ubuntu.html): Install fastfetch on Ubuntu 24.04 with the official PPA or a .deb, and on 25.04 and later with apt. Check the version, run it at login, and remove it again.
+- [Writing a fastfetch config with your own logo and colours](https://projects.halit.org/haltos/blog/fastfetch-config.html): A fastfetch config explained line by line: where config.jsonc lives, a custom ASCII logo file with colour slots, module keys, separators and presets.
+- [Installing and switching SDDM login screen themes](https://projects.halit.org/haltos/blog/sddm-themes.html): SDDM themes explained: where they live, the files a Qt 6 theme needs, how to switch from System Settings or the terminal, test mode, and why xrdp skips them.
+- [fastfetch or neofetch: the differences that matter now](https://projects.halit.org/haltos/blog/fastfetch-vs-neofetch.html): fastfetch vs neofetch: neofetch was archived in April 2024, fastfetch is maintained, written in C and configured in JSONC. How to switch, and keep the look.
+- [MOTD on Linux servers, and how to write your own](https://projects.halit.org/haltos/blog/what-is-motd.html): What MOTD means on a Linux server, how Ubuntu builds it from /etc/update-motd.d at SSH login, how to turn off its ads and notices, and a custom banner script.
+- [Changing the Plymouth boot splash on Ubuntu and Debian](https://projects.halit.org/haltos/blog/plymouth-themes.html): How Plymouth themes work and how to change the boot splash: update-alternatives on Ubuntu, plymouth-set-default-theme on Debian, initramfs and the splash flag.
+- [Why xrdp opens a different desktop, and how to theme it](https://projects.halit.org/haltos/blog/xrdp-session-theme.html): Why an xrdp session starts XFCE or looks different from your desktop, how ~/.xsession picks the session, fixing a black screen, and applying a theme over RDP.
+- [Konsole colour schemes and profiles, with a monochrome example](https://projects.halit.org/haltos/blog/konsole-theme.html): How Konsole themes work: .colorscheme and .profile files, where they live, setting the default profile, plus the HaltMono scheme and a two-line bash prompt.
 - [Run several Claude Code agents in parallel with git worktrees](https://projects.halit.org/haltos/blog/parallel-claude-code-agents-git-worktrees.html): one worktree and branch per agent, side by side with claudegrid
 - [Secure a VPS for remote development](https://projects.halit.org/haltos/blog/secure-vps-remote-development.html): key-only SSH, ufw, unattended upgrades and RDP
 - [KDE Plasma over RDP on a VPS with xrdp](https://projects.halit.org/haltos/blog/kde-plasma-over-rdp-xrdp.html): xrdp, the X11 session and running without a display manager or GPU

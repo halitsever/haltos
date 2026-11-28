@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SDDM Themes: Install and Change the KDE Login Screen</title>
+<meta name="description" content="SDDM themes explained: where they live, the files a Qt 6 theme needs, how to switch from System Settings or the terminal, test mode, and why xrdp skips them.">
+<link rel="canonical" href="https://projects.halit.org/haltos/blog/sddm-themes.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="SDDM Themes: Install and Change the KDE Login Screen">
+<meta property="og:description" content="SDDM themes explained: where they live, the files a Qt 6 theme needs, how to switch from System Settings or the terminal, test mode, and why xrdp skips them.">
+<meta property="og:url" content="https://projects.halit.org/haltos/blog/sddm-themes.html">
+<meta property="og:image" content="https://projects.halit.org/haltos/assets/screens/login.png">
+<meta property="og:image:width" content="1512">
+<meta property="og:image:height" content="949">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://projects.halit.org/haltos/assets/screens/login.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "headline": "Installing and switching SDDM login screen themes",
+      "description": "SDDM themes explained: where they live, the files a Qt 6 theme needs, how to switch from System Settings or the terminal, test mode, and why xrdp skips them.",
+      "image": "https://projects.halit.org/haltos/assets/screens/login.png",
+      "datePublished": "2026-11-28",
+      "dateModified": "2026-11-28",
+      "inLanguage": "en",
+      "keywords": "sddm themes",
+      "author": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "mainEntityOfPage": "https://projects.halit.org/haltos/blog/sddm-themes.html"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "HaltOS",
+          "item": "https://projects.halit.org/haltos/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://projects.halit.org/haltos/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Installing and switching SDDM login screen themes",
+          "item": "https://projects.halit.org/haltos/blog/sddm-themes.html"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Where are SDDM themes stored?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "System-wide themes live in /usr/share/sddm/themes, one folder per theme. The folder name is the theme name SDDM uses in its config."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I change the SDDM theme from the terminal?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Create a file in /etc/sddm.conf.d/ with [Theme] on one line and Current=<theme folder name> on the next. Files there are read in name order and later ones win, so give yours a high number."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my SDDM theme not show over RDP?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "RDP sessions through xrdp log in with xrdp's own login dialog and never start SDDM, so the theme is only seen on a local display."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dd7e54d3f48841c187d72d9dbb92a6b6"}'></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../kde-plasma-theme/">Theme</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta"><time datetime="2026-11-28">28 November 2026</time>, <a href="https://halit.org">Halit Sever</a></p>
+    <h1>Installing and switching SDDM login screen themes</h1>
+    <figure class="post-figure"><img src="../assets/screens/login.png" width="1512" height="949" alt="The HaltOS SDDM theme: a dark login card with user name and password fields and a white sign in button"><figcaption>The HaltOS SDDM theme: a dark login card with user name and password fields and a white sign in button</figcaption></figure>
+<p class="post-lede">SDDM is the login screen KDE Plasma uses. Its look comes from a theme: a folder of QML and images that the greeter loads. This post covers where themes live, how to switch them with or without a desktop, how to test one safely, and the catch for remote desktops, using the HaltOS theme as the example.</p>
+<h2 id="where-themes-live">Where themes live</h2>
+<pre class="post-code"><code>ls /usr/share/sddm/themes/</code></pre>
+<p>Each folder is one theme. A Qt 6 theme for current SDDM needs at least:</p>
+<div class="post-table"><table><thead><tr><th>File</th><th>Purpose</th></tr></thead><tbody><tr><td><code>metadata.desktop</code></td><td>Name, author, main QML file, config file, Qt version</td></tr><tr><td><code>Main.qml</code></td><td>The login screen itself, written in QML</td></tr><tr><td><code>theme.conf</code></td><td>Settings the QML reads, such as the background image</td></tr><tr><td>images</td><td>Backgrounds, logos</td></tr></tbody></table></div>
+<p>The HaltOS theme's <a href="https://github.com/halitsever/haltos/blob/main/sddm/haltos/metadata.desktop">metadata.desktop</a>:</p>
+<pre class="post-code"><code>[SddmGreeterTheme]
+Name=HaltOS
+Description=HaltOS monochrome login
+Type=sddm-theme
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=haltos
+Theme-API=2.0
+QtVersion=6</code></pre>
+<p><code>QtVersion=6</code> tells SDDM to start its Qt 6 greeter (<code>sddm-greeter-qt6</code>). A theme written for Qt 5 without that line may fail to load on a Plasma 6 system.</p>
+<h2 id="switch-themes-in-system-settings">Switch themes in System Settings</h2>
+<p>On Plasma 6: <strong>System Settings</strong> → <strong>Colors &amp; Themes</strong> → <strong>Login Screen (SDDM)</strong>. Pick a theme, apply, enter your password. The same page has buttons to get new themes from the KDE Store and to install one from a file, and it writes the choice into SDDM's config for you.</p>
+<h2 id="switch-themes-from-the-terminal">Switch themes from the terminal</h2>
+<p>The <code>sddm.conf</code> man page lists the load order: <code>/usr/lib/sddm/sddm.conf.d</code>, then <code>/etc/sddm.conf.d</code>, then <code>/etc/sddm.conf</code>, with the latter having the highest precedence. Files inside a folder are read in name order. HaltOS's <a href="https://github.com/halitsever/haltos/blob/main/install.sh">install.sh</a> writes its choice like this:</p>
+<pre class="post-code"><code>sudo install -d /etc/sddm.conf.d
+printf '[Theme]\nCurrent=haltos\n' | sudo tee /etc/sddm.conf.d/90-haltos.conf</code></pre>
+<p>The <code>90-</code> prefix matters. On one HaltOS machine, an Ubuntu Budgie package had already installed <code>50-ubuntu-budgie.conf</code> with <code>Current=ubuntu-budgie-login</code>. Because <code>90-haltos.conf</code> sorts later, its <code>Current=haltos</code> wins. Check what a machine has with:</p>
+<pre class="post-code"><code>grep -r Current /etc/sddm.conf /etc/sddm.conf.d/ 2&gt;/dev/null</code></pre>
+<p>A <code>Current=</code> line in <code>/etc/sddm.conf</code> itself would still beat every drop-in, so check that file too. The change applies the next time the greeter starts: after a log out or reboot.</p>
+<h2 id="test-a-theme-without-logging-out">Test a theme without logging out</h2>
+<pre class="post-code"><code>sddm-greeter-qt6 --test-mode --theme /usr/share/sddm/themes/haltos</code></pre>
+<p>That opens the login screen in a window on your current desktop. You cannot log in from it, but you can see the layout and catch QML errors in the terminal output before you make the theme the default and lock yourself out of a working login screen.</p>
+<h2 id="install-a-theme-by-hand">Install a theme by hand</h2>
+<pre class="post-code"><code>sudo cp -r my-theme /usr/share/sddm/themes/
+sddm-greeter-qt6 --test-mode --theme /usr/share/sddm/themes/my-theme
+printf '[Theme]\nCurrent=my-theme\n' | sudo tee /etc/sddm.conf.d/90-theme.conf</code></pre>
+<p>Themes from the KDE Store come as archives; unpack them so the folder with <code>metadata.desktop</code> sits directly under <code>themes/</code>.</p>
+<h2 id="when-the-theme-never-shows">When the theme never shows</h2>
+<p>Two cases from the <a href="https://github.com/halitsever/haltos#known-limits">HaltOS README</a>:</p>
+<ul><li><strong>SDDM is not the display manager.</strong> Many Ubuntu flavours use GDM. The theme files can be installed, and <code>/etc/sddm.conf.d/</code> can point at them, but nobody sees them. HaltOS installs the theme only when <code>/usr/share/sddm/themes</code> exists, and says it is used when SDDM is the active display manager.</li><li><strong>You connect over RDP.</strong> xrdp shows its own login dialog and starts your desktop session directly, without SDDM. On a server set up with <a href="https://projects.halit.org/claude-code-vps/">claude-code-vps</a>, SDDM is even disabled, because nobody logs in at the console. The HaltOS login theme then only appears if you attach a display. <a href="xrdp-session-theme.html">xrdp looks different from your desktop?</a> covers what xrdp does start.</li></ul>
+<h2 id="undo">Undo</h2>
+<p>HaltOS removes its theme with <code>sudo haltos undo-system</code>, which deletes <code>/usr/share/sddm/themes/haltos</code> and <code>/etc/sddm.conf.d/90-haltos.conf</code>. By hand, delete your drop-in file and the previous theme comes back. The boot splash before SDDM is a separate system; see <a href="plymouth-themes.html">Plymouth themes</a>.</p>
+<h2 id="faq">Questions</h2>
+<h3>Where are SDDM themes stored?</h3>
+<p>System-wide themes live in /usr/share/sddm/themes, one folder per theme. The folder name is the theme name SDDM uses in its config.</p>
+<h3>How do I change the SDDM theme from the terminal?</h3>
+<p>Create a file in /etc/sddm.conf.d/ with [Theme] on one line and Current=&lt;theme folder name&gt; on the next. Files there are read in name order and later ones win, so give yours a high number.</p>
+<h3>Why does my SDDM theme not show over RDP?</h3>
+<p>RDP sessions through xrdp log in with xrdp's own login dialog and never start SDDM, so the theme is only seen on a local display.</p>
+<h2 id="related">Related posts</h2>
+<ul><li><a href="plymouth-themes.html">Changing the Plymouth boot splash on Ubuntu and Debian</a></li><li><a href="xrdp-session-theme.html">Why xrdp opens a different desktop, and how to theme it</a></li><li><a href="konsole-theme.html">Konsole colour schemes and profiles, with a monochrome example</a></li></ul>
+    <p class="post-links"><a href="./">All posts</a> <a href="../kde-plasma-theme/">The HaltOS KDE Plasma theme</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

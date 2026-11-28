@@ -270,6 +270,15 @@ img { max-width: 100%; height: auto; display: block; }
 .post-figure img { border-radius: 6px; width: 100%; }
 .post-figure figcaption { margin-top: 10px; font-size: 14px; color: var(--muted); text-align: center; }
 .post-links { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 32px !important; }
+.post h3 { margin: 32px 0 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.post ol { margin: 16px 0 0; padding-left: 22px; }
+.post-table { margin: 16px 0 0; overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; }
+.post-table table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.post-table th, .post-table td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--rule); color: var(--soft); }
+.post-table th { color: var(--ink); font-weight: 500; background: var(--panel); }
+.post-table tr:last-child td { border-bottom: 0; }
+.post-figure-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin: 24px 0 0; }
+.post-figure-grid .post-figure { margin: 0; }
 
 /* Blog */
 .post-cover { margin: 28px 0 0; }

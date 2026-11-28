@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A Monochrome Konsole Theme and Two-Line Prompt</title>
+<meta name="description" content="How Konsole themes work: .colorscheme and .profile files, where they live, setting the default profile, plus the HaltMono scheme and a two-line bash prompt.">
+<link rel="canonical" href="https://projects.halit.org/haltos/blog/konsole-theme.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="A Monochrome Konsole Theme and Two-Line Prompt">
+<meta property="og:description" content="How Konsole themes work: .colorscheme and .profile files, where they live, setting the default profile, plus the HaltMono scheme and a two-line bash prompt.">
+<meta property="og:url" content="https://projects.halit.org/haltos/blog/konsole-theme.html">
+<meta property="og:image" content="https://projects.halit.org/haltos/assets/screens/terminal.png">
+<meta property="og:image:width" content="1110">
+<meta property="og:image:height" content="380">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://projects.halit.org/haltos/assets/screens/terminal.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "headline": "Konsole colour schemes and profiles, with a monochrome example",
+      "description": "How Konsole themes work: .colorscheme and .profile files, where they live, setting the default profile, plus the HaltMono scheme and a two-line bash prompt.",
+      "image": "https://projects.halit.org/haltos/assets/screens/terminal.png",
+      "datePublished": "2026-11-28",
+      "dateModified": "2026-11-28",
+      "inLanguage": "en",
+      "keywords": "konsole theme",
+      "author": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "mainEntityOfPage": "https://projects.halit.org/haltos/blog/konsole-theme.html"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "HaltOS",
+          "item": "https://projects.halit.org/haltos/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://projects.halit.org/haltos/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Konsole colour schemes and profiles, with a monochrome example",
+          "item": "https://projects.halit.org/haltos/blog/konsole-theme.html"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Where does Konsole store colour schemes?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "User colour schemes are .colorscheme files in ~/.local/share/konsole. System-wide ones live in /usr/share/konsole."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I set the default Konsole profile?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "In Konsole open Settings, Configure Konsole, Profiles and mark one as default, or set DefaultProfile under [Desktop Entry] in ~/.config/konsolerc."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Konsole or Alacritty?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Konsole is KDE's terminal with tabs, split views, profiles and desktop integration. Alacritty is a GPU-accelerated terminal configured with a TOML file and no built-in tabs. Pick Konsole if you live in Plasma and want tabs without a multiplexer."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dd7e54d3f48841c187d72d9dbb92a6b6"}'></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../kde-plasma-theme/">Theme</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta"><time datetime="2026-11-28">28 November 2026</time>, <a href="https://halit.org">Halit Sever</a></p>
+    <h1>Konsole colour schemes and profiles, with a monochrome example</h1>
+    <figure class="post-figure"><img src="../assets/screens/terminal.png" width="1110" height="380" alt="Konsole on HaltOS: fastfetch with the HALTOS banner, then the two-line prompt with the git branch"><figcaption>Konsole on HaltOS: fastfetch with the HALTOS banner, then the two-line prompt with the git branch</figcaption></figure>
+<p class="post-lede">A Konsole theme is two small text files: a colour scheme for the 16 terminal colours and the background, and a profile that picks the scheme, font, shell and scrolling. This post shows both, using the HaltOS files, and adds the two-line bash prompt with git branch and exit code that HaltOS pairs with them.</p>
+<h2 id="two-files">Two files</h2>
+<div class="post-table"><table><thead><tr><th>File</th><th>Holds</th><th>Lives in</th></tr></thead><tbody><tr><td><code>&lt;Name&gt;.colorscheme</code></td><td>background, foreground and the 16 ANSI colours, each in normal, faint and intense</td><td><code>~/.local/share/konsole/</code></td></tr><tr><td><code>&lt;Name&gt;.profile</code></td><td>which colour scheme, font, shell command, cursor, scrollback, margins</td><td><code>~/.local/share/konsole/</code></td></tr></tbody></table></div>
+<p>System-wide copies go in <code>/usr/share/konsole/</code>. Konsole lists both in <strong>Settings</strong> → <strong>Configure Konsole</strong> → <strong>Profiles</strong>, and the profile editor's <strong>Appearance</strong> page lists colour schemes.</p>
+<h2 id="the-haltmono-colour-scheme">The HaltMono colour scheme</h2>
+<p><a href="https://github.com/halitsever/haltos/blob/main/konsole/HaltMono.colorscheme">konsole/HaltMono.colorscheme</a> starts with:</p>
+<pre class="post-code"><code>[General]
+Description=HaltOS Mono
+Opacity=1
+Blur=false
+
+[Background]
+Color=9,9,11
+
+[Foreground]
+Color=250,250,250
+
+[ForegroundFaint]
+Color=161,161,170</code></pre>
+<p>Colours are plain <code>R,G,B</code>. The background <code>9,9,11</code> and foreground <code>250,250,250</code> are the darkest and lightest values of the zinc palette the whole HaltOS theme uses, so the terminal matches the panel, the windows and the login screen.</p>
+<p>The 16 ANSI colours follow as <code>[Color0]</code> to <code>[Color7]</code>, each with <code>Faint</code> and <code>Intense</code> variants. HaltOS keeps them recognisable instead of making them grey: red is <code>239,68,68</code>, green <code>34,197,94</code>, yellow <code>234,179,8</code>, blue <code>59,130,246</code>. "Monochrome" applies to the frame around the text, not to <code>git diff</code> or test output, where colour carries meaning.</p>
+<h2 id="the-profile">The profile</h2>
+<p><a href="https://github.com/halitsever/haltos/blob/main/konsole/HaltOS.profile">konsole/HaltOS.profile</a>:</p>
+<pre class="post-code"><code>[Appearance]
+ColorScheme=HaltMono
+Font=JetBrains Mono,12,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+
+[Cursor Options]
+CursorShape=0
+
+[General]
+Command=/bin/bash
+Icon=haltos-logo
+Name=HaltOS
+Parent=FALLBACK/
+TerminalMargin=10
+
+[Scrolling]
+HistoryMode=2
+
+[Terminal Features]
+BlinkingCursorEnabled=true</code></pre>
+<ul><li><code>ColorScheme</code> names the scheme file without its extension.</li><li><code>Font</code> is Qt's font string: family, point size 12, then weight and style fields.</li><li><code>CursorShape=0</code> is a block cursor, and it blinks.</li><li><code>TerminalMargin=10</code> leaves 10 pixels around the text.</li><li><code>HistoryMode=2</code> is unlimited scrollback, useful when an agent prints a long log.</li></ul>
+<h2 id="make-it-the-default">Make it the default</h2>
+<pre class="post-code"><code>kwriteconfig6 --file konsolerc --group "Desktop Entry" --key DefaultProfile HaltOS.profile</code></pre>
+<p>That is the line HaltOS's installer runs per user. It writes the same setting to <code>/etc/xdg/konsolerc</code> for accounts created later. In the UI it is the <strong>Set as Default</strong> button on the Profiles page.</p>
+<h2 id="the-two-line-prompt">The two-line prompt</h2>
+<p>The prompt is bash, not Konsole, but it is half of how the terminal looks. From <a href="https://github.com/halitsever/haltos/blob/main/shell/haltos-prompt.sh">shell/haltos-prompt.sh</a>:</p>
+<pre class="post-code"><code>__haltos_prompt() {
+    local code=$? g='\[\e[38;2;250;250;250m\]' d='\[\e[38;2;113;113;122m\]' \
+        r='\[\e[38;2;239;68;68m\]' a='\[\e[38;2;161;161;170m\]' n='\[\e[0m\]'
+    local branch status sigil
+    branch=$(git symbolic-ref --short HEAD 2&gt;/dev/null || git rev-parse --short HEAD 2&gt;/dev/null)
+    [ -n "$branch" ] &amp;&amp; branch=" ${d}git:${a}${branch}${n}"
+    [ "$code" -ne 0 ] &amp;&amp; status=" ${r}[exit ${code}]${n}"
+    if [ "$EUID" -eq 0 ]; then sigil="${r}#${n}"; else sigil="${g}\$${n}"; fi
+    PS1="\n${d}┌─[${g}\u${d}@${g}\h${d}]─[${g}\w${d}]${n}${branch}${status}\n${d}└─▪${n} ${sigil} "
+}
+PROMPT_COMMAND="__haltos_prompt${PROMPT_COMMAND:+; $PROMPT_COMMAND}"</code></pre>
+<p>What it does:</p>
+<ul><li>**<code>local code=$?</code> comes first**, before any other command overwrites the exit status of the last thing you ran.</li><li><strong>Branch or commit.</strong> <code>git symbolic-ref --short HEAD</code> prints the branch; on a detached HEAD it falls back to the short commit hash. Outside a repository both fail quietly and the segment disappears.</li><li><strong>Exit code only on failure</strong>, in red: <code>[exit 1]</code>.</li><li><strong>Root is visible.</strong> The sigil is a red <code>#</code> for root and a white <code>$</code> otherwise.</li><li>**<code>\[</code> and <code>\]</code>** wrap every colour code so bash knows they take no space; without them long commands wrap in the wrong place.</li><li><strong>Two lines</strong> keep the input position fixed no matter how long the path or branch is.</li></ul>
+<p>To use it on any machine, source the file from <code>~/.bashrc</code>. It also runs fastfetch once per terminal; see <a href="install-fastfetch-ubuntu.html">install fastfetch on Ubuntu</a> for that part.</p>
+<h2 id="konsole-and-alacritty">Konsole and Alacritty</h2>
+<p>Konsole is KDE's own terminal, with tabs, split views, profiles per task and Plasma integration such as the Dolphin terminal panel. Alacritty is a separate, GPU-accelerated terminal configured with a TOML file, and it leaves tabs and splits to a multiplexer such as tmux. On a Plasma desktop reached over RDP without a GPU, Konsole is the natural default, which is why HaltOS themes it. The colour values above work in any terminal that takes RGB colours.</p>
+<h2 id="get-the-theme">Get the theme</h2>
+<p><code>install.sh user</code> from the HaltOS repository installs both files, the prompt and the rest of the <a href="../kde-plasma-theme/">KDE Plasma theme</a> on any Plasma 6 machine without root.</p>
+<h2 id="faq">Questions</h2>
+<h3>Where does Konsole store colour schemes?</h3>
+<p>User colour schemes are .colorscheme files in ~/.local/share/konsole. System-wide ones live in /usr/share/konsole.</p>
+<h3>How do I set the default Konsole profile?</h3>
+<p>In Konsole open Settings, Configure Konsole, Profiles and mark one as default, or set DefaultProfile under [Desktop Entry] in ~/.config/konsolerc.</p>
+<h3>Konsole or Alacritty?</h3>
+<p>Konsole is KDE's terminal with tabs, split views, profiles and desktop integration. Alacritty is a GPU-accelerated terminal configured with a TOML file and no built-in tabs. Pick Konsole if you live in Plasma and want tabs without a multiplexer.</p>
+<h2 id="related">Related posts</h2>
+<ul><li><a href="fastfetch-config.html">Writing a fastfetch config with your own logo and colours</a></li><li><a href="sddm-themes.html">Installing and switching SDDM login screen themes</a></li><li><a href="xrdp-session-theme.html">Why xrdp opens a different desktop, and how to theme it</a></li></ul>
+    <p class="post-links"><a href="./">All posts</a> <a href="../kde-plasma-theme/">The HaltOS KDE Plasma theme</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>
