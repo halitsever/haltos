@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fastfetch vs neofetch: Which One to Use in 2026</title>
+<meta name="description" content="fastfetch vs neofetch: neofetch was archived in April 2024, fastfetch is maintained, written in C and configured in JSONC. How to switch, and keep the look.">
+<link rel="canonical" href="https://projects.halit.org/haltos/blog/fastfetch-vs-neofetch.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="fastfetch vs neofetch: Which One to Use in 2026">
+<meta property="og:description" content="fastfetch vs neofetch: neofetch was archived in April 2024, fastfetch is maintained, written in C and configured in JSONC. How to switch, and keep the look.">
+<meta property="og:url" content="https://projects.halit.org/haltos/blog/fastfetch-vs-neofetch.html">
+<meta property="og:image" content="https://projects.halit.org/haltos/assets/screens/terminal.png">
+<meta property="og:image:width" content="1110">
+<meta property="og:image:height" content="380">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://projects.halit.org/haltos/assets/screens/terminal.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "headline": "fastfetch or neofetch: the differences that matter now",
+      "description": "fastfetch vs neofetch: neofetch was archived in April 2024, fastfetch is maintained, written in C and configured in JSONC. How to switch, and keep the look.",
+      "image": "https://projects.halit.org/haltos/assets/screens/terminal.png",
+      "datePublished": "2026-11-28",
+      "dateModified": "2026-11-28",
+      "inLanguage": "en",
+      "keywords": "fastfetch vs neofetch",
+      "author": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "mainEntityOfPage": "https://projects.halit.org/haltos/blog/fastfetch-vs-neofetch.html"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "HaltOS",
+          "item": "https://projects.halit.org/haltos/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://projects.halit.org/haltos/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "fastfetch or neofetch: the differences that matter now",
+          "item": "https://projects.halit.org/haltos/blog/fastfetch-vs-neofetch.html"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is neofetch discontinued?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Its GitHub repository was archived by the owner on 26 April 2024 and is read-only. The last release is 7.1.0 from December 2020."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is fastfetch faster than neofetch?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The fastfetch FAQ says it is faster, as the name suggests, and that it is written mainly in C. neofetch is a bash script. The README links a benchmark rather than quoting numbers."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can fastfetch look like neofetch?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. fastfetch ships a neofetch preset: run fastfetch -c neofetch, or copy the preset file into ~/.config/fastfetch/config.jsonc."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dd7e54d3f48841c187d72d9dbb92a6b6"}'></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../kde-plasma-theme/">Theme</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta"><time datetime="2026-11-28">28 November 2026</time>, <a href="https://halit.org">Halit Sever</a></p>
+    <h1>fastfetch or neofetch: the differences that matter now</h1>
+    <figure class="post-figure"><img src="../assets/screens/terminal.png" width="1110" height="380" alt="Konsole on HaltOS: fastfetch with the HALTOS banner, then the two-line prompt with the git branch"><figcaption>Konsole on HaltOS: fastfetch with the HALTOS banner, then the two-line prompt with the git branch</figcaption></figure>
+<p class="post-lede">For years neofetch was the default way to print a logo and your system details in a terminal screenshot. It is no longer maintained, and fastfetch has taken its place in most setups, including HaltOS. Here is what changed, using each project's own repository as the source, and how to move over without losing your layout.</p>
+<h2 id="side-by-side">Side by side</h2>
+<div class="post-table"><table><thead><tr><th></th><th>neofetch</th><th>fastfetch</th></tr></thead><tbody><tr><td>Status</td><td>Repository archived on 26 April 2024</td><td>Actively maintained</td></tr><tr><td>Last release</td><td>7.1.0 (December 2020)</td><td>Frequent; 2.70.0 was in Ubuntu's development release on 28 November 2026</td></tr><tr><td>Written in</td><td>bash</td><td>mainly C</td></tr><tr><td>Config</td><td><code>~/.config/neofetch/config.conf</code> (a bash file)</td><td><code>~/.config/fastfetch/config.jsonc</code> (JSON with comments, with a schema)</td></tr><tr><td>Logos</td><td>Built in, plus custom files</td><td>509 built in with version 2.57.1 (<code>--list-logos</code>), plus custom files</td></tr><tr><td>Wayland</td><td>The fastfetch FAQ says neofetch never supported the Wayland protocol</td><td>Supported</td></tr></tbody></table></div>
+<p>Sources: the <a href="https://github.com/dylanaraps/neofetch">neofetch repository</a>, the <a href="https://github.com/fastfetch-cli/fastfetch">fastfetch README</a>, <a href="https://launchpad.net/ubuntu/+source/fastfetch">Launchpad</a> and <code>fastfetch --list-logos</code> on Ubuntu 26.04.</p>
+<h2 id="speed">Speed</h2>
+<p>The fastfetch FAQ says "Fastfetch is faster, as the name suggests". It does not quote numbers in the README; it links a benchmark. The reason is the implementation: neofetch is a shell script that starts many small programs to gather each value, and fastfetch is a compiled program that reads most values directly. If start-up time matters to you, measure on your own machine:</p>
+<pre class="post-code"><code>time fastfetch
+time neofetch</code></pre>
+<h2 id="why-it-matters-that-neofetch-is-archived">Why it matters that neofetch is archived</h2>
+<p>An archived project gets no fixes. Detection for CPUs, desktops, package managers and distribution logos that appeared after 2020 will not be added, and bugs stay open. Distribution packages stay on 7.1.0. Nothing breaks overnight, but the output gets less accurate over time.</p>
+<h2 id="switch-in-three-steps">Switch in three steps</h2>
+<ol><li>Install fastfetch: <a href="install-fastfetch-ubuntu.html">install fastfetch on Ubuntu</a> covers apt, the PPA and the <code>.deb</code>.</li><li>Keep the neofetch look with the built-in preset:</li></ol>
+<pre class="post-code"><code>fastfetch -c neofetch</code></pre>
+<ol><li>Make it permanent by copying the preset and editing it:</li></ol>
+<pre class="post-code"><code>mkdir -p ~/.config/fastfetch
+cp /usr/share/fastfetch/presets/neofetch.jsonc ~/.config/fastfetch/config.jsonc</code></pre>
+<p>Then replace <code>neofetch</code> with <code>fastfetch</code> wherever your shell starts it, for example at the end of <code>~/.bashrc</code> or <code>~/.zshrc</code>. Guard it so machines without it still start:</p>
+<pre class="post-code"><code>command -v fastfetch &gt;/dev/null &amp;&amp; fastfetch</code></pre>
+<p>Your old <code>config.conf</code> does not carry over. It is a bash script, and fastfetch reads JSONC. Rebuild the parts you changed (logo, colours, which lines are shown) using the <a href="fastfetch-config.html">fastfetch config guide</a>.</p>
+<h2 id="what-haltos-uses">What HaltOS uses</h2>
+<p>HaltOS uses fastfetch, installed from apt, with its own banner and a config that shows OS, kernel, uptime, packages, shell, desktop, CPU, memory, disk and network. The bash prompt script runs it once per terminal, skipping tmux panes and nested shells. The screenshot above is that output.</p>
+<h2 id="when-neofetch-is-still-fine">When neofetch is still fine</h2>
+<p>If you already have it, it still runs, and a screenshot of your desktop does not need new CPU detection. For a new setup, start with fastfetch. Removing neofetch is <code>sudo apt remove neofetch</code> on Ubuntu, plus <code>rm -rf ~/.config/neofetch</code> if you want its config gone too.</p>
+<h2 id="faq">Questions</h2>
+<h3>Is neofetch discontinued?</h3>
+<p>Its GitHub repository was archived by the owner on 26 April 2024 and is read-only. The last release is 7.1.0 from December 2020.</p>
+<h3>Is fastfetch faster than neofetch?</h3>
+<p>The fastfetch FAQ says it is faster, as the name suggests, and that it is written mainly in C. neofetch is a bash script. The README links a benchmark rather than quoting numbers.</p>
+<h3>Can fastfetch look like neofetch?</h3>
+<p>Yes. fastfetch ships a neofetch preset: run fastfetch -c neofetch, or copy the preset file into ~/.config/fastfetch/config.jsonc.</p>
+<h2 id="related">Related posts</h2>
+<ul><li><a href="install-fastfetch-ubuntu.html">How to install fastfetch on any current Ubuntu release</a></li><li><a href="fastfetch-config.html">Writing a fastfetch config with your own logo and colours</a></li><li><a href="what-is-motd.html">MOTD on Linux servers, and how to write your own</a></li></ul>
+    <p class="post-links"><a href="./">All posts</a> <a href="../kde-plasma-theme/">The HaltOS KDE Plasma theme</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

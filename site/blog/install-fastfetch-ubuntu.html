@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install fastfetch on Ubuntu 24.04 and Later</title>
+<meta name="description" content="Install fastfetch on Ubuntu 24.04 with the official PPA or a .deb, and on 25.04 and later with apt. Check the version, run it at login, and remove it again.">
+<link rel="canonical" href="https://projects.halit.org/haltos/blog/install-fastfetch-ubuntu.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="Install fastfetch on Ubuntu 24.04 and Later">
+<meta property="og:description" content="Install fastfetch on Ubuntu 24.04 with the official PPA or a .deb, and on 25.04 and later with apt. Check the version, run it at login, and remove it again.">
+<meta property="og:url" content="https://projects.halit.org/haltos/blog/install-fastfetch-ubuntu.html">
+<meta property="og:image" content="https://projects.halit.org/haltos/assets/screens/terminal.png">
+<meta property="og:image:width" content="1110">
+<meta property="og:image:height" content="380">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://projects.halit.org/haltos/assets/screens/terminal.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "headline": "How to install fastfetch on any current Ubuntu release",
+      "description": "Install fastfetch on Ubuntu 24.04 with the official PPA or a .deb, and on 25.04 and later with apt. Check the version, run it at login, and remove it again.",
+      "image": "https://projects.halit.org/haltos/assets/screens/terminal.png",
+      "datePublished": "2026-11-28",
+      "dateModified": "2026-11-28",
+      "inLanguage": "en",
+      "keywords": "install fastfetch ubuntu 24.04",
+      "author": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "mainEntityOfPage": "https://projects.halit.org/haltos/blog/install-fastfetch-ubuntu.html"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "HaltOS",
+          "item": "https://projects.halit.org/haltos/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://projects.halit.org/haltos/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "How to install fastfetch on any current Ubuntu release",
+          "item": "https://projects.halit.org/haltos/blog/install-fastfetch-ubuntu.html"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is fastfetch in the Ubuntu 24.04 repositories?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. On 28 November 2026 Launchpad listed no official fastfetch package for noble. Use the PPA ppa:zhangsongcui3371/fastfetch or the .deb from the GitHub releases page."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which Ubuntu versions have fastfetch in apt?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The fastfetch README says apt install fastfetch works on Ubuntu 25.04 or newer and Debian 13 or newer."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I run fastfetch every time I open a terminal?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Add a line that runs fastfetch to the end of ~/.bashrc or ~/.zshrc. Guard it with command -v fastfetch so a machine without it still starts cleanly."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dd7e54d3f48841c187d72d9dbb92a6b6"}'></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../kde-plasma-theme/">Theme</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta"><time datetime="2026-11-28">28 November 2026</time>, <a href="https://halit.org">Halit Sever</a></p>
+    <h1>How to install fastfetch on any current Ubuntu release</h1>
+    <figure class="post-figure"><img src="../assets/screens/terminal.png" width="1110" height="380" alt="Konsole on HaltOS: fastfetch with the HALTOS banner, then the two-line prompt with the git branch"><figcaption>Konsole on HaltOS: fastfetch with the HALTOS banner, then the two-line prompt with the git branch</figcaption></figure>
+<p class="post-lede">fastfetch prints your system information next to a distribution logo, the job neofetch used to do. Whether apt can install it depends on your Ubuntu release. This post lists the route for each one, checked against Launchpad and the fastfetch README on 28 November 2026, and shows how HaltOS installs and starts it.</p>
+<h2 id="which-route-for-which-release">Which route for which release</h2>
+<div class="post-table"><table><thead><tr><th>Ubuntu</th><th>Install with</th></tr></thead><tbody><tr><td>25.04 and newer</td><td><code>sudo apt install fastfetch</code></td></tr><tr><td>24.04 LTS (noble)</td><td>the fastfetch PPA, or the <code>.deb</code> from GitHub releases</td></tr><tr><td>22.04 LTS (jammy)</td><td>the fastfetch PPA, or the <code>.deb</code></td></tr><tr><td>20.04</td><td>the <code>.deb</code></td></tr></tbody></table></div>
+<p>The <a href="https://github.com/fastfetch-cli/fastfetch">fastfetch README</a> gives these routes: apt on "Debian 13 or newer; Ubuntu 25.04 or newer", the PPA <code>ppa:zhangsongcui3371/fastfetch</code> for "Ubuntu 22.04 or newer; latest version", and a <code>.deb</code> from the release page for Ubuntu 20.04 and later. <a href="https://launchpad.net/ubuntu/+source/fastfetch">Launchpad</a> agrees: on the date above it listed no official noble package. It listed 2.57.1 for resolute (26.04), 2.66.0 for stonking and 2.70.0 for the release in development.</p>
+<h2 id="ubuntu-25-04-and-newer-apt">Ubuntu 25.04 and newer: apt</h2>
+<pre class="post-code"><code>sudo apt update
+sudo apt install fastfetch
+fastfetch --version</code></pre>
+<p>On a HaltOS machine running Ubuntu 26.04 this prints <code>fastfetch 2.57.1 (x86_64)</code>. The archive version trails the upstream release, which is fine for most people. For the newest version, use the PPA below on these releases too.</p>
+<h2 id="ubuntu-24-04-and-22-04-the-ppa">Ubuntu 24.04 and 22.04: the PPA</h2>
+<pre class="post-code"><code>sudo add-apt-repository ppa:zhangsongcui3371/fastfetch
+sudo apt update
+sudo apt install fastfetch</code></pre>
+<p>The PPA is run by a fastfetch maintainer and the README recommends it for the latest version. Packages from a PPA update with the rest of the system through <code>apt upgrade</code>.</p>
+<h2 id="any-release-the-deb">Any release: the .deb</h2>
+<p>Download <code>fastfetch-linux-amd64.deb</code> (or the <code>arm64</code> one) from the <a href="https://github.com/fastfetch-cli/fastfetch/releases">releases page</a>, then:</p>
+<pre class="post-code"><code>sudo apt install ./fastfetch-linux-amd64.deb</code></pre>
+<p>Using <code>apt install</code> with a path, rather than <code>dpkg -i</code>, pulls in any missing dependencies. A <code>.deb</code> does not update itself; download the new one when you want an upgrade.</p>
+<h2 id="run-it">Run it</h2>
+<pre class="post-code"><code>fastfetch</code></pre>
+<p>That prints the logo of your distribution and a list of modules: OS, kernel, uptime, packages, shell, desktop, CPU, memory, disk and more. Useful flags from <code>fastfetch --help</code>:</p>
+<div class="post-table"><table><thead><tr><th>Flag</th><th>Does</th></tr></thead><tbody><tr><td><code>--list-logos</code></td><td>List the built-in logos</td></tr><tr><td><code>-l &lt;name&gt;</code></td><td>Use a different logo, or <code>none</code></td></tr><tr><td><code>--list-modules</code></td><td>List every module it can show</td></tr><tr><td><code>-c &lt;preset&gt;</code></td><td>Load a config or preset, for example <code>-c neofetch</code> or <code>-c all</code></td></tr><tr><td><code>--gen-config</code></td><td>Write a starter config file</td></tr></tbody></table></div>
+<h2 id="how-haltos-installs-it">How HaltOS installs it</h2>
+<p>HaltOS needs Plasma 6, so it only runs on Ubuntu 25.04 and newer, where apt has the package. The system step of <a href="https://github.com/halitsever/haltos/blob/main/install.sh">install.sh</a> installs it with the other packages it needs:</p>
+<pre class="post-code"><code>apt-get install -y -qq fastfetch qt6-style-kvantum python3-pyside6.qtwidgets libglib2.0-bin</code></pre>
+<p>It then puts its config in <code>/etc/xdg/fastfetch/config.jsonc</code> for every user, and a per-user copy in <code>~/.config/fastfetch/config.jsonc</code> that points at the HALTOS banner. The <a href="fastfetch-config.html">fastfetch config post</a> walks through that file.</p>
+<h2 id="show-it-when-a-terminal-opens">Show it when a terminal opens</h2>
+<p>HaltOS starts fastfetch from its bash prompt script, once per terminal:</p>
+<pre class="post-code"><code>if [ -z "$HALTOS_GREETED" ] &amp;&amp; [ -z "$TMUX" ] &amp;&amp; command -v fastfetch &gt;/dev/null; then
+    export HALTOS_GREETED=1
+    fastfetch
+fi</code></pre>
+<p>Three guards worth copying: <code>command -v</code> skips it where fastfetch is not installed, <code>$TMUX</code> keeps every tmux pane from printing it again, and the exported <code>HALTOS_GREETED</code> keeps nested shells quiet. Add the same block to the end of <code>~/.bashrc</code> or <code>~/.zshrc</code>.</p>
+<p>For SSH logins, the login banner is a better place for system figures than the shell. <a href="what-is-motd.html">What is MOTD</a> covers how HaltOS does that.</p>
+<h2 id="remove-it">Remove it</h2>
+<pre class="post-code"><code>sudo apt remove fastfetch
+rm -rf ~/.config/fastfetch</code></pre>
+<p>If you used the PPA, also remove it with <code>sudo add-apt-repository --remove ppa:zhangsongcui3371/fastfetch</code>. Coming from neofetch? <a href="fastfetch-vs-neofetch.html">fastfetch vs neofetch</a> covers the switch.</p>
+<h2 id="faq">Questions</h2>
+<h3>Is fastfetch in the Ubuntu 24.04 repositories?</h3>
+<p>No. On 28 November 2026 Launchpad listed no official fastfetch package for noble. Use the PPA ppa:zhangsongcui3371/fastfetch or the .deb from the GitHub releases page.</p>
+<h3>Which Ubuntu versions have fastfetch in apt?</h3>
+<p>The fastfetch README says apt install fastfetch works on Ubuntu 25.04 or newer and Debian 13 or newer.</p>
+<h3>How do I run fastfetch every time I open a terminal?</h3>
+<p>Add a line that runs fastfetch to the end of ~/.bashrc or ~/.zshrc. Guard it with command -v fastfetch so a machine without it still starts cleanly.</p>
+<h2 id="related">Related posts</h2>
+<ul><li><a href="fastfetch-config.html">Writing a fastfetch config with your own logo and colours</a></li><li><a href="fastfetch-vs-neofetch.html">fastfetch or neofetch: the differences that matter now</a></li><li><a href="what-is-motd.html">MOTD on Linux servers, and how to write your own</a></li></ul>
+    <p class="post-links"><a href="./">All posts</a> <a href="../kde-plasma-theme/">The HaltOS KDE Plasma theme</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

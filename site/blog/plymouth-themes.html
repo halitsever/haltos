@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plymouth Themes: Change the Ubuntu Boot Splash</title>
+<meta name="description" content="How Plymouth themes work and how to change the boot splash: update-alternatives on Ubuntu, plymouth-set-default-theme on Debian, initramfs and the splash flag.">
+<link rel="canonical" href="https://projects.halit.org/haltos/blog/plymouth-themes.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="Plymouth Themes: Change the Ubuntu Boot Splash">
+<meta property="og:description" content="How Plymouth themes work and how to change the boot splash: update-alternatives on Ubuntu, plymouth-set-default-theme on Debian, initramfs and the splash flag.">
+<meta property="og:url" content="https://projects.halit.org/haltos/blog/plymouth-themes.html">
+<meta property="og:image" content="https://projects.halit.org/haltos/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://projects.halit.org/haltos/og.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "headline": "Changing the Plymouth boot splash on Ubuntu and Debian",
+      "description": "How Plymouth themes work and how to change the boot splash: update-alternatives on Ubuntu, plymouth-set-default-theme on Debian, initramfs and the splash flag.",
+      "image": "https://projects.halit.org/haltos/og.png",
+      "datePublished": "2026-11-28",
+      "dateModified": "2026-11-28",
+      "inLanguage": "en",
+      "keywords": "plymouth themes",
+      "author": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "mainEntityOfPage": "https://projects.halit.org/haltos/blog/plymouth-themes.html"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "HaltOS",
+          "item": "https://projects.halit.org/haltos/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://projects.halit.org/haltos/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Changing the Plymouth boot splash on Ubuntu and Debian",
+          "item": "https://projects.halit.org/haltos/blog/plymouth-themes.html"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Where are Plymouth themes stored?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "In /usr/share/plymouth/themes, one folder per theme, each with a .plymouth file that names the plugin and its files."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I change the Plymouth theme on Ubuntu?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Register the theme with update-alternatives for default.plymouth, select it with update-alternatives --config default.plymouth, then run sudo update-initramfs -u."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why do I not see a boot splash on my server?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Plymouth only shows a splash when splash is on the kernel command line. Many cloud images boot without it, often with a serial console instead."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dd7e54d3f48841c187d72d9dbb92a6b6"}'></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../kde-plasma-theme/">Theme</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta"><time datetime="2026-11-28">28 November 2026</time>, <a href="https://halit.org">Halit Sever</a></p>
+    <h1>Changing the Plymouth boot splash on Ubuntu and Debian</h1>
+<p class="post-lede">Plymouth draws the graphics between the boot loader and the login screen. Changing its theme is a two-part job on most systems: pick the theme, then rebuild the initramfs so the theme is there early in boot. Ubuntu does this differently from Debian, and many servers never show a splash at all. This post covers all three, and an honest note on the HaltOS splash.</p>
+<h2 id="what-a-theme-is">What a theme is</h2>
+<p>Themes live in <code>/usr/share/plymouth/themes/</code>, one folder each. The folder holds a <code>.plymouth</code> file plus images or a script. HaltOS's <a href="https://github.com/halitsever/haltos/blob/main/plymouth/haltos/haltos.plymouth">haltos.plymouth</a>:</p>
+<pre class="post-code"><code>[Plymouth Theme]
+Name=HaltOS
+Description=HaltOS ASCII boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/haltos
+ScriptFile=/usr/share/plymouth/themes/haltos/haltos.script</code></pre>
+<p><code>ModuleName=script</code> means the theme is a small program in Plymouth's script language that draws images (here a wordmark, a progress track and bar, and a cursor) frame by frame. Other plugins such as <code>two-step</code> and <code>text</code> are configured with settings instead of a script.</p>
+<p>List what is installed:</p>
+<pre class="post-code"><code>ls /usr/share/plymouth/themes/</code></pre>
+<h2 id="change-the-theme-on-ubuntu">Change the theme on Ubuntu</h2>
+<p>Ubuntu chooses the theme through the alternatives system, with the link name <code>default.plymouth</code>. On an Ubuntu 26.04 machine:</p>
+<pre class="post-code"><code>$ update-alternatives --display default.plymouth
+default.plymouth - auto mode
+  link best version is /usr/share/plymouth/themes/bgrt/bgrt.plymouth
+  link currently points to /usr/share/plymouth/themes/bgrt/bgrt.plymouth</code></pre>
+<p>To switch to a theme you installed into <code>/usr/share/plymouth/themes/mytheme/</code>:</p>
+<pre class="post-code"><code>sudo update-alternatives --install /usr/share/plymouth/themes/default.plymouth \
+  default.plymouth /usr/share/plymouth/themes/mytheme/mytheme.plymouth 100
+sudo update-alternatives --config default.plymouth
+sudo update-initramfs -u</code></pre>
+<p>The last line copies the theme into the initramfs. Without it, the old theme keeps showing, because Plymouth starts before the root filesystem is mounted.</p>
+<h2 id="change-the-theme-on-debian-fedora-and-arch">Change the theme on Debian, Fedora and Arch</h2>
+<p>These ship a helper script:</p>
+<pre class="post-code"><code>plymouth-set-default-theme --list
+sudo plymouth-set-default-theme -R mytheme</code></pre>
+<p><code>-R</code> rebuilds the initramfs in the same step. Ubuntu does not ship this script: a search of Ubuntu's package contents for the file name finds nothing. Guides that tell Ubuntu users to run it are written for another distribution.</p>
+<h2 id="the-splash-flag">The splash flag</h2>
+<p>Plymouth only draws graphics when the kernel command line contains <code>splash</code>. Check yours:</p>
+<pre class="post-code"><code>cat /proc/cmdline</code></pre>
+<p>Desktop installs usually have <code>quiet splash</code>. Cloud and VPS images often do not, and many send the console to a serial port instead, so nothing graphical ever appears. To turn it on with GRUB, edit <code>GRUB_CMDLINE_LINUX_DEFAULT</code> in <code>/etc/default/grub</code> to include <code>splash</code>, then <code>sudo update-grub</code> and reboot. On a VPS you will only see it in the provider's graphical console, if it has one.</p>
+<h2 id="preview-without-rebooting">Preview without rebooting</h2>
+<pre class="post-code"><code>sudo plymouthd
+sudo plymouth --show-splash
+sleep 5
+sudo plymouth quit</code></pre>
+<p>Run it from a text console (Ctrl+Alt+F3), not from inside a graphical session, or the splash and your desktop fight over the screen.</p>
+<h2 id="a-note-on-the-haltos-splash">A note on the HaltOS splash</h2>
+<p>HaltOS ships the theme above and its README lists "a Plymouth splash with a blinking cursor". Its installer only installs the theme when <code>plymouth-set-default-theme</code> exists:</p>
+<pre class="post-code"><code>if command -v plymouth-set-default-theme &gt;/dev/null; then</code></pre>
+<p>Because Ubuntu does not ship that script, on Ubuntu, the only system HaltOS supports, this step is skipped today and the HaltOS splash is not installed. The HaltOS README also notes that the splash needs <code>splash</code> on the kernel command line, which many cloud images lack. To use the theme now, copy <code>plymouth/haltos/</code> from the repository into <code>/usr/share/plymouth/themes/haltos/</code> and follow the Ubuntu steps above with <code>haltos/haltos.plymouth</code>.</p>
+<p>The graphical splash that does appear on HaltOS after login is the Plasma splash (KSplash), which is a different system and part of the <a href="../kde-plasma-theme/">Plasma theme</a>.</p>
+<h2 id="undo">Undo</h2>
+<p>On Ubuntu, <code>sudo update-alternatives --config default.plymouth</code> back to the previous entry, then <code>sudo update-initramfs -u</code>. With the helper script, <code>sudo plymouth-set-default-theme --reset</code> and rebuild. The login screen after the splash is configured separately; see <a href="sddm-themes.html">SDDM themes</a>.</p>
+<h2 id="faq">Questions</h2>
+<h3>Where are Plymouth themes stored?</h3>
+<p>In /usr/share/plymouth/themes, one folder per theme, each with a .plymouth file that names the plugin and its files.</p>
+<h3>How do I change the Plymouth theme on Ubuntu?</h3>
+<p>Register the theme with update-alternatives for default.plymouth, select it with update-alternatives --config default.plymouth, then run sudo update-initramfs -u.</p>
+<h3>Why do I not see a boot splash on my server?</h3>
+<p>Plymouth only shows a splash when splash is on the kernel command line. Many cloud images boot without it, often with a serial console instead.</p>
+<h2 id="related">Related posts</h2>
+<ul><li><a href="sddm-themes.html">Installing and switching SDDM login screen themes</a></li><li><a href="what-is-motd.html">MOTD on Linux servers, and how to write your own</a></li><li><a href="xrdp-session-theme.html">Why xrdp opens a different desktop, and how to theme it</a></li></ul>
+    <p class="post-links"><a href="./">All posts</a> <a href="../kde-plasma-theme/">The HaltOS KDE Plasma theme</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

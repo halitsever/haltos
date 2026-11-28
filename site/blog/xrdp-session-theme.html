@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>xrdp Looks Different? Change the Session Theme</title>
+<meta name="description" content="Why an xrdp session starts XFCE or looks different from your desktop, how ~/.xsession picks the session, fixing a black screen, and applying a theme over RDP.">
+<link rel="canonical" href="https://projects.halit.org/haltos/blog/xrdp-session-theme.html">
+<meta name="theme-color" content="#09090b">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="HaltOS">
+<meta property="og:title" content="xrdp Looks Different? Change the Session Theme">
+<meta property="og:description" content="Why an xrdp session starts XFCE or looks different from your desktop, how ~/.xsession picks the session, fixing a black screen, and applying a theme over RDP.">
+<meta property="og:url" content="https://projects.halit.org/haltos/blog/xrdp-session-theme.html">
+<meta property="og:image" content="https://projects.halit.org/haltos/assets/screens/desktop.png">
+<meta property="og:image:width" content="1800">
+<meta property="og:image:height" content="1130">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://projects.halit.org/haltos/assets/screens/desktop.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "headline": "Why xrdp opens a different desktop, and how to theme it",
+      "description": "Why an xrdp session starts XFCE or looks different from your desktop, how ~/.xsession picks the session, fixing a black screen, and applying a theme over RDP.",
+      "image": "https://projects.halit.org/haltos/assets/screens/desktop.png",
+      "datePublished": "2026-11-28",
+      "dateModified": "2026-11-28",
+      "inLanguage": "en",
+      "keywords": "how to change theme in xrdp from xfce",
+      "author": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "publisher": {
+        "@type": "Person",
+        "name": "Halit Sever",
+        "url": "https://halit.org"
+      },
+      "mainEntityOfPage": "https://projects.halit.org/haltos/blog/xrdp-session-theme.html"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "HaltOS",
+          "item": "https://projects.halit.org/haltos/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": "https://projects.halit.org/haltos/blog/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Why xrdp opens a different desktop, and how to theme it",
+          "item": "https://projects.halit.org/haltos/blog/xrdp-session-theme.html"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do I make xrdp start KDE Plasma instead of XFCE?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Put a ~/.xsession file in your home folder that exports XDG_SESSION_TYPE=x11, XDG_CURRENT_DESKTOP=KDE and DESKTOP_SESSION=plasma, then runs exec startplasma-x11. Log out of RDP and connect again."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does xrdp show a black screen after login?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Common causes are the same user already being logged in to a desktop on the machine's own screen, or a session command that exits right away, such as a missing desktop or a broken ~/.xsession."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does my desktop theme apply in an xrdp session?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Theme settings in ~/.config belong to your user, so the same desktop picks them up. A different desktop, such as XFCE instead of Plasma, has its own settings and looks different."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dd7e54d3f48841c187d72d9dbb92a6b6"}'></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <a class="bar-home" href="../" aria-label="HaltOS home">
+    <img src="../favicon.svg" alt="" width="22" height="22">
+    <span>HaltOS</span>
+  </a>
+  <nav aria-label="Primary">
+    <a href="../#install">Install</a>
+    <a href="../kde-plasma-theme/">Theme</a>
+    <a href="./">Blog</a>
+    <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
+  </nav>
+</header>
+
+<main id="main" class="post">
+  <article>
+    <p class="post-meta"><time datetime="2026-11-28">28 November 2026</time>, <a href="https://halit.org">Halit Sever</a></p>
+    <h1>Why xrdp opens a different desktop, and how to theme it</h1>
+    <figure class="post-figure"><img src="../assets/screens/desktop.png" width="1800" height="1130" alt="The HaltOS Plasma desktop as it looks over RDP: an ASCII HALTOS wallpaper and a floating top panel"><figcaption>The HaltOS Plasma desktop as it looks over RDP: an ASCII HALTOS wallpaper and a floating top panel</figcaption></figure>
+<p class="post-lede">You connect over RDP and get XFCE instead of Plasma, or Plasma with stock colours instead of your theme, or a black screen. All three come from the same fact: xrdp starts its own session, separate from the one on the machine's screen, and reads a different file to decide what to start. This post explains that file and how HaltOS gets its theme into the RDP session.</p>
+<h2 id="xrdp-starts-its-own-session">xrdp starts its own session</h2>
+<p>When you log in through xrdp, it does not attach to the desktop on the machine's monitor. It starts a new X11 session for your user, using <code>xorgxrdp</code> as the X server, and runs a script to decide which desktop to launch. On Debian and Ubuntu that script ends up reading <code>~/.xsession</code> if you have one. Without it, the system default session manager starts, which on many servers is whatever desktop was installed first, often XFCE because it is a common lightweight choice for remote access.</p>
+<p>So "xrdp looks different" usually means one of:</p>
+<div class="post-table"><table><thead><tr><th>What you see</th><th>Why</th></tr></thead><tbody><tr><td>XFCE (or another desktop) instead of Plasma</td><td>No <code>~/.xsession</code>, or it starts a different desktop</td></tr><tr><td>Plasma, but stock colours and fonts</td><td>The theme was never applied for this user, or was applied in a different session type</td></tr><tr><td>A black screen</td><td>The session failed to start, or your user already has a desktop open elsewhere</td></tr></tbody></table></div>
+<h2 id="pick-the-desktop-with-xsession">Pick the desktop with ~/.xsession</h2>
+<p>For Plasma, this is the file <a href="https://projects.halit.org/claude-code-vps/">claude-code-vps</a> writes for its user, and HaltOS relies on it:</p>
+<pre class="post-code"><code>export XDG_SESSION_TYPE=x11
+export XDG_CURRENT_DESKTOP=KDE
+export DESKTOP_SESSION=plasma
+exec startplasma-x11</code></pre>
+<p>Save it as <code>~/.xsession</code> in your home folder, disconnect, and connect again. The variables tell applications which desktop they are in, and <code>startplasma-x11</code> starts Plasma's X11 session. xrdp needs X11; Plasma's Wayland session does not run under it, so the <code>plasma-session-x11</code> and <code>kwin-x11</code> packages must be installed. The <a href="kde-plasma-over-rdp-xrdp.html">KDE Plasma over xrdp post</a> has the full package list.</p>
+<p>For XFCE the same file would end in <code>exec startxfce4</code>. Whichever desktop the file starts is the one whose theme settings apply.</p>
+<h2 id="your-theme-in-the-rdp-session">Your theme in the RDP session</h2>
+<p>Plasma stores its look per user under <code>~/.config</code> (colour scheme, widget style, fonts, panel layout). A Plasma session over RDP for the same user reads the same files as a local one, so a theme set locally also shows remotely, and the other way round. When it does not, the theme was usually set for another user, or only partly applied.</p>
+<p>Some parts need a running Plasma shell to apply: the panel layout and the wallpaper live inside <code>plasmashell</code>. Installing a theme from an SSH session, with no desktop running, can only write the config files. HaltOS handles that case explicitly. When <code>install.sh user</code> runs without a graphical session, it:</p>
+<ol><li>writes every config file it can, and applies the colour scheme with <code>QT_QPA_PLATFORM=offscreen</code> so it lands in <code>kdeglobals</code> without a display;</li><li>adds an autostart entry, <code>~/.config/autostart/haltos-firstrun.desktop</code>, that runs <code>install.sh firstrun</code>;</li><li>on your first RDP login, that entry waits up to 30 seconds for <code>plasmashell</code>, applies the panel script, the wallpaper and the colour scheme, then deletes itself.</li></ol>
+<p>The README puts it in one line: connect over RDP afterwards and HaltOS finishes the panel and wallpaper on the first login. The screenshot above is that first-login result.</p>
+<h2 id="black-screen">Black screen</h2>
+<p>The usual causes, in the order worth checking:</p>
+<ol><li><strong>Already logged in elsewhere.</strong> If the same user has a desktop open on the machine's own screen, a second session for that user often fails to start properly. Log out locally, or use a separate user for RDP.</li><li><strong>The session command exits.</strong> A typo in <code>~/.xsession</code>, a desktop that is not installed, or a missing execute path ends the session at once. Test the last line by hand over SSH: <code>command -v startplasma-x11</code>.</li><li><strong>The X11 session is missing.</strong> On Plasma 6, the X11 session is a separate package. Without <code>plasma-session-x11</code> there is no <code>startplasma-x11</code> to run.</li></ol>
+<p>xrdp keeps a per-user log at <code>~/.xorgxrdp.*.log</code> and session errors in <code>~/.xsession-errors</code>, which usually name the problem.</p>
+<h2 id="login-screens-over-rdp">Login screens over RDP</h2>
+<p>xrdp shows its own login dialog and starts the session directly, so the display manager's login screen, SDDM on Plasma, never appears over RDP. Themes for it only show on a local display, as covered in <a href="sddm-themes.html">SDDM themes</a>. On a server set up by claude-code-vps, SDDM is disabled entirely and the machine boots to a text console.</p>
+<h2 id="make-it-fast-over-rdp">Make it fast over RDP</h2>
+<p>Without a GPU, everything in an RDP session is drawn in software and sent as compressed images. Flat colours compress better than gradients and blur. HaltOS's flat monochrome theme was chosen partly for that reason; the <a href="monochrome-desktop-for-ai-coding.html">monochrome desktop post</a> explains the rest. To try the theme on your own Plasma 6 machine, see the <a href="../kde-plasma-theme/">HaltOS KDE Plasma theme</a>.</p>
+<h2 id="faq">Questions</h2>
+<h3>How do I make xrdp start KDE Plasma instead of XFCE?</h3>
+<p>Put a ~/.xsession file in your home folder that exports XDG_SESSION_TYPE=x11, XDG_CURRENT_DESKTOP=KDE and DESKTOP_SESSION=plasma, then runs exec startplasma-x11. Log out of RDP and connect again.</p>
+<h3>Why does xrdp show a black screen after login?</h3>
+<p>Common causes are the same user already being logged in to a desktop on the machine's own screen, or a session command that exits right away, such as a missing desktop or a broken ~/.xsession.</p>
+<h3>Does my desktop theme apply in an xrdp session?</h3>
+<p>Theme settings in ~/.config belong to your user, so the same desktop picks them up. A different desktop, such as XFCE instead of Plasma, has its own settings and looks different.</p>
+<h2 id="related">Related posts</h2>
+<ul><li><a href="sddm-themes.html">Installing and switching SDDM login screen themes</a></li><li><a href="plymouth-themes.html">Changing the Plymouth boot splash on Ubuntu and Debian</a></li><li><a href="konsole-theme.html">Konsole colour schemes and profiles, with a monochrome example</a></li></ul>
+    <p class="post-links"><a href="./">All posts</a> <a href="../kde-plasma-theme/">The HaltOS KDE Plasma theme</a></p>
+  </article>
+</main>
+
+<footer class="foot">
+  <pre aria-hidden="true">root@haltos:~# shutdown -h never<span class="cursor small"></span></pre>
+  <p>HaltOS is open source under the MIT license. Built on Ubuntu and KDE Plasma, neither of which endorses it. Not affiliated with Anthropic.</p>
+</footer>
+</body>
+</html>

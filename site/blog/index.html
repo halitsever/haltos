@@ -32,6 +32,46 @@
   "blogPost": [
     {
       "@type": "BlogPosting",
+      "headline": "How to install fastfetch on any current Ubuntu release",
+      "url": "https://projects.halit.org/haltos/blog/install-fastfetch-ubuntu.html"
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "Writing a fastfetch config with your own logo and colours",
+      "url": "https://projects.halit.org/haltos/blog/fastfetch-config.html"
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "Installing and switching SDDM login screen themes",
+      "url": "https://projects.halit.org/haltos/blog/sddm-themes.html"
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "fastfetch or neofetch: the differences that matter now",
+      "url": "https://projects.halit.org/haltos/blog/fastfetch-vs-neofetch.html"
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "MOTD on Linux servers, and how to write your own",
+      "url": "https://projects.halit.org/haltos/blog/what-is-motd.html"
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "Changing the Plymouth boot splash on Ubuntu and Debian",
+      "url": "https://projects.halit.org/haltos/blog/plymouth-themes.html"
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "Why xrdp opens a different desktop, and how to theme it",
+      "url": "https://projects.halit.org/haltos/blog/xrdp-session-theme.html"
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "Konsole colour schemes and profiles, with a monochrome example",
+      "url": "https://projects.halit.org/haltos/blog/konsole-theme.html"
+    },
+    {
+      "@type": "BlogPosting",
       "headline": "Run several Claude Code agents in parallel with git worktrees",
       "url": "https://projects.halit.org/haltos/blog/parallel-claude-code-agents-git-worktrees.html"
     },
@@ -85,6 +125,7 @@
   <nav aria-label="Primary">
     <a href="../#install">Install</a>
     <a href="../#units">What's inside</a>
+    <a href="../kde-plasma-theme/">Theme</a>
     <a href="./">Blog</a>
     <a class="bar-gh" href="https://github.com/halitsever/haltos">GitHub</a>
   </nav>
@@ -92,8 +133,16 @@
 
 <main id="main" class="post">
   <h1>Blog</h1>
-  <p class="post-lede">Notes from building HaltOS: running Claude Code on a server, remote KDE Plasma, theming, and shipping a shell-based OS layer.</p>
+  <p class="post-lede">Notes from building HaltOS: running Claude Code on a server, remote KDE Plasma, theming Plasma, Konsole, SDDM and fastfetch, and shipping a shell-based OS layer. The theme itself is on the <a href="../kde-plasma-theme/">KDE Plasma theme page</a>.</p>
   <ul class="blog-list">
+      <li><a href="install-fastfetch-ubuntu.html"><img src="../assets/screens/terminal.png" width="1110" height="380" alt="" loading="lazy"><span class="blog-text"><span class="blog-title">How to install fastfetch on any current Ubuntu release</span><span class="blog-desc">Install fastfetch on Ubuntu 24.04 with the official PPA or a .deb, and on 25.04 and later with apt. Check the version, run it at login, and remove it again.</span></span></a></li>
+      <li><a href="fastfetch-config.html"><img src="../assets/screens/terminal.png" width="1110" height="380" alt="" loading="lazy"><span class="blog-text"><span class="blog-title">Writing a fastfetch config with your own logo and colours</span><span class="blog-desc">A fastfetch config explained line by line: where config.jsonc lives, a custom ASCII logo file with colour slots, module keys, separators and presets.</span></span></a></li>
+      <li><a href="sddm-themes.html"><img src="../assets/screens/login.png" width="1512" height="949" alt="" loading="lazy"><span class="blog-text"><span class="blog-title">Installing and switching SDDM login screen themes</span><span class="blog-desc">SDDM themes explained: where they live, the files a Qt 6 theme needs, how to switch from System Settings or the terminal, test mode, and why xrdp skips them.</span></span></a></li>
+      <li><a href="fastfetch-vs-neofetch.html"><img src="../assets/screens/terminal.png" width="1110" height="380" alt="" loading="lazy"><span class="blog-text"><span class="blog-title">fastfetch or neofetch: the differences that matter now</span><span class="blog-desc">fastfetch vs neofetch: neofetch was archived in April 2024, fastfetch is maintained, written in C and configured in JSONC. How to switch, and keep the look.</span></span></a></li>
+      <li><a href="what-is-motd.html"><img src="../og.png" width="1200" height="630" alt="" loading="lazy"><span class="blog-text"><span class="blog-title">MOTD on Linux servers, and how to write your own</span><span class="blog-desc">What MOTD means on a Linux server, how Ubuntu builds it from /etc/update-motd.d at SSH login, how to turn off its ads and notices, and a custom banner script.</span></span></a></li>
+      <li><a href="plymouth-themes.html"><img src="../og.png" width="1200" height="630" alt="" loading="lazy"><span class="blog-text"><span class="blog-title">Changing the Plymouth boot splash on Ubuntu and Debian</span><span class="blog-desc">How Plymouth themes work and how to change the boot splash: update-alternatives on Ubuntu, plymouth-set-default-theme on Debian, initramfs and the splash flag.</span></span></a></li>
+      <li><a href="xrdp-session-theme.html"><img src="../assets/screens/desktop.png" width="1800" height="1130" alt="" loading="lazy"><span class="blog-text"><span class="blog-title">Why xrdp opens a different desktop, and how to theme it</span><span class="blog-desc">Why an xrdp session starts XFCE or looks different from your desktop, how ~/.xsession picks the session, fixing a black screen, and applying a theme over RDP.</span></span></a></li>
+      <li><a href="konsole-theme.html"><img src="../assets/screens/terminal.png" width="1110" height="380" alt="" loading="lazy"><span class="blog-text"><span class="blog-title">Konsole colour schemes and profiles, with a monochrome example</span><span class="blog-desc">How Konsole themes work: .colorscheme and .profile files, where they live, setting the default profile, plus the HaltMono scheme and a two-line bash prompt.</span></span></a></li>
       <li><a href="parallel-claude-code-agents-git-worktrees.html"><img src="covers/parallel-claude-code-agents-git-worktrees.png" width="1200" height="630" alt="" loading="lazy"><span class="blog-text"><span class="blog-title">Run several Claude Code agents in parallel with git worktrees</span><span class="blog-desc">Two Claude Code agents in one checkout will edit the same files. Give each agent its own git worktree and branch, and run them side by side with claudegrid.</span></span></a></li>
       <li><a href="secure-vps-remote-development.html"><img src="covers/secure-vps-remote-development.png" width="1200" height="630" alt="" loading="lazy"><span class="blog-text"><span class="blog-title">Secure a VPS for remote development: SSH keys, ufw and RDP</span><span class="blog-desc">A remote dev box is reachable from the whole internet. Key-only SSH, a default-deny firewall, unattended upgrades and an RDP port you can keep closed make it a much smaller target.</span></span></a></li>
       <li><a href="kde-plasma-over-rdp-xrdp.html"><img src="covers/kde-plasma-over-rdp-xrdp.png" width="1200" height="630" alt="" loading="lazy"><span class="blog-text"><span class="blog-title">KDE Plasma over RDP on a VPS with xrdp</span><span class="blog-desc">How to run a KDE Plasma desktop on a headless VPS and reach it with any RDP client: xrdp, the X11 session, booting without a display manager, and keeping it fast without a GPU.</span></span></a></li>
